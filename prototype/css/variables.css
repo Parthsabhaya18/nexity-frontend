@@ -15,6 +15,8 @@
   --accent-soft: #FDE8EF;
   --brand-grad: linear-gradient(135deg, #38BDF8 0%, #3B82F6 45%, #1D4ED8 100%);
   --love-grad: linear-gradient(135deg, #FF7AA8 0%, #E5487E 55%, #C2306B 100%);
+  --button: var(--primary);
+  --premium-grad: linear-gradient(160deg, #0B1230 0%, #142A6B 55%, #1D4ED8 100%);
 
   /* Status */
   --success: #12935A;
@@ -82,7 +84,7 @@
 
   /* Layout */
   --appbar-h: 58px;
-  --nav-h: 64px;
+  --nav-h: 88px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --content-w: 620px;
 
@@ -129,54 +131,76 @@
   color-scheme: dark;
 }
 
-/* Mood palette — light appearance only. Hex values match the Mood-Based Dynamic Theme System.
-   Surface/Card is #FFFFFF. Button text uses --on-primary (#FFFFFF).
-   Dark appearance ignores these rules. Status colors (--success, --warning, --danger, --like) stay above. */
+/* Mood themes. A selected mood replaces Light/Dark/System for the whole app (the app forces
+   data-theme="light" while a mood is on). Like dark mode, no surface stays white: page, posts,
+   cards, bars and sheets are the mood Background tinted with Primary (sheets/page 10%, cards 7%).
+   Buttons inside sheets keep their normal light colors (see components.css).
+   Every other token is derived from the palette. Status colors (--success, --warning, --danger,
+   --like) stay above. */
 html:not([data-theme="dark"])[data-mood] {
-  --surface: #FFFFFF;
-  --elevated: #FFFFFF;
+  --bg: color-mix(in srgb, var(--primary) 10%, var(--mood-bg));
+  --surface: color-mix(in srgb, var(--primary) 7%, var(--mood-bg));
+  --elevated: color-mix(in srgb, var(--primary) 10%, var(--mood-bg));
+  --input: color-mix(in srgb, var(--border) 30%, var(--mood-bg));
   --on-primary: #FFFFFF;
-  --input: #FFFFFF;
   --primary-600: var(--button);
   --primary-700: var(--button);
+  --sky: var(--primary);
   --text-3: var(--text-2);
-  --primary-soft: color-mix(in srgb, var(--primary) 18%, #FFFFFF);
-  --primary-softer: color-mix(in srgb, var(--primary) 9%, var(--bg));
+  --primary-soft: color-mix(in srgb, var(--primary) 16%, var(--mood-bg));
+  --primary-softer: color-mix(in srgb, var(--primary) 8%, var(--mood-bg));
+  --accent-soft: color-mix(in srgb, var(--primary) 12%, var(--mood-bg));
   --border-strong: color-mix(in srgb, var(--border) 45%, var(--text-2));
-  --surface-2: color-mix(in srgb, var(--border) 55%, #FFFFFF);
-  --surface-3: color-mix(in srgb, var(--border) 82%, #FFFFFF);
+  --surface-2: color-mix(in srgb, var(--border) 50%, var(--mood-bg));
+  --surface-3: color-mix(in srgb, var(--border) 80%, var(--mood-bg));
+  --overlay: color-mix(in srgb, var(--text) 50%, transparent);
+  --brand-grad: linear-gradient(135deg, var(--primary) 0%, var(--button) 100%);
   --ring: conic-gradient(from 200deg, var(--primary), var(--button), var(--primary));
+  --shadow-sm: 0 2px 8px color-mix(in srgb, var(--text) 7%, transparent);
+  --shadow: 0 8px 24px color-mix(in srgb, var(--text) 9%, transparent);
+  --shadow-lg: 0 24px 60px color-mix(in srgb, var(--text) 18%, transparent);
   --shadow-primary: 0 8px 20px color-mix(in srgb, var(--button) 34%, transparent);
   --bubble-out: var(--button);
+  --night-2: color-mix(in srgb, var(--button) 45%, #060A1C);
+  --secret-grad: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--button) 85%, #000) 0%, color-mix(in srgb, var(--button) 40%, #060A1C) 45%, #060A1C 100%);
+  --secret-glow: color-mix(in srgb, var(--primary) 55%, #FFFFFF);
+  --premium-grad: linear-gradient(160deg, color-mix(in srgb, var(--button) 25%, #060A1C) 0%, color-mix(in srgb, var(--button) 70%, #060A1C) 55%, var(--button) 100%);
+  --premium-chip: linear-gradient(135deg, color-mix(in srgb, var(--button) 25%, #060A1C), var(--button));
+  --deep-hi: color-mix(in srgb, var(--button) 80%, #000);
+  --deep-mid: color-mix(in srgb, var(--button) 55%, #060A1C);
+  --deep-lo: color-mix(in srgb, var(--button) 30%, #060A1C);
+  --glow-text: color-mix(in srgb, var(--primary) 40%, #FFFFFF);
+  --glow-pale: color-mix(in srgb, var(--primary) 25%, #FFFFFF);
+  color-scheme: light;
 }
 
 html:not([data-theme="dark"])[data-mood="happy"] {
-  --bg: #FFFBEA; --primary: #F5B800; --button: #D99500; --text: #2B2200; --text-2: #756A3A; --border: #F5E7A8;
+  --mood-bg: #FFFBEA; --primary: #F5B800; --button: #D99500; --text: #2B2200; --text-2: #756A3A; --border: #F5E7A8;
 }
 html:not([data-theme="dark"])[data-mood="calm"] {
-  --bg: #EFF8FF; --primary: #3B82F6; --button: #1D4ED8; --text: #0F2747; --text-2: #58708C; --border: #CFE5FA;
+  --mood-bg: #EFF8FF; --primary: #3B82F6; --button: #1D4ED8; --text: #0F2747; --text-2: #58708C; --border: #CFE5FA;
 }
 html:not([data-theme="dark"])[data-mood="romantic"] {
-  --bg: #FFF1F5; --primary: #EC4899; --button: #BE185D; --text: #3B0A1E; --text-2: #87506A; --border: #F7C6D8;
+  --mood-bg: #FFF1F5; --primary: #EC4899; --button: #BE185D; --text: #3B0A1E; --text-2: #87506A; --border: #F7C6D8;
 }
 html:not([data-theme="dark"])[data-mood="sad"] {
-  --bg: #EEF2FF; --primary: #6366F1; --button: #4338CA; --text: #171B3A; --text-2: #626A91; --border: #D5D9F5;
+  --mood-bg: #EEF2FF; --primary: #6366F1; --button: #4338CA; --text: #171B3A; --text-2: #626A91; --border: #D5D9F5;
 }
 html:not([data-theme="dark"])[data-mood="angry"] {
-  --bg: #FFF1F1; --primary: #EF4444; --button: #B91C1C; --text: #350909; --text-2: #824343; --border: #F6CACA;
+  --mood-bg: #FFF1F1; --primary: #EF4444; --button: #B91C1C; --text: #350909; --text-2: #824343; --border: #F6CACA;
 }
 html:not([data-theme="dark"])[data-mood="cool"] {
-  --bg: #F5F3FF; --primary: #8B5CF6; --button: #6D28D9; --text: #21133D; --text-2: #6B5A82; --border: #DDD4FE;
+  --mood-bg: #F5F3FF; --primary: #8B5CF6; --button: #6D28D9; --text: #21133D; --text-2: #6B5A82; --border: #DDD4FE;
 }
 html:not([data-theme="dark"])[data-mood="relaxed"] {
-  --bg: #F1FAF4; --primary: #22C55E; --button: #15803D; --text: #0B2B18; --text-2: #557562; --border: #CBEBD5;
+  --mood-bg: #F1FAF4; --primary: #22C55E; --button: #15803D; --text: #0B2B18; --text-2: #557562; --border: #CBEBD5;
 }
 html:not([data-theme="dark"])[data-mood="excited"] {
-  --bg: #FFF5ED; --primary: #F97316; --button: #C2410C; --text: #351306; --text-2: #875D45; --border: #F6D0BA;
+  --mood-bg: #FFF5ED; --primary: #F97316; --button: #C2410C; --text: #351306; --text-2: #875D45; --border: #F6D0BA;
 }
 html:not([data-theme="dark"])[data-mood="tired"] {
-  --bg: #F5F3F7; --primary: #8B7FA8; --button: #625477; --text: #292432; --text-2: #756D7D; --border: #DDD8E5;
+  --mood-bg: #F5F3F7; --primary: #8B7FA8; --button: #625477; --text: #292432; --text-2: #756D7D; --border: #DDD8E5;
 }
 html:not([data-theme="dark"])[data-mood="motivated"] {
-  --bg: #EEFDFD; --primary: #06B6D4; --button: #0E7490; --text: #062B32; --text-2: #4C7278; --border: #BFE8EE;
+  --mood-bg: #EEFDFD; --primary: #06B6D4; --button: #0E7490; --text: #062B32; --text-2: #4C7278; --border: #BFE8EE;
 }

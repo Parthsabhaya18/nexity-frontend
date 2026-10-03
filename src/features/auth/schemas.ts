@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-export const MIN_AGE = 18;
-
 export const emailField = z
   .string()
   .trim()
@@ -40,23 +38,11 @@ export function fromIsoDate(iso: string): Date | null {
     : null;
 }
 
-/** Latest birth date allowed for someone `MIN_AGE` today. */
-export function latestAllowedDob(today = new Date()) {
-  return new Date(
-    today.getFullYear() - MIN_AGE,
-    today.getMonth(),
-    today.getDate(),
-  );
-}
-
 export const EARLIEST_DOB = new Date(1900, 0, 1);
 
-export function ageFrom(isoDate: string, today = new Date()) {
-  const d = new Date(`${isoDate}T00:00:00Z`);
-  let age = today.getUTCFullYear() - d.getUTCFullYear();
-  const m = today.getUTCMonth() - d.getUTCMonth();
-  if (m < 0 || (m === 0 && today.getUTCDate() < d.getUTCDate())) age--;
-  return age;
+/** Today at local midnight — the latest selectable birth date. */
+export function latestDob(today = new Date()) {
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
 }
 
 /** 0–4: length, upper + lower, digit, symbol. */
@@ -96,11 +82,10 @@ export const registerSchema = z.object({
   dob: z
     .string()
     .min(1, 'Please select your date of birth.')
-    .refine(v => fromIsoDate(v) !== null, 'Please select a valid date.')
-    .refine(
-      v => fromIsoDate(v) !== null && ageFrom(v) >= MIN_AGE,
-      `You must be ${MIN_AGE} or older to use Nexity.`,
-    ),
+    .refine(v => {
+      const d = fromIsoDate(v);
+      return d !== null && d >= EARLIEST_DOB && d <= latestDob();
+    }, 'Please select a valid date.'),
   terms: z
     .boolean()
     .refine(v => v, 'Please accept the Terms and Privacy Policy.'),

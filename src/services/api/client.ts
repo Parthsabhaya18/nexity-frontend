@@ -1,18 +1,20 @@
+import { API_BASE_URL, API_TIMEOUT_MS, APP_VERSION } from '@env';
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { Platform } from 'react-native';
 
-import { env } from '@/config/env';
 import { tokenStore } from '@/features/auth/tokenStore';
+
+const apiTimeoutMs = Number(API_TIMEOUT_MS);
 
 const baseHeaders = {
   'Content-Type': 'application/json',
   'X-Platform': Platform.OS,
-  'X-App-Version': env.appVersion,
+  'X-App-Version': APP_VERSION,
 };
 
 export const apiClient = axios.create({
-  baseURL: env.apiBaseUrl,
-  timeout: env.apiTimeoutMs,
+  baseURL: API_BASE_URL,
+  timeout: apiTimeoutMs,
   headers: baseHeaders,
 });
 
@@ -101,9 +103,9 @@ export function refreshAccessToken(): Promise<string> {
         access_token: string;
         refresh_token: string;
       }>(
-        `${env.apiBaseUrl}/auth/refresh`,
+        `${API_BASE_URL}/auth/refresh`,
         { refresh_token: refreshToken },
-        { timeout: env.apiTimeoutMs, headers: baseHeaders },
+        { timeout: apiTimeoutMs, headers: baseHeaders },
       );
       await tokenStore.setTokens(data);
       return data.access_token;

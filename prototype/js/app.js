@@ -9,19 +9,20 @@
 
   /* ---------- Theme ---------- */
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
-  App.resolvedTheme = () => (S.theme === 'system' ? (mq.matches ? 'dark' : 'light') : S.theme);
+  /* A mood replaces Light/Dark/System; mood palettes are light-based. */
+  App.resolvedTheme = () => (S.mood ? 'light' : S.theme === 'dark' || S.theme === 'light' ? S.theme : (mq.matches ? 'dark' : 'light'));
   App.applyTheme = () => {
     const t = App.resolvedTheme();
-    const mood = (S && S.mood) || 'calm';
     document.documentElement.dataset.theme = t;
-    document.documentElement.dataset.mood = mood;
+    if (S && S.mood) document.documentElement.dataset.mood = S.mood;
+    else document.documentElement.removeAttribute('data-mood');
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
       const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
       if (bg) meta.setAttribute('content', bg);
     }
   };
-  mq.addEventListener && mq.addEventListener('change', () => { if (S.theme === 'system') App.applyTheme(); });
+  mq.addEventListener && mq.addEventListener('change', () => { if (S.theme === 'system' && !S.mood) App.applyTheme(); });
 
   /* ---------- Rendering ---------- */
   function captureInputs() {
@@ -91,25 +92,28 @@
     const active = Nav.rootTab();
     const cur = Nav.cur().name;
     const secretN = NX.secretBadge(), chatN = NX.unreadChats(), notifN = NX.unreadNotifications();
-    const items = [
-      ['home', 'home', 'Home', 0], ['reels', 'reels', 'Reels', 0], ['secret', 'mask', 'Secret', secretN], ['chats', 'chat', 'Chat', chatN], ['profile', null, 'Profile', 0],
-    ];
-    bottomNav.innerHTML = items.map(([t, ic, label, n]) => `
-      <button class="nav-item${active === t ? ' active' : ''}${t === 'secret' ? ' nav-secret' : ''}" data-nav-tab="${t}" aria-label="${label}" ${active === t ? 'aria-current="page"' : ''}>
-        <span class="nav-ic">${ic ? Icon(ic, 25) : avatar(S.me, 26, { cls: 'nav-avatar' })}${badge(n)}</span><span class="nav-label">${label}</span>
-      </button>`).join('');
+    const items = [['home', 'home', 'Home', 0], ['search', 'search', 'Search', 0], ['secret', 'crown', 'Premium', secretN], ['plans', 'card', 'Plans', 0]];
+    bottomNav.innerHTML = `
+      <div class="nav-pill">
+        ${items.map(([t, ic, label, n]) => `
+          <button class="nav-item${active === t ? ' active' : ''}${t === 'secret' ? ' nav-premium' : ''}" data-nav-tab="${t}" aria-label="${label}" ${active === t ? 'aria-current="page"' : ''}>
+            <span class="nav-ic">${Icon(ic, 24)}${badge(n)}</span><span class="nav-label">${label}</span>
+          </button>`).join('')}
+      </div>
+      <button class="nav-fab" data-action="openCreateMenu" aria-label="Create a post or reel" aria-haspopup="dialog">${Icon('plus', 30)}</button>`;
 
     const side = [
-      ['tab', 'home', 'home', 'Home', 0], ['go', 'search', 'search', 'Search', 0], ['tab', 'reels', 'reels', 'Reels', 0],
-      ['tab', 'secret', 'mask', 'Secret', secretN], ['tab', 'chats', 'chat', 'Chat', chatN], ['go', 'notifications', 'bell', 'Notifications', notifN],
-      ['go', 'create', 'plusSquare', 'Create', 0], ['tab', 'profile', null, 'Profile', 0],
+      ['tab', 'home', 'home', 'Home', 0], ['tab', 'search', 'search', 'Search', 0], ['tab', 'reels', 'reels', 'Reels', 0],
+      ['tab', 'secret', 'crown', 'Premium', secretN], ['tab', 'plans', 'card', 'Plans', 0], ['tab', 'chats', 'chat', 'Chat', chatN],
+      ['go', 'notifications', 'bell', 'Notifications', notifN], ['action', 'openCreateMenu', 'plusSquare', 'Create', 0], ['tab', 'profile', null, 'Profile', 0],
     ];
+    const attr = (kind, t) => (kind === 'tab' ? `data-nav-tab="${t}"` : kind === 'action' ? `data-action="${t}"` : `data-go="${t}"`);
     sidebar.innerHTML = `
       <button class="side-brand" data-nav-tab="home" aria-label="Nexity home">${Wordmark(36, 'Nexity home')}</button>
       <nav class="side-nav">
         ${side.map(([kind, t, ic, label, n]) => {
-          const on = kind === 'tab' ? (active === t && !['search', 'notifications', 'create'].includes(cur)) : cur === t;
-          return `<button class="side-item${on ? ' active' : ''}${t === 'secret' ? ' side-secret' : ''}" ${kind === 'tab' ? `data-nav-tab="${t}"` : `data-go="${t}"`} ${on ? 'aria-current="page"' : ''}>
+          const on = kind === 'tab' ? (active === t && !['notifications', 'create'].includes(cur)) : kind === 'go' ? cur === t : cur === 'create';
+          return `<button class="side-item${on ? ' active' : ''}${t === 'secret' ? ' side-premium' : ''}" ${attr(kind, t)} ${on ? 'aria-current="page"' : ''}>
             <span class="side-ic">${ic ? Icon(ic, 24) : avatar(S.me, 26)}${badge(n)}</span><span>${label}</span></button>`;
         }).join('')}
       </nav>

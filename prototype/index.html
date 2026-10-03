@@ -25,9 +25,10 @@
       try {
         var s = JSON.parse(localStorage.getItem('nexity.proto.v1') || 'null');
         var p = (s && s.theme) || 'system';
-        var d = p === 'dark' || (p === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        var mood = s && s.mood;
+        var d = !mood && (p === 'dark' || (p === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
         document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-mood', (s && s.mood) || 'calm');
+        if (mood) document.documentElement.setAttribute('data-mood', mood);
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) {
           var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();

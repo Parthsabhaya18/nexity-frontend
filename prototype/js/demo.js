@@ -41,7 +41,7 @@
           <div class="set-row toggle"><span class="set-text"><b>Dark mode</b><small>Quick theme switch</small></span>${switchEl({ checked: App.resolvedTheme() === 'dark', action: 'demoTheme', label: 'Dark mode' })}</div>
         </div>
         <h3 class="demo-h">Mood</h3>
-        <p class="muted small">Picking a mood applies that palette. If dark mode is on, the prototype switches to light so the mood colors show.</p>
+        <p class="muted small">A mood replaces Light/Dark/System across the whole app. Turning dark mode on, or tapping the selected mood again, removes it.</p>
         <div class="mood-grid" role="radiogroup" aria-label="Mood">
           ${NX.moods.map(([id, emoji, name]) => `<button type="button" role="radio" aria-checked="${S.mood === id}" class="mood-chip ${S.mood === id ? 'active' : ''}" data-action="setMood" data-v="${id}"><span class="mood-emoji" aria-hidden="true">${emoji}</span><span>${name}</span></button>`).join('')}
         </div>
@@ -94,10 +94,12 @@
   };
   Actions.demoTheme = (el) => {
     S.theme = App.resolvedTheme() === 'dark' ? 'light' : 'dark';
+    S.mood = null;
     NX.save();
     App.applyTheme();
     el.classList.toggle('on', S.theme === 'dark');
     el.setAttribute('aria-checked', S.theme === 'dark');
+    document.querySelectorAll('[data-action="setMood"]').forEach(btn => { btn.classList.remove('active'); btn.setAttribute('aria-checked', 'false'); });
     App.refresh();
   };
   Actions.demoReset = async () => {

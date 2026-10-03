@@ -27,13 +27,13 @@
   }
 
   Screens.search = {
-    title: 'Search',
+    tab: 'search', title: 'Search',
     render: (p) => {
       const intent = INTENT[p.intent];
       App.intent = p.intent || null;
       return `
         <header class="appbar appbar-search">
-          <button class="icon-btn" data-action="back" aria-label="Go back">${Icon('back', 24)}</button>
+          ${Nav.stack.length > 1 ? `<button class="icon-btn" data-action="back" aria-label="Go back">${Icon('back', 24)}</button>` : ''}
           <div class="search-box">
             ${Icon('search', 18)}
             <input id="searchInput" type="search" placeholder="Search by name or username" value="${esc(q)}" data-input="search" autocomplete="off" aria-label="Search people" data-no-keep>
@@ -46,7 +46,7 @@
         </div>`;
     },
     mount(el, p, dir) {
-      if (dir !== 'none' && dir !== 'back') setTimeout(() => { const i = $('#searchInput'); i && i.focus(); }, 280);
+      if (dir !== 'none' && dir !== 'back' && Nav.stack.length > 1) setTimeout(() => { const i = $('#searchInput'); i && i.focus(); }, 280);
     }
   };
 

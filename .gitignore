@@ -39,6 +39,11 @@ keystore.properties
 *.aab
 .kotlin/
 
+# Environment
+.env
+.env.*
+!.env.example
+
 # node.js
 #
 node_modules/

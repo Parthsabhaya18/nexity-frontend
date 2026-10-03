@@ -70,7 +70,6 @@ export function DateField({
   const [iosDraft, setIosDraft] = useState<Date>(new Date());
 
   const selected = value ? fromIsoDate(value) : null;
-  // Start the wheel on the newest allowed date so 18+ users scroll back only a little.
   const initial = selected ?? maximumDate ?? new Date();
 
   const open = () => {

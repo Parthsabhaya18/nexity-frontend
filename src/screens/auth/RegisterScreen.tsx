@@ -22,8 +22,7 @@ import { TextField } from '@/components/ui/TextField';
 import { applyServerErrors } from '@/features/auth/formErrors';
 import {
   EARLIEST_DOB,
-  latestAllowedDob,
-  MIN_AGE,
+  latestDob,
   type RegisterFormInput,
   type RegisterFormOutput,
   registerSchema,
@@ -31,7 +30,7 @@ import {
 } from '@/features/auth/schemas';
 import type { ScreenProps } from '@/navigation/types';
 import { authApi, type Gender } from '@/services/api/auth';
-import { radius, spacing, useAppTheme } from '@/theme';
+import { spacing, useAppTheme } from '@/theme';
 
 const GENDERS: { value: Gender; label: string }[] = [
   { value: 'woman', label: 'Woman' },
@@ -49,7 +48,7 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
   const usernameRef = useRef<TextInputInstance>(null);
   const emailRef = useRef<TextInputInstance>(null);
   const passwordRef = useRef<TextInputInstance>(null);
-  const maxDob = useMemo(() => latestAllowedDob(), []);
+  const maxDob = useMemo(() => latestDob(), []);
 
   const {
     control,
@@ -132,13 +131,6 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
       <AuthHeader
         title="Create your account"
         subtitle="It takes less than a minute."
-        top={
-          <View style={[styles.pill, { backgroundColor: colors.primarySoft }]}>
-            <Text style={[styles.pillText, { color: colors.primary }]}>
-              {MIN_AGE}+ only
-            </Text>
-          </View>
-        }
       />
 
       {formError ? <Banner tone="error" message={formError} /> : null}
@@ -297,7 +289,7 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
             onChange={field.onChange}
             onBlur={field.onBlur}
             error={errors.dob?.message}
-            hint={`You must be ${MIN_AGE} or older. Your birthday is never shown publicly.`}
+            hint="Your birthday is never shown publicly."
             minimumDate={EARLIEST_DOB}
             maximumDate={maxDob}
             disabled={isSubmitting}
@@ -355,14 +347,6 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
 }
 
 const styles = StyleSheet.create({
-  pill: {
-    alignSelf: 'flex-start',
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginBottom: spacing.md,
-  },
-  pillText: { fontSize: 12, fontWeight: '800' },
   adornment: { marginRight: 8 },
   tick: { fontSize: 17, fontWeight: '800' },
   terms: { fontSize: 14, lineHeight: 20 },

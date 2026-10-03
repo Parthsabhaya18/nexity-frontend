@@ -1,7 +1,6 @@
 import {
-  ageFrom,
   fromIsoDate,
-  latestAllowedDob,
+  latestDob,
   loginSchema,
   newPasswordSchema,
   passwordStrength,
@@ -27,15 +26,10 @@ describe('auth schemas', () => {
     expect(fromIsoDate('05/03/1998')).toBeNull();
   });
 
-  it('caps the picker at exactly 18 years ago', () => {
-    const max = latestAllowedDob(new Date(2026, 9, 3));
-    expect(toIsoDate(max)).toBe('2008-10-03');
-  });
-
-  it('computes age around the birthday', () => {
-    const today = new Date(Date.UTC(2026, 2, 14));
-    expect(ageFrom('2008-03-15', today)).toBe(17);
-    expect(ageFrom('2008-03-14', today)).toBe(18);
+  it('caps the picker at today', () => {
+    const max = latestDob(new Date(2026, 9, 3, 15, 30));
+    expect(toIsoDate(max)).toBe('2026-10-03');
+    expect(max.getHours()).toBe(0);
   });
 
   it('normalises a valid registration', () => {
@@ -44,12 +38,12 @@ describe('auth schemas', () => {
     expect(out.email).toBe('jane@example.com');
   });
 
-  it('rejects under-18, bad usernames, weak passwords and unaccepted terms', () => {
+  it('rejects future birth dates, bad usernames, weak passwords and unaccepted terms', () => {
     const result = registerSchema.safeParse({
       ...validRegister,
       username: 'no spaces!',
       password: 'onlyletters',
-      dob: '2020-01-01',
+      dob: '2999-01-01',
       terms: false,
     });
     expect(result.success).toBe(false);

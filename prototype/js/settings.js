@@ -16,7 +16,7 @@
   const group = (title, body) => `<section class="set-group">${title ? `<h2>${title}</h2>` : ''}<div class="set-card">${body}</div></section>`;
   const themeSeg = () => `
     <div class="segmented theme-seg" role="radiogroup" aria-label="Theme">
-      ${[['light', 'sun', 'Light'], ['dark', 'moon', 'Dark'], ['system', 'monitor', 'System']].map(([v, ic, l]) => `<button role="radio" aria-checked="${S.theme === v}" class="${S.theme === v ? 'active' : ''}" data-action="setTheme" data-v="${v}">${Icon(ic, 16)} ${l}</button>`).join('')}
+      ${[['light', 'sun', 'Light'], ['dark', 'moon', 'Dark'], ['system', 'monitor', 'System']].map(([v, ic, l]) => `<button role="radio" aria-checked="${!S.mood && S.theme === v}" class="${!S.mood && S.theme === v ? 'active' : ''}" data-action="setTheme" data-v="${v}">${Icon(ic, 16)} ${l}</button>`).join('')}
     </div>`;
   const moodGrid = () => `
     <div class="mood-grid" role="radiogroup" aria-label="Mood">
@@ -36,7 +36,7 @@
           ${group('Nearby', row({ icon: 'radar', label: 'Nearby', sub: '"Was near you 💫" · never shows location', go: 'settingsNearby' }))}
           ${group('Subscription', row({ icon: S.me.plan === 'premium' ? 'crown' : 'sparkles', label: 'Subscription', sub: NX.isPaid() ? `Active until ${fmtDate(S.me.planExpiry)}` : 'Upgrade to unlock Secret features', value: NX.plan().name, go: NX.isPaid() ? 'mySubscription' : 'plans' }))}
           ${group('Security', row({ icon: 'key', label: 'Change password', go: 'changePassword' }) + row({ icon: 'devices', label: 'Login & security', sub: 'Where you\'re logged in', go: 'settingsSecurity' }))}
-          ${group('Theme', `<div class="set-row static"><span class="set-ic">${Icon('moon', 20)}</span><span class="set-text"><b>Appearance</b><small>Light, dark or match your device</small></span></div><div class="set-pad">${themeSeg()}</div><div class="set-row static"><span class="set-ic">${Icon('sparkles', 20)}</span><span class="set-text"><b>Mood</b><small>${esc((NX.moods.find(m => m[0] === S.mood) || NX.moods[1])[2])} · colors follow the mood you pick</small></span></div><div class="set-pad">${moodGrid()}</div>`)}
+          ${group('Theme', `<div class="set-row static"><span class="set-ic">${Icon('moon', 20)}</span><span class="set-text"><b>Appearance</b><small>${S.mood ? 'Off while a mood is on · pick one to remove the mood' : 'Light, dark or match your device'}</small></span></div><div class="set-pad">${themeSeg()}</div><div class="set-row static"><span class="set-ic">${Icon('sparkles', 20)}</span><span class="set-text"><b>Mood</b><small>${esc((NX.moods.find(m => m[0] === S.mood) || [0, 0, 'No mood'])[2])} · replaces Light/Dark/System · tap again to remove</small></span></div><div class="set-pad">${moodGrid()}</div>`)}
           ${group('Help', row({ icon: 'headset', label: 'Contact us', sub: 'We usually reply within 24 hours', go: 'contact' }) + row({ icon: 'help', label: 'Help center', go: 'help' }))}
           ${group('About', row({ icon: 'file', label: 'Terms of Service', go: 'legal', params: { doc: 'terms' } }) + row({ icon: 'shieldCheck', label: 'Privacy Policy', go: 'legal', params: { doc: 'privacy' } }))}
           ${group('Prototype', row({ icon: 'zap', label: 'Demo controls', sub: 'Switch personas and simulate events', action: 'openDemo' }))}
@@ -48,6 +48,7 @@
 
   Actions.setTheme = (el) => {
     S.theme = el.dataset.v;
+    S.mood = null;
     NX.save();
     App.applyTheme();
     App.refresh();
@@ -55,15 +56,14 @@
   };
 
   Actions.setMood = (el) => {
-    const id = el.dataset.v;
-    const mood = NX.moods.find(m => m[0] === id);
+    const mood = NX.moods.find(m => m[0] === el.dataset.v);
     if (!mood) return;
-    S.mood = id;
-    if (App.resolvedTheme() === 'dark') S.theme = 'light';
+    const off = S.mood === mood[0];
+    S.mood = off ? null : mood[0];
     NX.save();
     App.applyTheme();
     document.querySelectorAll('[data-action="setMood"]').forEach(btn => {
-      const on = btn.dataset.v === id;
+      const on = btn.dataset.v === S.mood;
       btn.classList.toggle('active', on);
       btn.setAttribute('aria-checked', on ? 'true' : 'false');
     });
@@ -74,7 +74,7 @@
       darkToggle.setAttribute('aria-checked', dark ? 'true' : 'false');
     }
     App.refresh();
-    Toast.show(`${mood[1]} ${mood[2]} theme`);
+    Toast.show(off ? 'Mood removed' : `${mood[1]} ${mood[2]} theme`);
   };
 
   Actions.logout = async () => {
@@ -389,7 +389,7 @@
   /* ---------- Legal ---------- */
   const LEGAL = {
     terms: { title: 'Terms of Service', body: [
-      ['Who can use Nexity', 'You must be at least 18 years old. One person, one account. Keep your login details safe.'],
+      ['Who can use Nexity', 'One person, one account. Keep your login details safe.'],
       ['Be kind, especially when anonymous', 'Secret Messages and Secret Crush are for genuine, respectful expression. Harassment, threats, hate speech or sexual content sent to someone who didn\'t ask for it leads to removal.'],
       ['Subscriptions', 'Plus and Premium are monthly plans that renew automatically until you cancel. Cancelling keeps your plan active until the end of the paid period.'],
       ['Your content', 'You own what you post. You give Nexity permission to display it to the audience you choose.'],

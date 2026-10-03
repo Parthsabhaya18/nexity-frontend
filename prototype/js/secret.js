@@ -20,14 +20,14 @@
 
   /* ---------- Secret tab ---------- */
   Screens.secret = {
-    tab: 'secret', title: 'Secret',
+    tab: 'secret', title: 'Premium',
     render: (p) => {
       if (p.tab) { App.secretTab = p.tab; p.tab = null; }
       const t = App.secretTab;
       const unread = inbox().filter(m => !m.revealed && m.messages[m.messages.length - 1].from === 'them').length;
       return `
         <header class="appbar appbar-secret">
-          <div class="appbar-title"><h1>Secret</h1></div>
+          <div class="appbar-title"><h1>${Icon('crown', 20)} Premium</h1></div>
           <div class="appbar-actions">
             <button class="icon-btn" data-action="secretHowItWorks" aria-label="How it works">${Icon('help', 23)}</button>
           </div>

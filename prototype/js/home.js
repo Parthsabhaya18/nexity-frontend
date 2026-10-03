@@ -99,10 +99,10 @@
     render: () => `
       <header class="appbar appbar-home">
         <div class="brand">${Wordmark(32)}</div>
-        <div class="appbar-actions">
-          <button class="icon-btn" data-go="create" aria-label="Create post">${Icon('plusSquare', 25)}</button>
-          <button class="icon-btn" data-go="search" aria-label="Search">${Icon('search', 25)}</button>
-          <button class="icon-btn" data-go="notifications" aria-label="Notifications">${Icon('bell', 25)}${NX.unreadNotifications() ? `<span class="dot-badge">${NX.unreadNotifications()}</span>` : ''}</button>
+        <div class="home-actions">
+          <button class="icon-btn" data-go="notifications" aria-label="Notifications">${Icon('bell', 24)}${NX.unreadNotifications() ? `<span class="dot-badge">${NX.unreadNotifications()}</span>` : ''}</button>
+          <button class="icon-btn" data-nav-tab="chats" aria-label="Chats">${Icon('chat', 24)}${NX.unreadChats() ? `<span class="dot-badge">${NX.unreadChats()}</span>` : ''}</button>
+          <button class="home-me" data-nav-tab="profile" aria-label="Your profile">${avatar(S.me, 34)}</button>
         </div>
       </header>
       <div class="page page-feed">

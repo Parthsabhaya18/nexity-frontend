@@ -51,7 +51,7 @@
 
   /* ---------- Screen ---------- */
   Screens.create = {
-    chrome: 'none', dark: true, title: (p) => (p.mode === 'story' ? 'New story' : 'Create'),
+    chrome: 'none', dark: true, title: (p) => ({ story: 'New story', reel: 'New reel' }[p.mode] || 'Create'),
     render: (p) => {
       const d = draft(p.mode);
       return d.stage === 'capture' ? captureView(d) : d.mode === 'story' ? storyEditView(d) : postEditView(d);
@@ -89,17 +89,17 @@
   }
 
   function captureView(d) {
-    const story = d.mode === 'story';
+    const story = d.mode === 'story', reel = d.mode === 'reel', vertical = story || reel;
     const ready = d.cam === 'live' || d.cam === 'demo';
     return `
       <div class="cam" data-mode="${d.mode}">
         <div class="cam-top">
           <button class="cam-btn" data-action="closeCreate" aria-label="Close camera">${Icon('x', 24)}</button>
-          <span class="cam-title">${story ? 'Your story' : 'New post'}</span>
+          <span class="cam-title">${story ? 'Your story' : reel ? 'New reel' : 'New post'}</span>
           <button class="cam-btn ${d.flash ? 'on' : ''}" data-action="camFlash" aria-pressed="${d.flash}" aria-label="Flash ${d.flash ? 'on' : 'off'}" ${ready ? '' : 'disabled'}>${Icon(d.flash ? 'bolt' : 'boltOff', 22)}</button>
         </div>
         <div class="cam-view">
-          <div class="cam-frame ${story ? 'story' : 'post'}">
+          <div class="cam-frame ${vertical ? 'story' : 'post'}">
             ${camViewport(d)}
             ${ready ? '<div class="cam-grid" aria-hidden="true"></div>' : ''}
             <div class="cam-flashfx" id="camFlashFx" aria-hidden="true"></div>
@@ -113,14 +113,14 @@
           </div>
           <div class="cam-controls">
             <label class="cam-side" title="Gallery">${Icon('image', 24)}<input type="file" accept="image/*" data-change="uploadDraft" hidden><span class="sr-only">Choose from gallery</span></label>
-            <button class="shutter ${story ? 'story' : ''}" id="shutter" aria-label="${story ? 'Take photo, or hold to record video' : 'Take photo'}" ${ready ? '' : 'disabled'}><svg class="shutter-ring" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="39"/></svg><span></span></button>
+            <button class="shutter ${vertical ? 'story' : ''}" id="shutter" aria-label="${vertical ? 'Take photo, or hold to record video' : 'Take photo'}" ${ready ? '' : 'disabled'}><svg class="shutter-ring" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="39"/></svg><span></span></button>
             <button class="cam-side" data-action="camFlip" aria-label="Switch camera" ${ready ? '' : 'disabled'}>${Icon('flip', 24)}</button>
           </div>
-          <div class="cam-modes" role="tablist" aria-label="What are you creating?">
-            <button role="tab" class="${!story ? 'active' : ''}" aria-selected="${!story}" data-action="createMode" data-mode="post">Post</button>
-            <button role="tab" class="${story ? 'active' : ''}" aria-selected="${story}" data-action="createMode" data-mode="story">Story</button>
-          </div>
-          <p class="cam-tip">${story ? 'Tap for photo · hold for video (up to 15s)' : 'Tap to take a photo, or pick one from your gallery'}</p>
+          ${story ? '' : `<div class="cam-modes" role="tablist" aria-label="What are you creating?">
+            <button role="tab" class="${!reel ? 'active' : ''}" aria-selected="${!reel}" data-action="createMode" data-mode="post">Post</button>
+            <button role="tab" class="${reel ? 'active' : ''}" aria-selected="${reel}" data-action="createMode" data-mode="reel">Reel</button>
+          </div>`}
+          <p class="cam-tip">${vertical ? 'Tap for photo · hold for video (up to 15s)' : 'Tap to take a photo, or pick one from your gallery'}</p>
         </div>
       </div>`;
   }
@@ -132,14 +132,15 @@
     </div>`;
 
   function postEditView(d) {
+    const reel = d.mode === 'reel';
     return `
       <header class="appbar create-head">
         <button class="icon-btn" data-action="createRetake" aria-label="Back to camera">${Icon('back', 24)}</button>
-        <div class="appbar-title"><h1>New post</h1></div>
+        <div class="appbar-title"><h1>${reel ? 'New reel' : 'New post'}</h1></div>
         <div class="appbar-actions"><button class="btn btn-sm btn-primary" data-action="publish">Share</button></div>
       </header>
       <div class="page create-edit">
-        <div class="ce-preview"><img src="${esc(d.img)}" alt="Your photo" style="filter:${fcss(d.filter)}"></div>
+        <div class="ce-preview${reel ? ' reel' : ''}"><img src="${esc(d.img)}" alt="${reel ? 'Your reel' : 'Your photo'}" style="filter:${fcss(d.filter)}">${reel && d.type === 'video' ? `<span class="se-video">${Icon('play', 12)} Video</span>` : ''}</div>
         ${filterStrip(d, 'ce-filters')}
         <div class="ce-card">
           <div class="ce-caption">
@@ -189,7 +190,7 @@
   }
 
   /* ---------- Capture ---------- */
-  function frameSize(mode) { return mode === 'story' ? [720, 1280] : [1080, 1080]; }
+  function frameSize(mode) { return mode === 'post' ? [1080, 1080] : [720, 1280]; }
 
   function grabFrame() {
     const d = draft();
@@ -224,7 +225,7 @@
     }, 180);
   }
 
-  /* Tap = photo. In story mode, holding the shutter "records" up to 15s and saves a video story. */
+  /* Tap = photo. In story and reel mode, holding the shutter "records" up to 15s and saves a video. */
   function bindShutter() {
     const b = $('#shutter');
     if (!b) return;
@@ -237,7 +238,7 @@
       takeShot('video');
     };
     b.addEventListener('pointerdown', (e) => {
-      if (draft().mode !== 'story' || b.disabled || e.button > 0) return;
+      if (draft().mode === 'post' || b.disabled || e.button > 0) return;
       holdT = setTimeout(() => {
         recording = true; started = Date.now();
         b.classList.add('rec');
@@ -308,6 +309,25 @@
   Actions.storyTextDone = () => { const d = draft(); d.text = d.text.trim(); d.editingText = false; App.refresh(); };
 
   Actions.addStory = () => { App.draft = newDraft('story'); Nav.go('create', { mode: 'story' }); };
+  Actions.openCreateMenu = () => {
+    const opt = (mode, ic, title, text) => `
+      <button class="create-opt" data-action="startCreate" data-mode="${mode}">
+        <span class="create-opt-ic ${mode}">${Icon(ic, 24)}</span>
+        <span class="create-opt-txt"><b>${title}</b><small>${text}</small></span>${Icon('chevronRight', 18)}
+      </button>`;
+    Modal.open({
+      title: 'Create', cls: 'create-sheet',
+      body: `<div class="create-opts">
+        ${opt('post', 'image', 'Post', 'Share a photo with your followers')}
+        ${opt('reel', 'reels', 'Reel', 'Share a short vertical video')}
+      </div>`
+    });
+  };
+  Actions.startCreate = (el) => {
+    Modal.closeAll();
+    App.draft = newDraft(el.dataset.mode);
+    Nav.go('create', { mode: el.dataset.mode });
+  };
   Actions.closeCreate = async () => {
     const d = draft();
     if (d.stage === 'edit' && !(await Modal.confirm({ title: 'Discard this draft?', message: 'If you leave now, you\'ll lose this photo and your edits.', confirm: 'Discard', danger: true }))) return;
@@ -377,6 +397,14 @@
     if (d.mode === 'story') {
       S.stories.push({ id: uid('st'), userId: 'me', type: d.type, src: img, time: Date.now(), views: [] });
       Toast.show('Added to your story ✨', { type: 'success' });
+    } else if (d.mode === 'reel') {
+      const id = uid('r');
+      S.reels.unshift({ id, userId: 'me', src: img, caption: d.caption.trim(), audio: `Original audio · ${S.me.username}`, likes: 0, liked: false, time: Date.now(), comments: [], dur: d.type === 'video' ? 15 : 10 });
+      App.draft = null;
+      NX.save();
+      App.reelStart = id;
+      Toast.show('Reel shared ✨', { type: 'success' });
+      return Nav.tab('reels');
     } else {
       S.posts.unshift({ id: uid('p'), userId: 'me', img, caption: d.caption.trim(), likes: 0, liked: false, time: Date.now(), comments: [] });
       Toast.show('Post shared ✨', { type: 'success' });

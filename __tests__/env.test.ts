@@ -1,6 +1,7 @@
-import { env } from '@/config/env';
+import { API_BASE_URL, API_TIMEOUT_MS, APP_VERSION } from '@env';
 
-test('uses the USB-reversed localhost API in development', () => {
-  expect(env.isDev).toBe(true);
-  expect(env.apiBaseUrl).toBe('http://localhost:4000/api/v1');
+test('loads config from .env', () => {
+  expect(API_BASE_URL).toMatch(/^https?:\/\//);
+  expect(Number(API_TIMEOUT_MS)).toBeGreaterThan(0);
+  expect(APP_VERSION).toBeTruthy();
 });

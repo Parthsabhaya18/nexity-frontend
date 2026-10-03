@@ -50,7 +50,7 @@
   NX.buildState = function (persona = 'free') {
     const now = Date.now();
     const s = {
-      v: VERSION, persona, theme: 'system', mood: 'calm',
+      v: VERSION, persona, theme: 'system', mood: null,
       session: { loggedIn: true },
       accounts: [{ email: 'tara@nexity.app', password: 'demo1234' }],
       me: NX.meDefaults(),
@@ -132,7 +132,7 @@
       if (!raw) return null;
       const s = JSON.parse(raw);
       if (!s || s.v !== VERSION) return null;
-      if (!s.mood) s.mood = 'calm';
+      if (s.mood === undefined) s.mood = null;
       return s;
     } catch (e) { return null; }
   }
@@ -143,7 +143,7 @@
   };
   NX.reset = (persona = 'free', opts = {}) => {
     const theme = window.S ? S.theme : 'system';
-    const mood = window.S && S.mood ? S.mood : 'calm';
+    const mood = window.S && S.mood ? S.mood : null;
     window.S = NX.buildState(persona);
     S.theme = theme;
     S.mood = mood;

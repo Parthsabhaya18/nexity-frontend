@@ -88,7 +88,7 @@
           <button class="btn btn-primary btn-lg btn-block" data-go="register">Create account</button>
           <button class="btn btn-secondary btn-lg btn-block" data-go="login">Log in</button>
           <p class="welcome-demo">Showing a demo? <button class="link" data-action="openDemo">Use a demo account</button></p>
-          <p class="legal-note">18+ only. By continuing you agree to our <button class="link" data-action="openLegal" data-doc="terms">Terms</button> and <button class="link" data-action="openLegal" data-doc="privacy">Privacy Policy</button>.</p>
+          <p class="legal-note">By continuing you agree to our <button class="link" data-action="openLegal" data-doc="terms">Terms</button> and <button class="link" data-action="openLegal" data-doc="privacy">Privacy Policy</button>.</p>
         </div>
       </div>`
   };
@@ -162,15 +162,13 @@
   };
 
   /* ---------- Register ---------- */
-  const maxDob = () => { const d = new Date(); d.setFullYear(d.getFullYear() - 18); return d.toISOString().slice(0, 10); };
+  const maxDob = () => new Date().toISOString().slice(0, 10);
   Screens.register = {
     auth: false, chrome: 'none', title: 'Create account',
     render: () => `
       ${appbar({ title: '', cls: 'appbar-clear' })}
       <div class="auth">
-        <div class="auth-head"><h1>Create your account</h1><p>It takes less than a minute.</p></div>
-        <div class="age-pill">${Icon('shieldCheck', 16)} Nexity is for adults <b>18+</b> only</div>
-        <form data-form="register" novalidate>
+        <div class="auth-head"><h1>Create your account</h1><p>It takes less than a minute.</p></div>        <form data-form="register" novalidate>
           ${field({ label: 'Full name', name: 'name', id: 'regName', placeholder: 'e.g. Riya Patel', autocomplete: 'name' })}
           ${field({ label: 'Username', name: 'username', id: 'regUser', placeholder: 'e.g. riya.writes', autocomplete: 'username', extra: 'data-input="checkUsername" autocapitalize="none" spellcheck="false"', right: '<span class="input-status" id="unameStatus" aria-live="polite"></span>', hint: 'Lowercase letters, numbers, dots and underscores.' })}
           ${field({ label: 'Email', name: 'email', id: 'regEmail', type: 'email', placeholder: 'you@example.com', autocomplete: 'email' })}
@@ -181,10 +179,10 @@
               ${['Woman', 'Man', 'Non-binary', 'Prefer not to say'].map((g, i) => `<label class="chip-radio"><input type="radio" name="gender" value="${g}" id="regG${i}"><span>${g}</span></label>`).join('')}
             </div>
           </fieldset>
-          ${field({ label: 'Date of birth', name: 'dob', id: 'regDob', type: 'date', extra: `max="${maxDob()}" min="1940-01-01"`, hint: 'You must be 18 or older. Your birthday is never shown publicly.' })}
+          ${field({ label: 'Date of birth', name: 'dob', id: 'regDob', type: 'date', extra: `max="${maxDob()}" min="1940-01-01"`, hint: 'Your birthday is never shown publicly.' })}
           <div class="field">
             <label class="check"><input type="checkbox" name="terms" id="regTerms"><span class="check-box">${Icon('check', 14)}</span>
-              <span>I agree to the <button type="button" class="link" data-action="openLegal" data-doc="terms">Terms</button> and <button type="button" class="link" data-action="openLegal" data-doc="privacy">Privacy Policy</button>, and confirm I'm 18 or older.</span></label>
+              <span>I agree to the <button type="button" class="link" data-action="openLegal" data-doc="terms">Terms</button> and <button type="button" class="link" data-action="openLegal" data-doc="privacy">Privacy Policy</button>.</span></label>
           </div>
           <button class="btn btn-primary btn-lg btn-block" type="submit">Create account</button>
         </form>
@@ -204,7 +202,6 @@
         ? `<span class="st-bad">${Icon('x', 14)} Taken</span>` : `<span class="st-ok">${Icon('check', 14)} Available</span>`;
     }, 550);
   };
-  const ageOf = (dob) => { const d = new Date(dob), n = new Date(); let a = n.getFullYear() - d.getFullYear(); const m = n.getMonth() - d.getMonth(); if (m < 0 || (m === 0 && n.getDate() < d.getDate())) a--; return a; };
   Forms.register = async (form) => {
     const v = { name: form.name.value.trim(), username: form.username.value.trim().toLowerCase(), email: form.email.value.trim().toLowerCase(), password: form.password.value, gender: (form.querySelector('[name=gender]:checked') || {}).value, dob: form.dob.value, terms: form.terms.checked };
     const errs = {};
@@ -217,7 +214,7 @@
     else if (strength(v.password) < 2) errs.password = 'Too weak — add uppercase letters, numbers or symbols.';
     if (!v.gender) errs.gender = 'Please choose an option.';
     if (!v.dob) errs.dob = 'Please enter your date of birth.';
-    else if (ageOf(v.dob) < 18) errs.dob = 'You must be 18 or older to use Nexity.';
+    else if (v.dob > maxDob()) errs.dob = 'Please enter a valid date.';
     if (!v.terms) errs.terms = 'Please accept the Terms and Privacy Policy.';
     ['name', 'username', 'email', 'password', 'dob', 'terms'].forEach(k => fieldError(form, k, errs[k]));
     const gf = form.querySelector('fieldset.field');

@@ -42,7 +42,7 @@
   }
 
   Screens.plans = {
-    title: 'Plans',
+    tab: 'plans', title: 'Plans',
     render: (p) => {
       const r = REASONS[p.reason];
       if (p.to) App.afterUpgrade = { screen: 'secretCompose', params: { id: p.to } };
@@ -52,7 +52,7 @@
       const plans = ORDER.map(id => S.plans[id]).filter(pl => pl && (pl.active || pl.id === S.me.plan));
       const P = S.plans;
       return `
-        ${appbar({ title: 'Plans' })}
+        ${appbar({ title: 'Plans', back: Nav.stack.length > 1 })}
         <div class="page plans">
           ${r ? `<div class="reason-banner"><span>${r.emoji}</span><div><b>${r.title}</b><p>${r.text}</p></div></div>` : `
             <div class="plans-head"><h2>Unlock your secret side</h2><p>Simple plans. Save up to ${S.offers ? S.offers.yearly : 25}% when you pay yearly.</p></div>`}
