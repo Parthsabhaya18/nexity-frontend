@@ -15,9 +15,13 @@ import { LoginScreen } from '@/screens/auth/LoginScreen';
 import { RegisterScreen } from '@/screens/auth/RegisterScreen';
 import { ResetPasswordScreen } from '@/screens/auth/ResetPasswordScreen';
 import { VerifyEmailScreen } from '@/screens/auth/VerifyEmailScreen';
-import { HomeScreen } from '@/screens/HomeScreen';
+import { ChatsScreen } from '@/screens/chats/ChatsScreen';
+import { CreateScreen } from '@/screens/create/CreateScreen';
+import { NotificationsScreen } from '@/screens/notifications/NotificationsScreen';
+import { SettingsScreen } from '@/screens/settings/SettingsScreen';
 import { useAppTheme } from '@/theme';
 
+import { MainTabs } from './MainTabs';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -56,7 +60,24 @@ export function RootNavigator() {
         screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
       >
         {status === 'signedIn' ? (
-          <Stack.Screen name="Home" component={HomeScreen} />
+          <>
+            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
+            />
+            <Stack.Screen name="Chats" component={ChatsScreen} />
+            <Stack.Screen
+              name="Create"
+              component={CreateScreen}
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
+          </>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
