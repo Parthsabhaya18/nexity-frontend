@@ -168,6 +168,13 @@ export type ThemeColors = {
   success: string;
   successSoft: string;
   primarySoft: string;
+  /** Faint primary wash for unread rows. */
+  primarySofter: string;
+  /** Muted fill for chips and secondary surfaces. */
+  surfaceAlt: string;
+  /** Count badges on header icons. */
+  accent: string;
+  like: string;
 };
 
 const status = { danger: '#ED4956', success: '#12935A' } as const;
@@ -187,6 +194,10 @@ const darkTheme: ThemeColors = {
   success: '#34C47F',
   successSoft: 'rgba(52, 196, 127, 0.16)',
   primarySoft: 'rgba(0, 149, 246, 0.16)',
+  primarySofter: 'rgba(0, 149, 246, 0.08)',
+  surfaceAlt: '#1C1C1C',
+  accent: '#F0679B',
+  like: '#F0386B',
 };
 
 export function getThemeColors(
@@ -204,10 +215,32 @@ export function getThemeColors(
     success: status.success,
     successSoft: '#E3F5EC',
     primarySoft: `${p.primary}1F`,
+    primarySofter: `${p.primary}12`,
+    surfaceAlt: `${p.border}80`,
+    accent: '#E5487E',
+    like: '#F0386B',
   };
 }
 
+/** Brand gradient stops (135°). Light moods use their primary → button instead. */
+export const brandGradient = ['#38BDF8', '#3B82F6', '#1D4ED8'] as const;
+
+/** Colours that stay fixed on full-bleed dark screens such as Reels. */
+export const darkScreen = {
+  background: '#000000',
+  text: '#FFFFFF',
+  textSecondary: 'rgba(255, 255, 255, 0.72)',
+  navBackground: 'rgba(8, 6, 12, 0.88)',
+  navBorder: 'rgba(255, 255, 255, 0.1)',
+  navInactive: 'rgba(255, 255, 255, 0.55)',
+} as const;
+
 export function useAppTheme() {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  return { scheme, colors: getThemeColors(scheme) } as const;
+  const themeColors = getThemeColors(scheme);
+  const gradient: readonly string[] =
+    scheme === 'dark'
+      ? brandGradient
+      : [themeColors.primary, themeColors.button];
+  return { scheme, colors: themeColors, gradient } as const;
 }
