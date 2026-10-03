@@ -1,0 +1,182 @@
+/* Nexity design tokens — light + dark. Palette follows the Nexity brand board (Primary #2563EB, Sky #38BDF8, Navy #0F172A). */
+:root {
+  --font: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Brand */
+  --primary: #2563EB;
+  --primary-600: #1D4ED8;
+  --primary-700: #1E40AF;
+  --primary-soft: #E8F0FE;
+  --primary-softer: #F3F7FF;
+  --on-primary: #FFFFFF;
+  --sky: #38BDF8;
+  --navy: #0F172A;
+  --accent: #E5487E;
+  --accent-soft: #FDE8EF;
+  --brand-grad: linear-gradient(135deg, #38BDF8 0%, #3B82F6 45%, #1D4ED8 100%);
+  --love-grad: linear-gradient(135deg, #FF7AA8 0%, #E5487E 55%, #C2306B 100%);
+
+  /* Status */
+  --success: #12935A;
+  --success-soft: #E3F5EC;
+  --warning: #C77A04;
+  --warning-soft: #FDF2DC;
+  --danger: #E0434B;
+  --danger-soft: #FDEBEC;
+  --like: #F0386B;
+
+  /* Surfaces */
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --surface-2: #F1F5F9;
+  --surface-3: #E2E8F0;
+  --elevated: #FFFFFF;
+  --input: #F1F5F9;
+  --overlay: rgba(15, 23, 42, .5);
+
+  /* Text */
+  --text: #0F172A;
+  --text-2: #475569;
+  --text-3: #8492A6;
+  --border: #E2E8F0;
+  --border-strong: #CBD5E1;
+
+  /* Secret / mystery world (deliberately dark in both themes) */
+  --night: #060A1C;
+  --night-2: #101A45;
+  --secret-grad: radial-gradient(120% 140% at 0% 0%, #1F3C99 0%, #111B4D 45%, #060A1C 100%);
+  --secret-text: #F1F5FF;
+  --secret-muted: rgba(241, 245, 255, .72);
+  --secret-line: rgba(241, 245, 255, .14);
+  --secret-glow: #7CC8FF;
+
+  /* Chat */
+  --bubble-out: var(--primary);
+  --bubble-out-text: #FFFFFF;
+  --bubble-in: var(--surface-2);
+  --bubble-in-text: var(--text);
+
+  /* Story ring */
+  --ring: conic-gradient(from 200deg, #38BDF8, #2563EB, #1D4ED8, #E5487E, #38BDF8);
+
+  /* Elevation */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, .05);
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, .06);
+  --shadow: 0 8px 24px rgba(15, 23, 42, .08);
+  --shadow-lg: 0 24px 60px rgba(15, 23, 42, .18);
+  --shadow-primary: 0 8px 20px rgba(37, 99, 235, .28);
+
+  /* Shape */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r: 14px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --r-full: 999px;
+
+  /* Motion */
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+  --dur: .22s;
+
+  /* Layout */
+  --appbar-h: 58px;
+  --nav-h: 64px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --content-w: 620px;
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --primary: #3B82F6;
+  --primary-600: #2563EB;
+  --primary-700: #1D4ED8;
+  --primary-soft: rgba(59, 130, 246, .16);
+  --primary-softer: rgba(59, 130, 246, .08);
+  --accent: #F0679B;
+  --accent-soft: rgba(240, 103, 155, .15);
+
+  --success: #34C47F;
+  --success-soft: rgba(52, 196, 127, .14);
+  --warning: #F0A93A;
+  --warning-soft: rgba(240, 169, 58, .14);
+  --danger: #F26068;
+  --danger-soft: rgba(242, 96, 104, .14);
+
+  --bg: #0B1120;
+  --surface: #111827;
+  --surface-2: #1A2233;
+  --surface-3: #263246;
+  --elevated: #151E2E;
+  --input: #1A2233;
+  --overlay: rgba(2, 6, 18, .72);
+
+  --text: #F1F5F9;
+  --text-2: #A7B1C2;
+  --text-3: #7A8599;
+  --border: #233044;
+  --border-strong: #334155;
+
+  --bubble-in: #1F2A3D;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .35);
+  --shadow: 0 8px 24px rgba(0, 0, 0, .4);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, .6);
+  --shadow-primary: 0 8px 24px rgba(59, 130, 246, .3);
+
+  color-scheme: dark;
+}
+
+/* Mood palette — light appearance only. Hex values match the Mood-Based Dynamic Theme System.
+   Surface/Card is #FFFFFF. Button text uses --on-primary (#FFFFFF).
+   Dark appearance ignores these rules. Status colors (--success, --warning, --danger, --like) stay above. */
+html:not([data-theme="dark"])[data-mood] {
+  --surface: #FFFFFF;
+  --elevated: #FFFFFF;
+  --on-primary: #FFFFFF;
+  --input: #FFFFFF;
+  --primary-600: var(--button);
+  --primary-700: var(--button);
+  --text-3: var(--text-2);
+  --primary-soft: color-mix(in srgb, var(--primary) 18%, #FFFFFF);
+  --primary-softer: color-mix(in srgb, var(--primary) 9%, var(--bg));
+  --border-strong: color-mix(in srgb, var(--border) 45%, var(--text-2));
+  --surface-2: color-mix(in srgb, var(--border) 55%, #FFFFFF);
+  --surface-3: color-mix(in srgb, var(--border) 82%, #FFFFFF);
+  --ring: conic-gradient(from 200deg, var(--primary), var(--button), var(--primary));
+  --shadow-primary: 0 8px 20px color-mix(in srgb, var(--button) 34%, transparent);
+  --bubble-out: var(--button);
+}
+
+html:not([data-theme="dark"])[data-mood="happy"] {
+  --bg: #FFFBEA; --primary: #F5B800; --button: #D99500; --text: #2B2200; --text-2: #756A3A; --border: #F5E7A8;
+}
+html:not([data-theme="dark"])[data-mood="calm"] {
+  --bg: #EFF8FF; --primary: #3B82F6; --button: #1D4ED8; --text: #0F2747; --text-2: #58708C; --border: #CFE5FA;
+}
+html:not([data-theme="dark"])[data-mood="romantic"] {
+  --bg: #FFF1F5; --primary: #EC4899; --button: #BE185D; --text: #3B0A1E; --text-2: #87506A; --border: #F7C6D8;
+}
+html:not([data-theme="dark"])[data-mood="sad"] {
+  --bg: #EEF2FF; --primary: #6366F1; --button: #4338CA; --text: #171B3A; --text-2: #626A91; --border: #D5D9F5;
+}
+html:not([data-theme="dark"])[data-mood="angry"] {
+  --bg: #FFF1F1; --primary: #EF4444; --button: #B91C1C; --text: #350909; --text-2: #824343; --border: #F6CACA;
+}
+html:not([data-theme="dark"])[data-mood="cool"] {
+  --bg: #F5F3FF; --primary: #8B5CF6; --button: #6D28D9; --text: #21133D; --text-2: #6B5A82; --border: #DDD4FE;
+}
+html:not([data-theme="dark"])[data-mood="relaxed"] {
+  --bg: #F1FAF4; --primary: #22C55E; --button: #15803D; --text: #0B2B18; --text-2: #557562; --border: #CBEBD5;
+}
+html:not([data-theme="dark"])[data-mood="excited"] {
+  --bg: #FFF5ED; --primary: #F97316; --button: #C2410C; --text: #351306; --text-2: #875D45; --border: #F6D0BA;
+}
+html:not([data-theme="dark"])[data-mood="tired"] {
+  --bg: #F5F3F7; --primary: #8B7FA8; --button: #625477; --text: #292432; --text-2: #756D7D; --border: #DDD8E5;
+}
+html:not([data-theme="dark"])[data-mood="motivated"] {
+  --bg: #EEFDFD; --primary: #06B6D4; --button: #0E7490; --text: #062B32; --text-2: #4C7278; --border: #BFE8EE;
+}

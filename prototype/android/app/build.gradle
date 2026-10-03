@@ -1,0 +1,41 @@
+plugins {
+    id 'com.android.application'
+}
+
+def webRoot = file('../..')
+def webOut = layout.buildDirectory.dir('generated/web')
+
+def copyWeb = tasks.register('copyWeb', Copy) {
+    from(webRoot) {
+        include 'index.html', 'admin.html', 'css/**', 'js/**', 'assets/**'
+    }
+    into webOut
+}
+
+android {
+    namespace 'app.nexity.prototype'
+    compileSdk 37
+
+    defaultConfig {
+        applicationId 'app.nexity.prototype'
+        minSdk 24
+        targetSdk 36
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs += webOut.get().asFile
+        }
+    }
+}
+
+tasks.named('preBuild') { dependsOn copyWeb }

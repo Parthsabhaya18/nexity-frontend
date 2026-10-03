@@ -3,147 +3,137 @@
 <head>
 <meta charset="UTF-8" />
 <title>Nexity brand</title>
+<link rel="icon" href="svg/favicon.svg" />
 <style>
-  :root { color-scheme: light; }
   body { margin: 0; font-family: "Segoe UI", sans-serif; background: #e7edf6; color: #0f172a; }
-  header { padding: 28px 32px 8px; }
-  h1 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
-  header p { margin: 6px 0 0; color: #475569; font-size: 13px; }
+  header { padding: 28px 32px 8px; display: flex; align-items: center; gap: 18px; }
+  header img { height: 56px; }
+  header p { margin: 0; color: #475569; font-size: 13px; }
   section { padding: 8px 32px 28px; }
-  h2 { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: #64748b; margin: 18px 0 10px; }
+  h2 { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: #64748b; margin: 22px 0 10px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
   .card { background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 1px 2px rgba(15,23,42,.06); }
   .card h3 { margin: 0 0 12px; font-size: 13px; font-weight: 650; }
+  .card p { margin: 10px 0 0; font-size: 12px; color: #64748b; }
+  .card code { font-size: 11px; color: #1d4ed8; }
   .dark { background: #0f172a; }
   .dark h3 { color: #e2e8f0; }
+  .dark p { color: #94a3b8; }
+  .blue { background: #2563eb; }
+  .blue h3 { color: #fff; }
   .checker {
     background-color: #f8fafc;
     background-image: linear-gradient(45deg, #e2e8f0 25%, transparent 25%), linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e8f0 75%), linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
-    background-size: 18px 18px;
-    background-position: 0 0, 0 9px, 9px -9px, -9px 0;
-    border-radius: 12px;
-    padding: 16px;
+    background-size: 18px 18px; background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+    border-radius: 12px; padding: 16px;
   }
   img.logo { width: 100%; height: 72px; object-fit: contain; object-position: left center; }
-  img.icon { width: 96px; height: 96px; }
-  .sizes { display: flex; gap: 14px; align-items: flex-end; margin-top: 12px; }
-  .sizes img { object-fit: contain; }
-  .lab { font-size: 11px; color: #64748b; text-align: center; }
-  .splash { width: 180px; height: 320px; object-fit: cover; border-radius: 16px; border: 1px solid #e2e8f0; }
-  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
-  .note { font-size: 12px; color: #64748b; margin-top: 8px; }
-  .swatches { display: flex; gap: 8px; }
-  .sw { width: 72px; height: 52px; border-radius: 10px; display: flex; align-items: flex-end; padding: 6px; font-size: 10px; font-weight: 650; }
+  img.stack { height: 150px; }
+  img.icon { width: 104px; height: 104px; }
+  .sizes { display: flex; gap: 14px; align-items: flex-end; margin-top: 12px; flex-wrap: wrap; }
+  .lab { font-size: 11px; color: #64748b; text-align: center; margin-top: 4px; }
+  .splash { width: 180px; height: 320px; border-radius: 18px; border: 1px solid #cbd5e1; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sw { width: 84px; height: 56px; border-radius: 10px; display: flex; align-items: flex-end; padding: 6px; font-size: 10px; font-weight: 650; box-sizing: border-box; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Nexity</h1>
-  <p>Blue + white · social, connection, messaging · no heart</p>
+  <img src="svg/primary-logo.svg" alt="Nexity" />
+  <p>Ribbon N · social, connection, messaging</p>
 </header>
 <section>
   <div class="swatches">
+    <div class="sw" style="background:#38BDF8;color:#0f172a">#38BDF8 sky</div>
     <div class="sw" style="background:#3B82F6;color:#fff">#3B82F6</div>
-    <div class="sw" style="background:#2563EB;color:#fff">#2563EB</div>
+    <div class="sw" style="background:#2563EB;color:#fff">#2563EB primary</div>
     <div class="sw" style="background:#1D4ED8;color:#fff">#1D4ED8</div>
+    <div class="sw" style="background:#1E3A8A;color:#fff">#1E3A8A navy</div>
     <div class="sw" style="background:#EFF6FF;color:#1D4ED8">#EFF6FF</div>
-    <div class="sw" style="background:#fff;color:#0f172a;border:1px solid #e2e8f0">#FFFFFF</div>
     <div class="sw" style="background:#0F172A;color:#fff">#0F172A</div>
   </div>
 
-  <h2>Primary logo</h2>
+  <h2>1 · Primary logo</h2>
   <div class="grid">
-    <div class="card">
-      <h3>Horizontal · transparent</h3>
-      <div class="checker"><img class="logo" src="svg/primary-logo.svg" alt="Primary logo" /></div>
-    </div>
-    <div class="card">
-      <h3>On white</h3>
-      <img class="logo" src="svg/primary-logo-on-white.svg" alt="Logo on white" />
-    </div>
-    <div class="card dark">
-      <h3>Dark mode</h3>
-      <img class="logo" src="svg/dark-mode-logo.svg" alt="Dark mode logo" />
-    </div>
+    <div class="card"><h3>Horizontal · transparent</h3><div class="checker"><img class="logo" src="svg/primary-logo.svg" alt="" /></div><p><code>primary-logo.svg</code></p></div>
+    <div class="card"><h3>Stacked</h3><img class="stack" src="svg/logo-stacked.svg" alt="" /><p><code>logo-stacked.svg</code> · welcome, login, register</p></div>
+    <div class="card"><h3>On white</h3><img class="logo" src="svg/primary-logo-on-white.svg" alt="" /><p><code>primary-logo-on-white.svg</code></p></div>
   </div>
 
-  <h2>App icon · clear at 48px</h2>
+  <h2>2 · App icon</h2>
   <div class="card">
-    <h3>Full-bleed master and small sizes</h3>
     <div class="sizes" id="app-sizes"></div>
-    <p class="note">Rounded-square preview uses the same mark. Store upload file is the full-bleed square.</p>
+    <p><code>app-icon.svg</code> (store, full square) · <code>app-icon-rounded.svg</code> · Android launcher updated</p>
   </div>
 
-  <h2>Icon only · splash · notification</h2>
-  <div class="grid">
-    <div class="card">
-      <h3>Icon only</h3>
-      <div class="checker"><img class="icon" src="svg/icon-only.svg" alt="Icon only" /></div>
-      <div class="sizes">
-        <div><img src="svg/icon-only.svg" width="48" height="48" alt="" /><div class="lab">48</div></div>
-        <div><img src="svg/icon-only.svg" width="32" height="32" alt="" /><div class="lab">32</div></div>
-        <div><img src="svg/icon-only.svg" width="24" height="24" alt="" /><div class="lab">24</div></div>
-      </div>
-    </div>
-    <div class="card dark">
-      <h3>Dark mode icon</h3>
-      <img class="icon" src="svg/dark-mode-icon.svg" alt="Dark icon" />
-    </div>
-    <div class="card dark">
-      <h3>Notification glyph</h3>
-      <div style="display:flex;gap:16px;align-items:center">
-        <img src="svg/notification-icon.svg" width="24" height="24" alt="Notification" />
-        <img src="svg/notification-icon.svg" width="48" height="48" alt="" />
-      </div>
-      <p class="note" style="color:#94a3b8">Simple white N for push notifications.</p>
-    </div>
-    <div class="card">
-      <h3>Simple N glyph</h3>
-      <img src="svg/glyph-n.svg" width="64" height="64" alt="N glyph" />
-    </div>
-  </div>
-
-  <h2>Splash</h2>
+  <h2>3 · Splash</h2>
   <div class="row">
-    <div><img class="splash" src="svg/splash-light.svg" alt="Light splash" /><div class="lab">Light</div></div>
-    <div><img class="splash" src="svg/splash-dark.svg" alt="Dark splash" /><div class="lab">Dark</div></div>
-    <div><img class="splash" src="svg/splash-light-animated.svg" alt="Animated splash" /><div class="lab">Animated</div></div>
+    <div><img class="splash" src="svg/splash-light.svg" alt="" /><div class="lab">Light</div></div>
+    <div><img class="splash" src="svg/splash-dark.svg" alt="" /><div class="lab">Dark</div></div>
+    <div><img class="splash" src="svg/splash-light-animated.svg" alt="" /><div class="lab">Animated (reload)</div></div>
+    <div><img class="splash" src="svg/splash-dark-animated.svg" alt="" /><div class="lab">Animated dark</div></div>
   </div>
 
-  <h2>Monochrome</h2>
+  <h2>4 · Icon only</h2>
   <div class="grid">
-    <div class="card dark"><h3>White</h3><img class="logo" src="svg/mono-logo-white.svg" alt="" /></div>
-    <div class="card"><h3>Dark</h3><div class="checker"><img class="logo" src="svg/mono-logo-dark.svg" alt="" /></div></div>
-    <div class="card"><h3>Blue</h3><div class="checker"><img class="logo" src="svg/mono-logo-blue.svg" alt="" /></div></div>
+    <div class="card"><h3>Colour mark</h3><div class="checker"><img class="icon" src="svg/icon-square.svg" alt="" /></div>
+      <div class="sizes">
+        <div><img src="svg/icon-square.svg" width="48" height="48" alt="" /><div class="lab">48</div></div>
+        <div><img src="svg/icon-square.svg" width="32" height="32" alt="" /><div class="lab">32</div></div>
+        <div><img src="svg/icon-square.svg" width="24" height="24" alt="" /><div class="lab">24</div></div>
+      </div>
+      <p><code>icon-square.svg</code> · <code>icon-only.svg</code> (tight crop)</p>
+    </div>
+    <div class="card dark"><h3>On dark</h3><img class="icon" src="svg/dark-mode-icon.svg" alt="" /><p><code>dark-mode-icon.svg</code></p></div>
+    <div class="card"><h3>Flat glyph</h3><img class="icon" src="svg/glyph-n.svg" alt="" /><p><code>glyph-n.svg</code> · loaders, empty states</p></div>
   </div>
 
-  <h2>Admin · favicon · social</h2>
+  <h2>5 · Monochrome</h2>
   <div class="grid">
-    <div class="card"><h3>Admin · light sidebar</h3><img class="logo" src="svg/admin-logo-light.svg" alt="" /></div>
-    <div class="card dark"><h3>Admin · dark sidebar</h3><img class="logo" src="svg/admin-logo-dark.svg" alt="" /></div>
-    <div class="card">
-      <h3>Favicon</h3>
+    <div class="card dark"><h3>White</h3><img class="logo" src="svg/mono-logo-white.svg" alt="" /><img class="icon" style="margin-top:10px;width:56px;height:56px" src="svg/mono-icon-white.svg" alt="" /></div>
+    <div class="card"><h3>Dark</h3><img class="logo" src="svg/mono-logo-dark.svg" alt="" /><img class="icon" style="margin-top:10px;width:56px;height:56px" src="svg/mono-icon-dark.svg" alt="" /></div>
+    <div class="card"><h3>Blue</h3><img class="logo" src="svg/mono-logo-blue.svg" alt="" /><img class="icon" style="margin-top:10px;width:56px;height:56px" src="svg/mono-icon-blue.svg" alt="" /></div>
+  </div>
+
+  <h2>6 · Dark mode</h2>
+  <div class="grid">
+    <div class="card dark"><h3>Horizontal</h3><img class="logo" src="svg/dark-mode-logo.svg" alt="" /><p><code>dark-mode-logo.svg</code></p></div>
+    <div class="card dark"><h3>Stacked</h3><img class="stack" src="svg/logo-stacked-dark.svg" alt="" /><p><code>logo-stacked-dark.svg</code></p></div>
+  </div>
+
+  <h2>7 · Notification · 9 · Favicon</h2>
+  <div class="grid">
+    <div class="card blue"><h3>Notification glyph</h3>
+      <div class="sizes"><img src="svg/notification-icon.svg" width="24" height="24" alt="" /><img src="svg/notification-icon.svg" width="48" height="48" alt="" /></div>
+    </div>
+    <div class="card"><h3>Favicon</h3>
       <div class="sizes">
         <div><img src="svg/favicon.svg" width="64" height="64" alt="" /><div class="lab">64</div></div>
         <div><img src="svg/favicon.svg" width="32" height="32" alt="" /><div class="lab">32</div></div>
         <div><img src="svg/favicon.svg" width="16" height="16" alt="" /><div class="lab">16</div></div>
       </div>
+      <p><code>favicon.svg</code> · <code>favicon.ico</code></p>
     </div>
-    <div class="card"><h3>Social square</h3><img src="svg/social-square.svg" width="160" height="160" alt="Social square" style="border-radius:28px" /></div>
+  </div>
+
+  <h2>8 · Admin panel</h2>
+  <div class="grid">
+    <div class="card"><h3>Light sidebar</h3><img class="logo" src="svg/admin-logo-light.svg" alt="" /></div>
+    <div class="card dark"><h3>Dark sidebar</h3><img class="logo" src="svg/admin-logo-dark.svg" alt="" /></div>
+  </div>
+
+  <h2>10 · Social</h2>
+  <div class="row">
+    <img src="svg/social-square.svg" width="220" height="220" alt="" style="border-radius:18px" />
+    <img src="svg/social-icon.svg" width="220" height="220" alt="" />
   </div>
 </section>
 <script>
   const row = document.getElementById('app-sizes');
-  [160, 96, 48, 32, 24].forEach((s) => {
+  [180, 96, 60, 48, 32].forEach((s) => {
     const box = document.createElement('div');
-    const img = document.createElement('img');
-    img.src = 'svg/app-icon-rounded.svg';
-    img.width = s; img.height = s;
-    img.alt = s + 'px';
-    const lab = document.createElement('div');
-    lab.className = 'lab';
-    lab.textContent = s + 'px';
-    box.appendChild(img); box.appendChild(lab);
+    box.innerHTML = `<img src="svg/app-icon-rounded.svg" width="${s}" height="${s}" alt="" style="box-shadow:0 2px 8px rgba(15,23,42,.12);border-radius:${s * 0.22}px" /><div class="lab">${s}px</div>`;
     row.appendChild(box);
   });
 </script>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#F8FAFC">
+  <link rel="icon" type="image/svg+xml" href="assets/brand/favicon.svg">
+  <link rel="apple-touch-icon" href="assets/brand/nexity-app-icon-rounded.svg">
+  <link rel="preload" as="image" href="assets/brand/nexity-logo-stacked.svg">
+  <meta name="description" content="Nexity — a social app for secret messages, secret crushes and real connection.">
+  <title>Nexity</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/screens.css">
+  <link rel="stylesheet" href="css/secret.css">
+  <link rel="stylesheet" href="css/create.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <script>
+    /* Apply the saved theme before first paint to avoid a flash. */
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem('nexity.proto.v1') || 'null');
+        var p = (s && s.theme) || 'system';
+        var d = p === 'dark' || (p === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-mood', (s && s.mood) || 'calm');
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) {
+          var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+          if (bg) meta.setAttribute('content', bg);
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#view">Skip to content</a>
+  <div id="app" class="app" data-chrome="none">
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation"></aside>
+    <main class="main" id="main">
+      <div id="view" class="view" tabindex="-1"></div>
+    </main>
+    <aside class="rail" id="rail" aria-label="Suggestions"></aside>
+    <nav class="bottom-nav" id="bottomNav" aria-label="Main navigation"></nav>
+  </div>
+  <div id="overlay-root"></div>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
+  <button class="demo-fab" data-action="openDemo" aria-label="Open demo controls (Alt+D)" title="Demo controls (Alt+D)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>
+    <span>Demo</span>
+  </button>
+
+  <script src="js/data.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/toast.js"></script>
+  <script src="js/modals.js"></script>
+  <script src="js/navigation.js"></script>
+  <script src="js/safety.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/home.js"></script>
+  <script src="js/create.js"></script>
+  <script src="js/reels.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/user.js"></script>
+  <script src="js/secret.js"></script>
+  <script src="js/crush.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/subscription.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/demo.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

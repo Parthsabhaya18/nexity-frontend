@@ -1,12 +1,44 @@
+import { useColorScheme } from 'react-native';
+
+export const brand = {
+  primary: '#2563EB',
+  bright: '#3B82F6',
+  deep: '#1D4ED8',
+  sky: '#38BDF8',
+  navy: '#1E3A8A',
+  tint: '#EFF6FF',
+  white: '#FFFFFF',
+  dark: '#0F172A',
+} as const;
+
 export const colors = {
-  primary: '#4F46E5',
+  primary: brand.primary,
+  primaryPressed: brand.deep,
+  accent: brand.sky,
+  tint: brand.tint,
+  heading: brand.navy,
   background: '#F8FAFC',
   surface: '#FFFFFF',
-  text: '#0F172A',
+  text: brand.dark,
   textMuted: '#64748B',
   success: '#16A34A',
   danger: '#DC2626',
   border: '#E2E8F0',
+} as const;
+
+export const darkColors = {
+  primary: brand.bright,
+  primaryPressed: brand.primary,
+  accent: brand.sky,
+  tint: '#1E293B',
+  heading: '#FFFFFF',
+  background: brand.dark,
+  surface: '#111C33',
+  text: '#F1F5F9',
+  textMuted: '#94A3B8',
+  success: '#22C55E',
+  danger: '#F87171',
+  border: '#1E293B',
 } as const;
 
 export const spacing = {
@@ -16,3 +48,166 @@ export const spacing = {
   lg: 24,
   xl: 32,
 } as const;
+
+export const radius = {
+  sm: 10,
+  md: 14,
+  lg: 18,
+  full: 999,
+} as const;
+
+/** Mood palette (light appearance) — see documentation/architecture/THEMING.md. */
+export const moodPalettes = {
+  happy: {
+    background: '#FFFBEA',
+    surface: '#FFFFFF',
+    primary: '#F5B800',
+    button: '#D99500',
+    text: '#2B2200',
+    textSecondary: '#756A3A',
+    border: '#F5E7A8',
+  },
+  calm: {
+    background: '#EFF8FF',
+    surface: '#FFFFFF',
+    primary: '#3B82F6',
+    button: '#1D4ED8',
+    text: '#0F2747',
+    textSecondary: '#58708C',
+    border: '#CFE5FA',
+  },
+  romantic: {
+    background: '#FFF1F5',
+    surface: '#FFFFFF',
+    primary: '#EC4899',
+    button: '#BE185D',
+    text: '#3B0A1E',
+    textSecondary: '#87506A',
+    border: '#F7C6D8',
+  },
+  sad: {
+    background: '#EEF2FF',
+    surface: '#FFFFFF',
+    primary: '#6366F1',
+    button: '#4338CA',
+    text: '#171B3A',
+    textSecondary: '#626A91',
+    border: '#D5D9F5',
+  },
+  angry: {
+    background: '#FFF1F1',
+    surface: '#FFFFFF',
+    primary: '#EF4444',
+    button: '#B91C1C',
+    text: '#350909',
+    textSecondary: '#824343',
+    border: '#F6CACA',
+  },
+  cool: {
+    background: '#F5F3FF',
+    surface: '#FFFFFF',
+    primary: '#8B5CF6',
+    button: '#6D28D9',
+    text: '#21133D',
+    textSecondary: '#6B5A82',
+    border: '#DDD4FE',
+  },
+  relaxed: {
+    background: '#F1FAF4',
+    surface: '#FFFFFF',
+    primary: '#22C55E',
+    button: '#15803D',
+    text: '#0B2B18',
+    textSecondary: '#557562',
+    border: '#CBEBD5',
+  },
+  excited: {
+    background: '#FFF5ED',
+    surface: '#FFFFFF',
+    primary: '#F97316',
+    button: '#C2410C',
+    text: '#351306',
+    textSecondary: '#875D45',
+    border: '#F6D0BA',
+  },
+  tired: {
+    background: '#F5F3F7',
+    surface: '#FFFFFF',
+    primary: '#8B7FA8',
+    button: '#625477',
+    text: '#292432',
+    textSecondary: '#756D7D',
+    border: '#DDD8E5',
+  },
+  motivated: {
+    background: '#EEFDFD',
+    surface: '#FFFFFF',
+    primary: '#06B6D4',
+    button: '#0E7490',
+    text: '#062B32',
+    textSecondary: '#4C7278',
+    border: '#BFE8EE',
+  },
+} as const;
+
+export type Mood = keyof typeof moodPalettes;
+export const DEFAULT_MOOD: Mood = 'calm';
+
+export type ThemeColors = {
+  background: string;
+  surface: string;
+  primary: string;
+  button: string;
+  onButton: string;
+  text: string;
+  textSecondary: string;
+  border: string;
+  inputBackground: string;
+  danger: string;
+  dangerSoft: string;
+  success: string;
+  successSoft: string;
+  primarySoft: string;
+};
+
+const status = { danger: '#ED4956', success: '#12935A' } as const;
+
+const darkTheme: ThemeColors = {
+  background: '#000000',
+  surface: '#121212',
+  primary: '#0095F6',
+  button: '#0095F6',
+  onButton: '#FFFFFF',
+  text: '#F5F5F5',
+  textSecondary: '#A8A8A8',
+  border: '#363636',
+  inputBackground: '#262626',
+  danger: status.danger,
+  dangerSoft: 'rgba(237, 73, 86, 0.16)',
+  success: '#34C47F',
+  successSoft: 'rgba(52, 196, 127, 0.16)',
+  primarySoft: 'rgba(0, 149, 246, 0.16)',
+};
+
+export function getThemeColors(
+  scheme: 'light' | 'dark',
+  mood: Mood = DEFAULT_MOOD,
+): ThemeColors {
+  if (scheme === 'dark') return darkTheme;
+  const p = moodPalettes[mood];
+  return {
+    ...p,
+    onButton: '#FFFFFF',
+    inputBackground: '#FFFFFF',
+    danger: status.danger,
+    dangerSoft: '#FDEBEC',
+    success: status.success,
+    successSoft: '#E3F5EC',
+    primarySoft: `${p.primary}1F`,
+  };
+}
+
+export function useAppTheme() {
+  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+  return { scheme, colors: getThemeColors(scheme) } as const;
+}

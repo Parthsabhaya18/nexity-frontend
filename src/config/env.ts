@@ -12,4 +12,5 @@ export const env = {
   isDev: __DEV__,
   apiBaseUrl: __DEV__ ? DEV_API_URL : PROD_API_URL,
   apiTimeoutMs: 15000,
+  appVersion: '1.0.0',
 } as const;

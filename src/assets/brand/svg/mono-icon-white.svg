@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-
-<g>
-    <defs>
-      <mask id="cut">
-        <rect width="64" height="64" fill="#fff"/>
-        <path d="M21 39.2V19.2L43 39.2V19.2" fill="none" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-      </mask>
-    </defs>
-    <path d="M9.5 17.5c0-4.2 3.4-7.5 7.5-7.5h30c4.1 0 7.5 3.3 7.5 7.5V35c0 4.2-3.4 7.5-7.5 7.5H31l-8.2 7.1c-.8.7-2 .1-2-.9v-6.2h-3.8c-4.1 0-7.5-3.3-7.5-7.5V17.5z" fill="#FFFFFF" mask="url(#cut)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+<defs></defs><g transform="translate(-0.87 0.22) scale(1.09)">
+  <defs>
+    <mask id="c-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="120">
+      <rect width="120" height="120" fill="#fff"/>
+      <path d="M10 49 C12 41.5 36 40.5 38 50 V78 a14 14 0 0 1 -28 0 Z" fill="#000" stroke="#000" stroke-width="5"/>
+    </mask>
+    <clipPath id="c-bc"><rect x="0" y="0" width="74" height="120"/><path d="M74 32 a14 14 0 0 1 28 0 V78 a14 14 0 0 1 -28 0 Z"/></clipPath>
+  </defs>
+  <g mask="url(#c-cut)">
+    <path d="M74 32 a14 14 0 0 1 28 0 V78 a14 14 0 0 1 -28 0 Z" fill="#FFFFFF"/>
+    <path d="M10 72 V46 A28 28 0 0 1 60.94 29.94 L112 103 L90 96 L74 80 L38 49 V72 Z" fill="#FFFFFF" clip-path="url(#c-bc)"/>
   </g>
+  <path d="M10 49 C12 41.5 36 40.5 38 50 V78 a14 14 0 0 1 -28 0 Z" fill="#FFFFFF"/></g>
 </svg>

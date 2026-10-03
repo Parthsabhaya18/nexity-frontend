@@ -1,0 +1,21 @@
+{
+  "appIcon": {
+    "backgroundGradient": ["#3B82F6", "#1D4ED8"],
+    "androidAdaptiveBackground": "@drawable/ic_launcher_background",
+    "notificationIcon": "#FFFFFF"
+  },
+  "splash": {
+    "lightBackground": "#F8FAFC",
+    "darkBackground": "#0F172A"
+  },
+  "palette": {
+    "primary": "#2563EB",
+    "bright": "#3B82F6",
+    "deep": "#1D4ED8",
+    "sky": "#38BDF8",
+    "navy": "#1E3A8A",
+    "tint": "#EFF6FF",
+    "white": "#FFFFFF",
+    "dark": "#0F172A"
+  }
+}

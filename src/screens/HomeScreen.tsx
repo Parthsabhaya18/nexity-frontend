@@ -1,103 +1,94 @@
-import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useState } from 'react';
+import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandLogo } from '@/components/BrandLogo';
-import { env } from '@/config/env';
-import { getHealth, type HealthResponse } from '@/services/api/health';
-import { colors, spacing } from '@/theme';
-
-type State =
-  | { kind: 'loading' }
-  | { kind: 'ok'; data: HealthResponse }
-  | { kind: 'error'; message: string };
+import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { radius, spacing, useAppTheme } from '@/theme';
 
 export function HomeScreen() {
-  const [state, setState] = useState<State>({ kind: 'loading' });
+  const { user, signOut } = useAuth();
+  const { scheme, colors } = useAppTheme();
+  const [signingOut, setSigningOut] = useState(false);
 
-  const check = useCallback(async () => {
-    setState({ kind: 'loading' });
-    try {
-      setState({ kind: 'ok', data: await getHealth() });
-    } catch (e) {
-      setState({ kind: 'error', message: (e as Error).message });
-    }
-  }, []);
-
-  useEffect(() => {
-    check();
-  }, [check]);
+  if (!user) return null;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <BrandLogo width={196} />
-      <Text style={styles.title}>Welcome to Nexity</Text>
-      <Text style={styles.subtitle}>
-        Running on a physical device ({env.isDev ? 'development' : 'production'}
-        )
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'}
+      />
+      <ScrollView contentContainerStyle={styles.container}>
+        <BrandLogo variant="horizontal" width={140} scheme={scheme} />
+        <Text style={[styles.title, { color: colors.text }]}>
+          Hi, {user.display_name} 👋
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          You’re logged in to Nexity.
+        </Text>
+
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Row label="Username" value={`@${user.username}`} />
+          <Row label="Email" value={user.email} />
+          <Row label="Email verified" value={user.is_verified ? 'Yes' : 'No'} />
+        </View>
+
+        <Button
+          title="Log out"
+          variant="secondary"
+          loading={signingOut}
+          onPress={async () => {
+            setSigningOut(true);
+            await signOut();
+          }}
+        />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  const { colors } = useAppTheme();
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>
+        {label}
       </Text>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Backend connection</Text>
-        <Text style={styles.muted}>{env.apiBaseUrl}</Text>
-
-        {state.kind === 'loading' && (
-          <ActivityIndicator style={styles.status} color={colors.primary} />
-        )}
-        {state.kind === 'ok' && (
-          <Text style={[styles.status, styles.success]}>
-            Connected · {state.data.environment} · up{' '}
-            {Math.round(state.data.uptime)}s
-          </Text>
-        )}
-        {state.kind === 'error' && (
-          <Text style={[styles.status, styles.error]}>
-            {state.message}
-            {env.isDev ? '\nIs the backend running? Did you run "npm run reverse"?' : ''}
-          </Text>
-        )}
-
-        <Pressable style={styles.button} onPress={check}>
-          <Text style={styles.buttonText}>Check again</Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+      <Text style={[styles.rowValue, { color: colors.text }]} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: spacing.lg,
-    backgroundColor: colors.background,
-  },
-  title: { marginTop: spacing.lg, fontSize: 28, fontWeight: '700', color: colors.text },
-  subtitle: { marginTop: spacing.xs, color: colors.textMuted },
+  safe: { flex: 1 },
+  container: { flexGrow: 1, padding: spacing.lg, paddingTop: spacing.xl },
+  title: { fontSize: 26, fontWeight: '800', marginTop: spacing.xl },
+  subtitle: { fontSize: 15, marginTop: 6 },
   card: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginVertical: spacing.lg,
   },
-  cardTitle: { fontSize: 18, fontWeight: '600', color: colors.text },
-  muted: { marginTop: spacing.xs, color: colors.textMuted, fontSize: 12 },
-  status: { marginTop: spacing.md },
-  success: { color: colors.success, fontWeight: '600' },
-  error: { color: colors.danger },
-  button: {
-    marginTop: spacing.md,
-    paddingVertical: spacing.sm + 4,
-    borderRadius: 8,
-    alignItems: 'center',
-    backgroundColor: colors.primary,
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
   },
-  buttonText: { color: '#fff', fontWeight: '600' },
+  rowLabel: { fontSize: 14 },
+  rowValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    flexShrink: 1,
+    marginLeft: spacing.md,
+  },
 });
