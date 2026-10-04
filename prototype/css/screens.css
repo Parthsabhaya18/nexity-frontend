@@ -83,8 +83,18 @@
 .post-user span { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .post-user b { font-size: 14px; }
 .post-user small { font-size: 12px; color: var(--text-3); }
-.post-media { position: relative; aspect-ratio: 1; background: linear-gradient(135deg, var(--primary-soft), var(--accent-soft)); overflow: hidden; cursor: pointer; user-select: none; }
+.post-media { position: relative; aspect-ratio: 1; background: linear-gradient(135deg, var(--primary-soft), var(--accent-soft)); overflow: hidden; cursor: pointer; user-select: none; touch-action: pan-y; }
 .post-media img { width: 100%; height: 100%; object-fit: cover; }
+.post-slides { position: absolute; inset: 0; display: flex; height: 100%; transition: transform .28s var(--ease); }
+.post-slides img { flex: 0 0 100%; width: 100%; max-width: none; height: 100%; object-fit: cover; pointer-events: none; }
+.post-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 50%; background: rgba(255, 255, 255, .92); color: #111; display: grid; place-items: center; z-index: 2; opacity: 0; transition: opacity .15s; }
+.post-media:hover .post-arrow, .post-arrow:focus-visible { opacity: 1; }
+.post-arrow.left { left: 10px; }
+.post-arrow.right { right: 10px; }
+.post-dots { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; gap: 5px; z-index: 2; pointer-events: none; }
+.post-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .5); }
+.post-dots i.on { background: #fff; }
+.post-multi { position: absolute; top: 12px; right: 12px; color: #fff; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .55)); z-index: 2; pointer-events: none; }
 .big-heart { position: absolute; left: 50%; top: 50%; color: #fff; opacity: 0; pointer-events: none; filter: drop-shadow(0 8px 24px rgba(0, 0, 0, .35)); transform: translate(-50%, -50%); }
 .big-heart .ic { fill: #fff; }
 .show-heart .big-heart { animation: bigHeart .9s var(--ease-out); }
@@ -95,6 +105,13 @@
 .post-body { padding: 2px 16px 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
 .post-likes { font-size: 14px; }
 .post-caption { font-size: 14.5px; line-height: 1.45; }
+.post-caption .hash { display: inline; color: var(--primary); font-weight: 700; }
+.post-with { font-size: 13.5px; color: var(--text-2); }
+.post-loc { font-weight: 700; color: var(--text-2); }
+.hash-count { margin-bottom: 12px; }
+.hash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.hash-grid-item { aspect-ratio: 1; overflow: hidden; background: var(--surface-2); }
+.hash-grid-item img { width: 100%; height: 100%; object-fit: cover; }
 
 .suggest { margin: 0 0 14px; padding: 14px 0 16px; border-radius: 0; border-left: 0; border-right: 0; }
 .suggest .section-head { margin: 0 16px 10px; }
@@ -209,7 +226,9 @@
 .reel-user { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .reel-user-btn { display: flex; align-items: center; gap: 10px; color: #fff; }
 .reel-user-btn b { font-size: 14.5px; }
+.reel-loc, .reel-with { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 6px; opacity: .92; }
 .reel-caption { font-size: 14px; line-height: 1.45; margin-bottom: 8px; }
+.reel-caption .hash { color: #fff; font-weight: 800; }
 .reel-audio { display: flex; align-items: center; gap: 6px; font-size: 12.5px; opacity: .9; }
 .reels-nav { display: none; }
 .reel .big-heart { z-index: 2; }
@@ -250,6 +269,7 @@ button.stat:hover { background: var(--surface-2); }
 .grid-item img { width: 100%; height: 100%; object-fit: cover; transition: transform .25s var(--ease), opacity .2s; }
 .grid-item:hover img { transform: scale(1.04); opacity: .92; }
 .grid-reel-meta { position: absolute; left: 8px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px; color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 4px rgba(0, 0, 0, .6); }
+.grid-multi { position: absolute; top: 8px; right: 8px; color: #fff; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .65)); }
 
 .secret-actions { margin: 18px 0 4px; padding: 14px; border-radius: var(--r-xl); background: var(--secret-grad); color: var(--secret-text); position: relative; overflow: hidden; }
 .secret-actions::before { content: ''; position: absolute; width: 220px; height: 220px; right: -60px; top: -90px; background: radial-gradient(circle, rgba(232, 72, 127, .35), transparent 65%); pointer-events: none; }

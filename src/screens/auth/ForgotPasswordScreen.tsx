@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Keyboard, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
@@ -11,41 +11,60 @@ import { Button, LinkButton } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { applyServerErrors } from '@/features/auth/formErrors';
 import { type ForgotFormInput, forgotSchema } from '@/features/auth/schemas';
+import { useSubmitLock } from '@/features/auth/useSubmitLock';
 import type { ScreenProps } from '@/navigation/types';
 import { authApi } from '@/services/api/auth';
+import { ApiError } from '@/services/api/client';
 import { spacing } from '@/theme';
 
 export function ForgotPasswordScreen({
   navigation,
   route,
 }: ScreenProps<'ForgotPassword'>) {
+  const submit = useSubmitLock();
+  const failedAttempt = useRef<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const {
     control,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ForgotFormInput, unknown, z.output<typeof forgotSchema>>({
     resolver: zodResolver(forgotSchema),
     defaultValues: { email: route.params?.email ?? '' },
   });
 
-  const onSubmit = handleSubmit(async ({ email }) => {
-    Keyboard.dismiss();
-    setFormError(null);
-    try {
-      const res = await authApi.forgotPassword(email);
-      navigation.navigate('VerifyEmail', {
-        email,
-        mode: 'reset',
-        resendIn: res.resend_available_in,
-        devCode: res.dev_code,
-      });
-    } catch (err) {
-      setFormError(applyServerErrors(err, setError));
-    }
-  });
+  const showError = (message: string | null) => {
+    setFormError(current => (current === message ? current : message));
+  };
+
+  const emailValue = watch('email');
+
+  const onSubmit = () => {
+    const key = emailValue.trim().toLowerCase();
+    if (failedAttempt.current === key) return;
+    submit(() =>
+      handleSubmit(async ({ email }) => {
+        Keyboard.dismiss();
+        try {
+          const res = await authApi.forgotPassword(email);
+          failedAttempt.current = null;
+          navigation.navigate('VerifyEmail', {
+            email,
+            mode: 'reset',
+            resendIn: res.resend_available_in,
+            devCode: res.dev_code,
+          });
+        } catch (err) {
+          failedAttempt.current =
+            err instanceof ApiError ? email.trim().toLowerCase() : null;
+          showError(applyServerErrors(err, setError));
+        }
+      })(),
+    );
+  };
 
   return (
     <AuthLayout onBack={() => navigation.goBack()}>
@@ -65,7 +84,11 @@ export function ForgotPasswordScreen({
             label="Email"
             placeholder="you@example.com"
             value={field.value}
-            onChangeText={field.onChange}
+            onChangeText={text => {
+              field.onChange(text);
+              failedAttempt.current = null;
+              if (formError) showError(null);
+            }}
             onBlur={field.onBlur}
             error={errors.email?.message}
             autoCapitalize="none"

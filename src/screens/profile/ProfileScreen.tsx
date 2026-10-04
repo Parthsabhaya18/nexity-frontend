@@ -1,56 +1,112 @@
-import { useScrollToTop } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import {
+  Bookmark,
   Camera,
+  ChevronRight,
   Clapperboard,
   Grid3x3,
   Lock,
-  type LucideIcon,
   Settings,
   SquarePlus,
+  UserPlus,
 } from 'lucide-react-native';
-import { useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
-  type ScrollViewInstance,
+  Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AvatarPreview } from '@/components/profile/AvatarPreview';
+import {
+  Stat,
+  TabBar,
+  TabButton,
+  WebsiteLink,
+} from '@/components/profile/ProfileParts';
 import { AppBar } from '@/components/ui/AppBar';
 import { Avatar } from '@/components/ui/Avatar';
-import { Button } from '@/components/ui/Button';
+import { Button, LinkButton } from '@/components/ui/Button';
+import { PostGrid } from '@/components/posts/PostGrid';
+import { ReelGrid } from '@/components/reels/ReelGrid';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useTabBarInset } from '@/navigation/BottomNav';
-import type { TabScreenProps } from '@/navigation/types';
+import { profileLink } from '@/features/profile/schemas';
+import { postsApi } from '@/services/api/posts';
+import type { ScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
-import { spacing, useAppTheme } from '@/theme';
+import { radius, spacing, useAppTheme } from '@/theme';
 
-type ProfileTab = 'posts' | 'reels';
+type ProfileTab = 'posts' | 'reels' | 'saved';
 
-export function ProfileScreen({ navigation }: TabScreenProps<'Profile'>) {
-  const { user } = useAuth();
+export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
+  const { user, refreshUser } = useAuth();
   const { colors } = useAppTheme();
-  const bottomInset = useTabBarInset();
-  const scrollRef = useRef<ScrollViewInstance>(null);
   const [tab, setTab] = useState<ProfileTab>('posts');
-  useScrollToTop(scrollRef);
+  const [refreshing, setRefreshing] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   useStatusBar();
+  const fetchSaved = useCallback(
+    (cursor: string | null, signal: AbortSignal) =>
+      postsApi.saved(cursor, signal),
+    [],
+  );
+  const fetchPosts = useCallback(
+    (cursor: string | null, signal: AbortSignal) =>
+      postsApi.byUser(user?.id ?? '', cursor, signal),
+    [user?.id],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      // Keeps counts current; the cached profile stays on screen when offline.
+      refreshUser().catch(() => {});
+    }, [refreshUser]),
+  );
 
   if (!user) return null;
 
   const openCreate = () => navigation.navigate('Create');
+  const openEdit = () => navigation.navigate('EditProfile');
+  const openConnections = (initialTab: 'followers' | 'following') =>
+    navigation.navigate('Followers', {
+      userId: user.id,
+      username: user.username,
+      tab: initialTab,
+    });
+  const requests = user.follow_requests_count ?? 0;
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshUser();
+    } catch {
+      // Pull-to-refresh failing offline is expected; keep what is shown.
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const shareProfile = () =>
+    Share.share({
+      message: `Follow @${user.username} on Nexity: ${profileLink(
+        user.username,
+      )}`,
+    }).catch(() => {});
 
   return (
     <SafeAreaView
-      edges={['top']}
+      edges={['top', 'bottom']}
       style={[styles.safe, { backgroundColor: colors.background }]}
     >
       <AppBar
+        back
         left={
           <View style={styles.titleRow}>
             {user.is_private ? (
@@ -81,16 +137,43 @@ export function ProfileScreen({ navigation }: TabScreenProps<'Profile'>) {
       />
 
       <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={{ paddingBottom: bottomInset }}
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.surface}
+          />
+        }
       >
         <View style={styles.head}>
           <View style={styles.top}>
-            <Avatar uri={user.avatar_url} name={user.display_name} size={88} />
+            <Pressable
+              onPress={() => setPhotoOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="View profile photo"
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Avatar
+                uri={user.avatar_url}
+                name={user.display_name}
+                size={88}
+              />
+            </Pressable>
             <View style={styles.stats}>
-              <Stat value={0} label="Posts" />
-              <Stat value={0} label="Followers" />
-              <Stat value={0} label="Following" />
+              <Stat value={user.posts_count ?? 0} label="Posts" />
+              <Stat
+                value={user.followers_count ?? 0}
+                label="Followers"
+                onPress={() => openConnections('followers')}
+              />
+              <Stat
+                value={user.following_count ?? 0}
+                label="Following"
+                onPress={() => openConnections('following')}
+              />
             </View>
           </View>
           <View style={styles.info}>
@@ -101,11 +184,63 @@ export function ProfileScreen({ navigation }: TabScreenProps<'Profile'>) {
               <Text style={[styles.bio, { color: colors.text }]}>
                 {user.bio}
               </Text>
-            ) : null}
+            ) : (
+              <View style={styles.addBio}>
+                <LinkButton title="+ Add a bio" onPress={openEdit} />
+              </View>
+            )}
+            {user.website ? <WebsiteLink url={user.website} /> : null}
           </View>
+          <View style={styles.actions}>
+            <Button
+              title="Edit profile"
+              variant="secondary"
+              onPress={openEdit}
+              style={styles.action}
+            />
+            <Button
+              title="Share profile"
+              variant="secondary"
+              onPress={shareProfile}
+              style={styles.action}
+            />
+          </View>
+          {requests > 0 ? (
+            <Pressable
+              onPress={() => navigation.navigate('FollowRequests')}
+              accessibilityRole="button"
+              accessibilityLabel={`Follow requests, ${requests}`}
+              style={({ pressed }) => [
+                styles.requests,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                pressed && styles.pressed,
+              ]}
+            >
+              <View
+                style={[
+                  styles.requestsIcon,
+                  { backgroundColor: colors.primarySoft },
+                ]}
+              >
+                <UserPlus size={18} color={colors.primary} />
+              </View>
+              <Text style={[styles.requestsText, { color: colors.text }]}>
+                Follow requests
+              </Text>
+              <Text
+                style={[
+                  styles.requestsCount,
+                  { color: colors.onButton, backgroundColor: colors.accent },
+                ]}
+              >
+                {requests > 99 ? '99+' : requests}
+              </Text>
+              <ChevronRight size={18} color={colors.textSecondary} />
+            </Pressable>
+          ) : null}
         </View>
 
-        <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
+        <TabBar>
           <TabButton
             label="Posts"
             active={tab === 'posts'}
@@ -118,86 +253,77 @@ export function ProfileScreen({ navigation }: TabScreenProps<'Profile'>) {
             onPress={() => setTab('reels')}
             Icon={Clapperboard}
           />
-        </View>
+          <TabButton
+            label="Saved"
+            active={tab === 'saved'}
+            onPress={() => setTab('saved')}
+            Icon={Bookmark}
+          />
+        </TabBar>
 
         {tab === 'posts' ? (
-          <EmptyState
-            icon={<Camera size={34} color={colors.primary} />}
-            title="Share your first photo"
-            text="Your photos and moments will appear here."
-            action={
-              <Button
-                title="Create a post"
-                onPress={openCreate}
-                style={styles.cta}
+          <PostGrid
+            fetchPage={fetchPosts}
+            empty={
+              <EmptyState
+                icon={<Camera size={34} color={colors.primary} />}
+                title="Share your first photo"
+                text="Your photos and moments will appear here."
+                action={
+                  <Button
+                    title="Create a post"
+                    onPress={openCreate}
+                    style={styles.cta}
+                  />
+                }
+              />
+            }
+          />
+        ) : tab === 'saved' ? (
+          <PostGrid
+            fetchPage={fetchSaved}
+            empty={
+              <EmptyState
+                icon={<Bookmark size={34} color={colors.primary} />}
+                title="No saved posts"
+                text="Posts you save show up here."
               />
             }
           />
         ) : (
-          <EmptyState
-            icon={<Clapperboard size={34} color={colors.primary} />}
-            title="No reels yet"
-            text="Reels you create will show up here."
+          <ReelGrid
+            userId={user.id}
+            empty={
+              <EmptyState
+                icon={<Clapperboard size={34} color={colors.primary} />}
+                title="No reels yet"
+                text="Reels you create will show up here."
+                action={
+                  <Button
+                    title="Create a reel"
+                    onPress={() => navigation.navigate('CreateReel')}
+                    style={styles.cta}
+                  />
+                }
+              />
+            }
           />
         )}
       </ScrollView>
+      <AvatarPreview
+        visible={photoOpen}
+        uri={user.avatar_url}
+        name={user.display_name}
+        username={user.username}
+        onClose={() => setPhotoOpen(false)}
+      />
     </SafeAreaView>
-  );
-}
-
-function formatCount(n: number) {
-  if (n < 10_000) return n.toLocaleString('en-US');
-  if (n < 1_000_000) return `${Math.floor(n / 100) / 10}K`.replace('.0K', 'K');
-  return `${Math.floor(n / 100_000) / 10}M`.replace('.0M', 'M');
-}
-
-function Stat({ value, label }: { value: number; label: string }) {
-  const { colors } = useAppTheme();
-  return (
-    <View
-      style={styles.stat}
-      accessible
-      accessibilityLabel={`${value} ${label}`}
-    >
-      <Text style={[styles.statValue, { color: colors.text }]}>
-        {formatCount(value)}
-      </Text>
-      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-function TabButton({
-  label,
-  active,
-  onPress,
-  Icon,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  Icon: LucideIcon;
-}) {
-  const { colors } = useAppTheme();
-  const color = active ? colors.text : colors.textSecondary;
-  const indicator = active ? colors.text : 'transparent';
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="tab"
-      accessibilityState={{ selected: active }}
-      style={[styles.tab, { borderBottomColor: indicator }]}
-    >
-      <Icon size={20} color={color} />
-      <Text style={[styles.tabLabel, { color }]}>{label}</Text>
-    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  scroll: { paddingBottom: spacing.lg },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   username: {
     fontSize: 19,
@@ -208,22 +334,46 @@ const styles = StyleSheet.create({
   head: { paddingHorizontal: spacing.md, paddingTop: 6, paddingBottom: 4 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   stats: { flex: 1, flexDirection: 'row' },
-  stat: { flex: 1, alignItems: 'center', paddingVertical: 6 },
-  statValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
-  statLabel: { fontSize: 13, marginTop: 1 },
   info: { marginTop: 14, marginBottom: 14 },
   name: { fontSize: 16, fontWeight: '700' },
   bio: { fontSize: 14.5, lineHeight: 21, marginTop: 4 },
-  tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth },
-  tab: {
+  addBio: { alignSelf: 'flex-start', marginTop: 4 },
+  actions: { flexDirection: 'row', gap: spacing.sm, marginBottom: 14 },
+  action: {
     flex: 1,
+    minHeight: 38,
+    borderRadius: radius.sm,
+    paddingHorizontal: 8,
+  },
+  pressed: { opacity: 0.7 },
+  requests: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    borderBottomWidth: 2,
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 14,
   },
-  tabLabel: { fontSize: 14, fontWeight: '700' },
+  requestsIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestsText: { flex: 1, fontSize: 15, fontWeight: '700' },
+  requestsCount: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    overflow: 'hidden',
+    textAlign: 'center',
+    lineHeight: 22,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   cta: { minWidth: 200 },
 });

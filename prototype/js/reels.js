@@ -2,9 +2,11 @@
 (function () {
   let observer = null;
 
+  const reelCaption = (text) => esc(text || '').replace(/#([A-Za-z\u0900-\u097F][\w\u0900-\u097F]*)/g, '<button class="hash" data-action="openHashtag" data-tag="$1">#$1</button>');
   const reelCard = (r) => {
     const u = NX.user(r.userId);
     const mine = r.userId === 'me';
+    const withPeople = (r.tags || []).map(id => NX.user(id)).filter(Boolean);
     const dur = Math.min(60, r.dur || 14 + (parseInt(r.id.replace(/\D/g, ''), 10) * 11) % 47);
     return `
       <article class="reel" data-reel="${r.id}" style="--dur:${dur}s" aria-label="Reel by ${esc(u.username)}, ${dur} seconds">
@@ -27,7 +29,9 @@
             <button class="reel-user-btn" data-go="user" data-id="${u.id}">${avatar(u, 34)}<b>${esc(u.username)}</b></button>
             ${!mine ? `<button class="btn btn-xs btn-outline-light" data-action="follow" data-id="${u.id}">${NX.isFollowing(u.id) ? 'Following' : 'Follow'}</button>` : ''}
           </div>
-          <p class="reel-caption">${esc(r.caption)}</p>
+          ${r.location ? `<p class="reel-loc">${Icon('map', 13)} ${esc(r.location)}</p>` : ''}
+          <p class="reel-caption">${reelCaption(r.caption)}</p>
+          ${withPeople.length ? `<p class="reel-with">with ${withPeople.map(p => esc(p.username)).join(', ')}</p>` : ''}
           <p class="reel-audio">${Icon('music', 14)} <span>${esc(r.audio)}</span></p>
         </div>
       </article>`;

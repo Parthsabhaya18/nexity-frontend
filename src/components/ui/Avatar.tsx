@@ -1,11 +1,11 @@
+import { User } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Image, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { useAppTheme } from '@/theme';
 
 import { GradientFill } from './GradientFill';
 
-const PLACEHOLDER = ['#B9A3FF', '#F2A7C6'] as const;
 const RING_WIDTH = 3;
 const RING_GAP = 2.5;
 
@@ -20,14 +20,6 @@ type Props = {
   style?: ViewStyle;
 };
 
-export function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '?';
-  const first = parts[0][0] ?? '';
-  const last = parts.length > 1 ? parts[parts.length - 1][0] ?? '' : '';
-  return (first + last).toUpperCase();
-}
-
 export function Avatar({ uri, name, size = 40, ring, ringGap, style }: Props) {
   const { colors, gradient } = useAppTheme();
   const [failed, setFailed] = useState(false);
@@ -36,6 +28,7 @@ export function Avatar({ uri, name, size = 40, ring, ringGap, style }: Props) {
 
   const inner = ring ? size - RING_WIDTH * 2 : size;
   const imageUri = uri && !failed ? uri : null;
+  const icon = Math.round(inner * 0.48);
 
   return (
     <View
@@ -46,7 +39,9 @@ export function Avatar({ uri, name, size = 40, ring, ringGap, style }: Props) {
         style,
       ]}
       accessibilityRole="image"
-      accessibilityLabel={`${name}'s profile photo`}
+      accessibilityLabel={
+        imageUri ? `${name}'s profile photo` : `${name}, no profile photo`
+      }
     >
       {ring === 'unseen' ? (
         <GradientFill colors={gradient} radius={size / 2} />
@@ -54,20 +49,18 @@ export function Avatar({ uri, name, size = 40, ring, ringGap, style }: Props) {
       <View
         style={[
           styles.inner,
-          { width: inner, height: inner, borderRadius: inner / 2 },
+          {
+            width: inner,
+            height: inner,
+            borderRadius: inner / 2,
+            backgroundColor: colors.surfaceAlt,
+          },
           ring && {
             borderWidth: RING_GAP,
             borderColor: ringGap ?? colors.background,
           },
         ]}
       >
-        <GradientFill colors={PLACEHOLDER} />
-        <Text
-          style={[styles.initials, { fontSize: Math.round(inner * 0.36) }]}
-          allowFontScaling={false}
-        >
-          {initials(name)}
-        </Text>
         {imageUri ? (
           <Image
             source={{ uri: imageUri }}
@@ -75,7 +68,9 @@ export function Avatar({ uri, name, size = 40, ring, ringGap, style }: Props) {
             resizeMode="cover"
             onError={() => setFailed(true)}
           />
-        ) : null}
+        ) : (
+          <User size={icon} color={colors.textSecondary} strokeWidth={1.75} />
+        )}
       </View>
     </View>
   );
@@ -88,5 +83,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  initials: { color: '#FFFFFF', fontWeight: '800', letterSpacing: -0.3 },
 });

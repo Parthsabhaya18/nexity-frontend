@@ -1,4 +1,4 @@
-import { useColorScheme } from 'react-native';
+import { useSyncExternalStore } from 'react';
 
 export const brand = {
   primary: '#2563EB',
@@ -179,6 +179,28 @@ export type ThemeColors = {
 
 const status = { danger: '#ED4956', success: '#12935A' } as const;
 
+/** Neutral light theme. Moods are separate and only apply when one is selected. */
+export const lightTheme: ThemeColors = {
+  background: '#FFFFFF',
+  surface: '#FFFFFF',
+  primary: '#0095F6',
+  button: '#0095F6',
+  onButton: '#FFFFFF',
+  text: '#000000',
+  textSecondary: '#737373',
+  border: '#DBDBDB',
+  inputBackground: '#FAFAFA',
+  danger: status.danger,
+  dangerSoft: '#FDEBEC',
+  success: status.success,
+  successSoft: '#E3F5EC',
+  primarySoft: 'rgba(0, 149, 246, 0.12)',
+  primarySofter: 'rgba(0, 149, 246, 0.06)',
+  surfaceAlt: '#EFEFEF',
+  accent: '#E5487E',
+  like: '#F0386B',
+};
+
 const darkTheme: ThemeColors = {
   background: '#000000',
   surface: '#121212',
@@ -200,11 +222,7 @@ const darkTheme: ThemeColors = {
   like: '#F0386B',
 };
 
-export function getThemeColors(
-  scheme: 'light' | 'dark',
-  mood: Mood = DEFAULT_MOOD,
-): ThemeColors {
-  if (scheme === 'dark') return darkTheme;
+export function moodColors(mood: Mood): ThemeColors {
   const p = moodPalettes[mood];
   return {
     ...p,
@@ -235,12 +253,64 @@ export const darkScreen = {
   navInactive: 'rgba(255, 255, 255, 0.55)',
 } as const;
 
-export function useAppTheme() {
-  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const themeColors = getThemeColors(scheme);
-  const gradient: readonly string[] =
-    scheme === 'dark'
+export type ThemeChoice = 'light' | 'dark' | 'system';
+
+export type AppTheme = {
+  scheme: 'light' | 'dark';
+  colors: ThemeColors;
+  gradient: readonly string[];
+  /** The saved choice. A mood replaces it until removed. */
+  choice: ThemeChoice;
+  mood: Mood | null;
+};
+
+export function resolveTheme(
+  choice: ThemeChoice,
+  mood: Mood | null,
+  system: 'light' | 'dark',
+): AppTheme {
+  const scheme: 'light' | 'dark' = mood
+    ? 'light'
+    : choice === 'system'
+    ? system
+    : choice;
+  const colors = mood
+    ? moodColors(mood)
+    : scheme === 'dark'
+    ? darkTheme
+    : lightTheme;
+  const gradient =
+    scheme === 'dark' && !mood
       ? brandGradient
-      : [themeColors.primary, themeColors.button];
-  return { scheme, colors: themeColors, gradient } as const;
+      : [colors.primary, colors.button];
+  return { scheme, colors, gradient, choice, mood };
+}
+
+type Listener = () => void;
+const listeners = new Set<Listener>();
+let snapshot: AppTheme = resolveTheme('system', null, 'light');
+
+export function getAppTheme() {
+  return snapshot;
+}
+
+/** Called by ThemeProvider. Ignored when nothing visible changed. */
+export function publishTheme(next: AppTheme) {
+  if (
+    snapshot.scheme === next.scheme &&
+    snapshot.choice === next.choice &&
+    snapshot.mood === next.mood &&
+    snapshot.colors === next.colors
+  ) {
+    return;
+  }
+  snapshot = next;
+  listeners.forEach(l => l());
+}
+
+export function useAppTheme() {
+  return useSyncExternalStore((listener: Listener) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  }, getAppTheme);
 }

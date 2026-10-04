@@ -92,6 +92,8 @@
     aperture: '<circle cx="12" cy="12" r="9.5"/><path d="m14.3 2.8-5.6 9.7M21.3 9.5H10.1M17.6 19.4l-5.6-9.7M9.7 21.2l5.6-9.7M2.7 14.5h11.2M6.4 4.6l5.6 9.7"/>',
     bolt: '<path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12z"/>',
     boltOff: '<path d="M13 2.5 9.8 6.6M16.5 10.5h3L15 16.3M11 21.5l1-8H4.5l2.6-3.4"/><path d="m3 3 18 18"/>',
+    hash: '<path d="M5 9h14M5 15h14M10 4 8 20M16 4l-2 16"/>',
+    layers: '<path d="m12 3-9.5 5L12 13l9.5-5z"/><path d="m2.5 12 9.5 5 9.5-5"/><path d="m2.5 16 9.5 5 9.5-5"/>',
   };
   window.Icon = function (name, size = 22, cls = '') {
     const body = P[name] || P.info;

@@ -8,6 +8,10 @@ import {
   useState,
 } from 'react';
 
+import { clearFollowStatuses } from '@/features/follows/followStore';
+import { discardShare } from '@/features/posts/postComposer';
+import { resetDraft } from '@/features/posts/postDraft';
+import { clearSavedDraft } from '@/features/posts/savedDraft';
 import { authApi, type Me, type Session } from '@/services/api/auth';
 import { ApiError, refreshAccessToken } from '@/services/api/client';
 import { secureStore } from '@/services/storage/secureStore';
@@ -24,6 +28,10 @@ interface AuthContextValue {
   user: Me | null;
   signIn: (session: Session) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Replaces the signed-in profile, e.g. after an edit. */
+  updateUser: (user: Me) => Promise<void>;
+  /** Re-fetches the profile; errors are thrown to the caller. */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -84,6 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     const refreshToken = tokenStore.getRefreshToken();
     await tokenStore.clear();
+    clearFollowStatuses();
+    discardShare();
+    resetDraft();
+    clearSavedDraft().catch(() => {});
     setState({ status: 'signedOut', user: null });
     if (refreshToken) {
       // Logout always succeeds locally; the server revoke is best effort.
@@ -91,9 +103,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const updateUser = useCallback(async (user: Me) => {
+    setState(prev =>
+      prev.status === 'signedIn' ? { status: 'signedIn', user } : prev,
+    );
+    await secureStore.setUser(user);
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    await updateUser(await authApi.me());
+  }, [updateUser]);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ status: state.status, user: state.user, signIn, signOut }),
-    [state, signIn, signOut],
+    () => ({
+      status: state.status,
+      user: state.user,
+      signIn,
+      signOut,
+      updateUser,
+      refreshUser,
+    }),
+    [state, signIn, signOut, updateUser, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
