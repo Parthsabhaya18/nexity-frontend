@@ -1,4 +1,5 @@
-import { LogOut } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ban, ChevronRight, LogOut, Palette } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,13 +13,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppBar } from '@/components/ui/AppBar';
+import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/features/auth/AuthProvider';
+import type { Me } from '@/services/api/auth';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { radius, spacing, useAppTheme } from '@/theme';
 
 export function SettingsScreen() {
   const { user, signOut } = useAuth();
   const { colors } = useAppTheme();
+  const navigation = useNavigation();
   const [signingOut, setSigningOut] = useState(false);
   useStatusBar();
 
@@ -45,6 +49,77 @@ export function SettingsScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <AppBar title="Settings" back />
       <ScrollView contentContainerStyle={styles.content}>
+        <Pressable
+          onPress={() => navigation.navigate('EditProfile')}
+          accessibilityRole="button"
+          accessibilityLabel="Edit profile"
+          style={({ pressed }) => [
+            styles.card,
+            styles.profile,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Avatar uri={user.avatar_url} name={user.display_name} size={52} />
+          <View style={styles.profileText}>
+            <Text
+              style={[styles.profileName, { color: colors.text }]}
+              numberOfLines={1}
+            >
+              {user.display_name}
+            </Text>
+            <Text
+              style={[styles.rowLabel, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
+              Edit profile
+            </Text>
+          </View>
+          <ChevronRight size={20} color={colors.textSecondary} />
+        </Pressable>
+
+        <Text style={[styles.section, { color: colors.textSecondary }]}>
+          Appearance
+        </Text>
+        <Pressable
+          onPress={() => navigation.navigate('Appearance')}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.card,
+            styles.logout,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Palette size={20} color={colors.primary} />
+          <Text style={[styles.logoutText, { color: colors.text, flex: 1 }]}>
+            Theme
+          </Text>
+          <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
+            {themeLabel(user)}
+          </Text>
+        </Pressable>
+
+        <Text style={[styles.section, { color: colors.textSecondary }]}>
+          Privacy
+        </Text>
+        <Pressable
+          onPress={() => navigation.navigate('BlockedAccounts')}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.card,
+            styles.logout,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ban size={20} color={colors.text} />
+          <Text style={[styles.logoutText, { color: colors.text, flex: 1 }]}>
+            Blocked accounts
+          </Text>
+          <ChevronRight size={18} color={colors.textSecondary} />
+        </Pressable>
+
         <Text style={[styles.section, { color: colors.textSecondary }]}>
           Account
         </Text>
@@ -84,6 +159,29 @@ export function SettingsScreen() {
   );
 }
 
+const MOOD_LABEL: Record<NonNullable<Me['preferences']['mood']>, string> = {
+  happy: '😊 Happy',
+  calm: '😌 Calm',
+  romantic: '❤️ Romantic',
+  sad: '😢 Sad',
+  angry: '😡 Angry',
+  cool: '😎 Cool',
+  relaxed: '🌿 Relaxed',
+  excited: '🔥 Excited',
+  tired: '😴 Tired',
+  motivated: '🤩 Motivated',
+};
+
+function themeLabel(user: Me) {
+  return user.preferences.mood
+    ? MOOD_LABEL[user.preferences.mood]
+    : user.preferences.theme === 'light'
+    ? 'Light'
+    : user.preferences.theme === 'dark'
+    ? 'Dark'
+    : 'System default';
+}
+
 function Row({ label, value }: { label: string; value: string }) {
   const { colors } = useAppTheme();
   return (
@@ -114,6 +212,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
+  profile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    marginBottom: spacing.sm,
+  },
+  profileText: { flex: 1, minWidth: 0 },
+  profileName: { fontSize: 16, fontWeight: '700' },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',

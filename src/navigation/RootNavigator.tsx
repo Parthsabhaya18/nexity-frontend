@@ -16,8 +16,22 @@ import { RegisterScreen } from '@/screens/auth/RegisterScreen';
 import { ResetPasswordScreen } from '@/screens/auth/ResetPasswordScreen';
 import { VerifyEmailScreen } from '@/screens/auth/VerifyEmailScreen';
 import { ChatsScreen } from '@/screens/chats/ChatsScreen';
+import { CreatePostCropScreen } from '@/screens/create/CreatePostCropScreen';
+import { CreatePostDetailsScreen } from '@/screens/create/CreatePostDetailsScreen';
+import { CreateReelScreen } from '@/screens/create/CreateReelScreen';
 import { CreateScreen } from '@/screens/create/CreateScreen';
+import { CreateStoryScreen } from '@/screens/create/CreateStoryScreen';
 import { NotificationsScreen } from '@/screens/notifications/NotificationsScreen';
+import { EditProfileScreen } from '@/screens/profile/EditProfileScreen';
+import { FollowersScreen } from '@/screens/profile/FollowersScreen';
+import { FollowRequestsScreen } from '@/screens/profile/FollowRequestsScreen';
+import { ProfileScreen } from '@/screens/profile/ProfileScreen';
+import { UserProfileScreen } from '@/screens/profile/UserProfileScreen';
+import { HashtagScreen } from '@/screens/posts/HashtagScreen';
+import { PostDetailScreen } from '@/screens/posts/PostDetailScreen';
+import { SavedPostsScreen } from '@/screens/posts/SavedPostsScreen';
+import { AppearanceScreen } from '@/screens/settings/AppearanceScreen';
+import { BlockedAccountsScreen } from '@/screens/settings/BlockedAccountsScreen';
 import { SettingsScreen } from '@/screens/settings/SettingsScreen';
 import { useAppTheme } from '@/theme';
 
@@ -62,7 +76,30 @@ export function RootNavigator() {
         {status === 'signedIn' ? (
           <>
             <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+            <Stack.Screen name="Followers" component={FollowersScreen} />
+            <Stack.Screen
+              name="FollowRequests"
+              component={FollowRequestsScreen}
+            />
+            <Stack.Screen
+              name="EditProfile"
+              component={EditProfileScreen}
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+              }}
+            />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen
+              name="BlockedAccounts"
+              component={BlockedAccountsScreen}
+            />
+            <Stack.Screen name="Appearance" component={AppearanceScreen} />
+            <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+            <Stack.Screen name="HashtagFeed" component={HashtagScreen} />
+            <Stack.Screen name="SavedPosts" component={SavedPostsScreen} />
             <Stack.Screen
               name="Notifications"
               component={NotificationsScreen}
@@ -77,6 +114,28 @@ export function RootNavigator() {
                 contentStyle: { backgroundColor: 'transparent' },
               }}
             />
+            <Stack.Group
+              screenOptions={{
+                presentation: 'fullScreenModal',
+                animation: 'slide_from_bottom',
+                gestureEnabled: false,
+              }}
+            >
+              <Stack.Screen
+                name="CreatePostCrop"
+                component={CreatePostCropScreen}
+              />
+              <Stack.Screen name="CreateStory" component={CreateStoryScreen} />
+              <Stack.Screen name="CreateReel" component={CreateReelScreen} />
+              <Stack.Screen
+                name="CreatePostDetails"
+                component={CreatePostDetailsScreen}
+                options={{
+                  presentation: 'card',
+                  animation: 'slide_from_right',
+                }}
+              />
+            </Stack.Group>
           </>
         ) : (
           <>

@@ -74,18 +74,21 @@ export function CreateScreen({ navigation }: ScreenProps<'Create'>) {
             text="Share photos with your followers"
             colors={gradient}
             icon={<ImageIcon size={24} color="#FFFFFF" />}
+            onPress={() => navigation.replace('CreatePostCrop')}
           />
           <Option
             title="Story"
             text="Share a moment that disappears in 24 hours"
             colors={STORY_GRADIENT}
             icon={<CircleFadingPlus size={24} color="#FFFFFF" />}
+            onPress={() => navigation.replace('CreateStory')}
           />
           <Option
             title="Reel"
             text="Share a short vertical video"
             colors={REEL_GRADIENT}
             icon={<Clapperboard size={24} color="#FFFFFF" />}
+            onPress={() => navigation.replace('CreateReel')}
           />
         </View>
       </Animated.View>

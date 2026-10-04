@@ -1,10 +1,15 @@
 import { useScrollToTop } from '@react-navigation/native';
 import { Bell, Camera, MessageCircle } from 'lucide-react-native';
-import { useRef } from 'react';
-import { ScrollView, type ScrollViewInstance, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { FlatList, type FlatListInstance, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandLogo } from '@/components/BrandLogo';
+import { CommentsSheet } from '@/components/posts/CommentsSheet';
+import { PostCard } from '@/components/posts/PostCard';
+import { PostingBar } from '@/components/posts/PostingBar';
+import { StoriesTray } from '@/components/stories/StoriesTray';
+import { StoryViewer } from '@/components/stories/StoryViewer';
 import { AppBar } from '@/components/ui/AppBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -12,10 +17,15 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useChats } from '@/features/chats/useChats';
+import { usePagedList } from '@/features/follows/usePagedList';
 import { useNotifications } from '@/features/notifications/useNotifications';
+import { onPostShared } from '@/features/posts/postComposer';
 import { useTabBarInset } from '@/navigation/BottomNav';
 import type { TabScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
+import type { Post } from '@/services/api/posts';
+import { postsApi } from '@/services/api/posts';
+import { type StoryGroup, storiesApi } from '@/services/api/stories';
 import { useAppTheme } from '@/theme';
 
 export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
@@ -24,9 +34,39 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
   const bottomInset = useTabBarInset();
   const { unreadCount: unreadNotifications } = useNotifications();
   const { unreadCount: unreadChats } = useChats();
-  const scrollRef = useRef<ScrollViewInstance>(null);
-  useScrollToTop(scrollRef);
+  const listRef = useRef<FlatListInstance>(null);
+  const [commentPost, setCommentPost] = useState<Post | null>(null);
+  const [story, setStory] = useState<StoryGroup | null>(null);
+  const [stories, setStories] = useState<StoryGroup[]>([]);
+  const [visibleId, setVisibleId] = useState<string | null>(null);
+  useScrollToTop(listRef);
   useStatusBar();
+
+  const fetchPage = useCallback(
+    (cursor: string | null, signal: AbortSignal) =>
+      postsApi.feed(cursor, signal),
+    [],
+  );
+  const list = usePagedList<Post>(fetchPage);
+  const { setItems } = list;
+
+  const loadStories = useCallback(() => {
+    storiesApi
+      .tray()
+      .then(setStories)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadStories();
+    return onPostShared(post => {
+      setItems(prev => [post, ...prev.filter(p => p.id !== post.id)]);
+      loadStories();
+    });
+  }, [loadStories, setItems]);
+
+  const patch = (post: Post) =>
+    setItems(prev => prev.map(p => (p.id === post.id ? post : p)));
 
   return (
     <SafeAreaView
@@ -40,7 +80,7 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
             <IconButton
               onPress={() => navigation.navigate('Notifications')}
               accessibilityLabel="Notifications"
-              badge={unreadNotifications}
+              badge={unreadNotifications + (user?.follow_requests_count ?? 0)}
             >
               <Bell size={24} color={colors.text} />
             </IconButton>
@@ -66,30 +106,78 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
           </>
         }
       />
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]}
-      >
-        <EmptyState
-          icon={<Camera size={34} color={colors.primary} />}
-          title="Your feed is empty"
-          text="Posts from people you follow will show up here. Share your first moment to get started."
-          action={
-            <Button
-              title="Create a post"
-              onPress={() => navigation.navigate('Create')}
-              style={styles.cta}
+      <PostingBar />
+      <FlatList
+        ref={listRef}
+        data={list.items}
+        keyExtractor={p => p.id}
+        refreshing={list.refreshing}
+        onRefresh={() => {
+          list.refresh();
+          loadStories();
+        }}
+        onEndReached={list.loadMore}
+        onEndReachedThreshold={0.5}
+        viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
+        onViewableItemsChanged={({ viewableItems }) =>
+          setVisibleId(viewableItems[0]?.item.id ?? null)
+        }
+        contentContainerStyle={{ paddingBottom: bottomInset, flexGrow: 1 }}
+        ListHeaderComponent={
+          <StoriesTray
+            groups={stories}
+            onOpen={setStory}
+            onCreate={() => navigation.navigate('CreateStory')}
+          />
+        }
+        renderItem={({ item }) => (
+          <PostCard
+            post={item}
+            active={item.id === visibleId}
+            onChange={patch}
+            onComment={() => setCommentPost(item)}
+            onDeleted={() =>
+              setItems(prev => prev.filter(p => p.id !== item.id))
+            }
+          />
+        )}
+        ListEmptyComponent={
+          list.loading ? undefined : (
+            <EmptyState
+              icon={<Camera size={34} color={colors.primary} />}
+              title="Your feed is empty"
+              text="Posts from people you follow will show up here."
+              action={
+                <Button
+                  title="Create a post"
+                  onPress={() => navigation.navigate('CreatePostCrop')}
+                  style={styles.cta}
+                />
+              }
             />
-          }
-        />
-      </ScrollView>
+          )
+        }
+      />
+      <CommentsSheet
+        post={commentPost}
+        onClose={() => setCommentPost(null)}
+        onCount={count =>
+          commentPost && patch({ ...commentPost, comments_count: count })
+        }
+      />
+      <StoryViewer
+        group={story}
+        onClose={() => {
+          setStory(null);
+          loadStories();
+        }}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: 'center' },
   cta: { minWidth: 200 },
   me: { marginLeft: 2 },
 });

@@ -1,12 +1,10 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Clapperboard, Home, Plus, Search } from 'lucide-react-native';
+import { Clapperboard, Crown, Home, Plus, Search } from 'lucide-react-native';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar } from '@/components/ui/Avatar';
 import { GradientFill } from '@/components/ui/GradientFill';
-import { useAuth } from '@/features/auth/AuthProvider';
 import { darkScreen, radius, useAppTheme } from '@/theme';
 
 import type { MainTabParamList } from './types';
@@ -14,6 +12,9 @@ import type { MainTabParamList } from './types';
 const PILL_HEIGHT = 64;
 const BOTTOM_GAP = 12;
 const TOP_GAP = 12;
+const FAB_SIZE = 48;
+const FAB_GAP = 10;
+const SIDE_GAP = 16;
 
 /** Bottom padding a tab screen needs so its content clears the floating nav. */
 export function useTabBarInset() {
@@ -27,9 +28,14 @@ const DARK_TABS: ReadonlySet<keyof MainTabParamList> = new Set(['Reels']);
 const LABELS: Record<keyof MainTabParamList, string> = {
   Home: 'Home',
   Search: 'Search',
+  Premium: 'Premium',
   Reels: 'Reels',
-  Profile: 'Profile',
 };
+
+/** Tabs drawn in the brand colour even when inactive. */
+const HIGHLIGHT_TABS: ReadonlySet<keyof MainTabParamList> = new Set([
+  'Premium',
+]);
 
 function useKeyboardVisible() {
   const [visible, setVisible] = useState(false);
@@ -51,7 +57,6 @@ function useKeyboardVisible() {
 export function BottomNav({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { colors, gradient } = useAppTheme();
-  const { user } = useAuth();
   const keyboardVisible = useKeyboardVisible();
 
   if (keyboardVisible) return null;
@@ -67,20 +72,18 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
     focused: boolean,
   ) => {
     const strokeWidth = focused ? 2.3 : 2;
-    const ringColor = focused ? activeColor : 'transparent';
     const icons: Record<keyof MainTabParamList, ReactNode> = {
       Home: <Home size={24} color={color} strokeWidth={strokeWidth} />,
       Search: <Search size={24} color={color} strokeWidth={strokeWidth} />,
-      Reels: <Clapperboard size={24} color={color} strokeWidth={strokeWidth} />,
-      Profile: (
-        <View style={[styles.profileRing, { borderColor: ringColor }]}>
-          <Avatar
-            uri={user?.avatar_url}
-            name={user?.display_name ?? user?.username ?? ''}
-            size={22}
-          />
-        </View>
+      Premium: (
+        <Crown
+          size={24}
+          color={color}
+          fill={focused ? color : 'transparent'}
+          strokeWidth={strokeWidth}
+        />
       ),
+      Reels: <Clapperboard size={24} color={color} strokeWidth={strokeWidth} />,
     };
     return icons[name];
   };
@@ -90,74 +93,80 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
       pointerEvents="box-none"
       style={[styles.wrap, { paddingBottom: insets.bottom + BOTTOM_GAP }]}
     >
-      <View
-        style={[
-          styles.pill,
-          {
-            backgroundColor: dark ? darkScreen.navBackground : colors.surface,
-            borderColor: dark ? darkScreen.navBorder : colors.border,
-          },
-          dark && styles.flat,
-        ]}
-      >
-        {state.routes.map((route, index) => {
-          const name = route.name as keyof MainTabParamList;
-          const focused = state.index === index;
-          const color = focused ? activeColor : inactiveColor;
+      <View style={styles.group}>
+        <View
+          style={[
+            styles.pill,
+            {
+              backgroundColor: dark ? darkScreen.navBackground : colors.surface,
+              borderColor: dark ? darkScreen.navBorder : colors.border,
+            },
+            dark && styles.flat,
+          ]}
+        >
+          {state.routes.map((route, index) => {
+            const name = route.name as keyof MainTabParamList;
+            const focused = state.index === index;
+            const color = HIGHLIGHT_TABS.has(name)
+              ? colors.primary
+              : focused
+              ? activeColor
+              : inactiveColor;
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!focused && !event.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
-            }
-          };
+            const onPress = () => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
+              if (!focused && !event.defaultPrevented) {
+                navigation.navigate(route.name, route.params);
+              }
+            };
 
-          const onLongPress = () => {
-            navigation.emit({ type: 'tabLongPress', target: route.key });
-          };
+            const onLongPress = () => {
+              navigation.emit({ type: 'tabLongPress', target: route.key });
+            };
 
-          return (
-            <Pressable
-              key={route.key}
-              onPress={onPress}
-              onLongPress={onLongPress}
-              accessibilityRole="tab"
-              accessibilityLabel={LABELS[name]}
-              accessibilityState={{ selected: focused }}
-              style={styles.item}
-            >
-              {({ pressed }) => (
-                <>
-                  <View style={[styles.icon, pressed && styles.iconPressed]}>
-                    {icon(name, color, focused)}
-                  </View>
-                  <Text style={[styles.label, { color }]} numberOfLines={1}>
-                    {LABELS[name]}
-                  </Text>
-                </>
-              )}
-            </Pressable>
-          );
-        })}
+            return (
+              <Pressable
+                key={route.key}
+                onPress={onPress}
+                onLongPress={onLongPress}
+                accessibilityRole="tab"
+                accessibilityLabel={LABELS[name]}
+                accessibilityState={{ selected: focused }}
+                style={styles.item}
+              >
+                {({ pressed }) => (
+                  <>
+                    <View style={[styles.icon, pressed && styles.iconPressed]}>
+                      {icon(name, color, focused)}
+                    </View>
+                    <Text style={[styles.label, { color }]} numberOfLines={1}>
+                      {LABELS[name]}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+        <Pressable
+          onPress={() => navigation.getParent()?.navigate('Create')}
+          accessibilityRole="button"
+          accessibilityLabel="Create a post, story or reel"
+          style={({ pressed }) => [
+            styles.fab,
+            { backgroundColor: colors.button },
+            dark && styles.flat,
+            pressed && styles.fabPressed,
+          ]}
+        >
+          <GradientFill colors={gradient} radius={FAB_SIZE / 2} />
+          <Plus size={24} color="#FFFFFF" strokeWidth={2.6} />
+        </Pressable>
       </View>
-
-      <Pressable
-        onPress={() => navigation.getParent()?.navigate('Create')}
-        accessibilityRole="button"
-        accessibilityLabel="Create a post, story or reel"
-        style={({ pressed }) => [
-          styles.fab,
-          { backgroundColor: colors.button, shadowColor: colors.button },
-          pressed && styles.fabPressed,
-        ]}
-      >
-        <GradientFill colors={gradient} radius={PILL_HEIGHT / 2} />
-        <Plus size={30} color="#FFFFFF" strokeWidth={2.6} />
-      </Pressable>
     </View>
   );
 }
@@ -171,12 +180,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: SIDE_GAP,
+  },
+  group: {
+    flex: 1,
+    maxWidth: 440,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: FAB_GAP,
   },
   pill: {
     flex: 1,
-    maxWidth: 380,
     height: PILL_HEIGHT,
     paddingHorizontal: 6,
     flexDirection: 'row',
@@ -204,21 +218,18 @@ const styles = StyleSheet.create({
   },
   iconPressed: { transform: [{ scale: 0.9 }] },
   label: { fontSize: 11, fontWeight: '700', letterSpacing: 0.1 },
-  profileRing: {
-    borderWidth: 1.5,
-    borderRadius: 14,
-    padding: 1,
-  },
   fab: {
-    width: PILL_HEIGHT,
-    height: PILL_HEIGHT,
-    borderRadius: PILL_HEIGHT / 2,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOpacity: 0.28,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   fabPressed: { transform: [{ scale: 0.92 }] },
 });

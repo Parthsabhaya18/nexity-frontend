@@ -228,11 +228,11 @@
       cls: 'confirm-layer os-permission', hideHeader: true, label: 'Location permission',
       body: `<div class="confirm">
         <div class="confirm-ic">${Icon('radar', 26)}</div>
-        <h2>Allow "Nexity" to use your location?</h2>
-        <p>Used only on your device to check when you were last near someone. Nexity never stores or shows where you are.</p>
+        <h2>Allow location</h2>
+        <p>Nearby needs location. Open Settings and turn Location on. Your place is never shown.</p>
         <div class="confirm-actions os">
-          <button class="btn btn-block btn-primary" data-perm="allow">Allow while using the app</button>
-          <button class="btn btn-block btn-ghost" data-perm="deny">Don't allow</button>
+          <button class="btn btn-block btn-primary" data-perm="allow">Open Settings</button>
+          <button class="btn btn-block btn-ghost" data-perm="deny">Not now</button>
         </div></div>`
     });
     el.querySelectorAll('[data-perm]').forEach(b => b.addEventListener('click', () => {

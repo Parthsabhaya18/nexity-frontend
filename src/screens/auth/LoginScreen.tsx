@@ -17,6 +17,7 @@ import { Button, LinkButton } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { type LoginForm, loginSchema } from '@/features/auth/schemas';
+import { useSubmitLock } from '@/features/auth/useSubmitLock';
 import type { ScreenProps } from '@/navigation/types';
 import { authApi } from '@/services/api/auth';
 import { ApiError } from '@/services/api/client';
@@ -26,6 +27,8 @@ export function LoginScreen({ navigation, route }: ScreenProps<'Login'>) {
   const { colors, scheme } = useAppTheme();
   const { signIn } = useAuth();
   const passwordRef = useRef<TextInputInstance>(null);
+  const submit = useSubmitLock();
+  const failedAttempt = useRef<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const notice = route.params?.notice;
 
@@ -42,38 +45,52 @@ export function LoginScreen({ navigation, route }: ScreenProps<'Login'>) {
   const [identifier, password] = watch(['identifier', 'password']);
   const canSubmit = identifier.trim().length > 0 && password.length > 0;
 
-  const onSubmit = handleSubmit(async values => {
-    Keyboard.dismiss();
-    setFormError(null);
-    navigation.setParams({ notice: undefined });
-    try {
-      const session = await authApi.login(
-        values.identifier.trim(),
-        values.password,
-      );
-      await signIn(session);
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
-        const details = (err.details ?? {}) as {
-          email?: string;
-          resend_available_in?: number;
-          dev_code?: string;
-        };
-        navigation.navigate('VerifyEmail', {
-          email: details.email ?? values.identifier.trim(),
-          mode: 'register',
-          resendIn: details.resend_available_in,
-          devCode: details.dev_code,
-        });
-        return;
-      }
-      setFormError(
-        err instanceof ApiError
-          ? err.message
-          : 'Something went wrong. Please try again.',
-      );
-    }
-  });
+  const showError = (message: string | null) => {
+    setFormError(current => (current === message ? current : message));
+  };
+
+  const onSubmit = () => {
+    const key = `${identifier.trim()}\0${password}`;
+    if (failedAttempt.current === key) return;
+    submit(() =>
+      handleSubmit(async values => {
+        const submitted = `${values.identifier.trim()}\0${values.password}`;
+        Keyboard.dismiss();
+        if (notice) navigation.setParams({ notice: undefined });
+        try {
+          const session = await authApi.login(
+            values.identifier.trim(),
+            values.password,
+          );
+          failedAttempt.current = null;
+          await signIn(session);
+        } catch (err) {
+          if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
+            const details = (err.details ?? {}) as {
+              email?: string;
+              resend_available_in?: number;
+              dev_code?: string;
+            };
+            failedAttempt.current = null;
+            showError(null);
+            navigation.navigate('VerifyEmail', {
+              email: details.email ?? values.identifier.trim(),
+              mode: 'register',
+              resendIn: details.resend_available_in,
+              devCode: details.dev_code,
+            });
+            return;
+          }
+          failedAttempt.current = err instanceof ApiError ? submitted : null;
+          showError(
+            err instanceof ApiError
+              ? err.message
+              : 'Something went wrong. Please try again.',
+          );
+        }
+      })(),
+    );
+  };
 
   return (
     <AuthLayout>
@@ -101,7 +118,11 @@ export function LoginScreen({ navigation, route }: ScreenProps<'Login'>) {
             label="Email or username"
             placeholder="you@example.com"
             value={field.value}
-            onChangeText={field.onChange}
+            onChangeText={text => {
+              field.onChange(text);
+              failedAttempt.current = null;
+              if (formError) showError(null);
+            }}
             onBlur={field.onBlur}
             error={errors.identifier?.message}
             autoCapitalize="none"
@@ -127,7 +148,11 @@ export function LoginScreen({ navigation, route }: ScreenProps<'Login'>) {
             placeholder="Your password"
             password
             value={field.value}
-            onChangeText={field.onChange}
+            onChangeText={text => {
+              field.onChange(text);
+              failedAttempt.current = null;
+              if (formError) showError(null);
+            }}
             onBlur={field.onBlur}
             error={errors.password?.message}
             autoCapitalize="none"

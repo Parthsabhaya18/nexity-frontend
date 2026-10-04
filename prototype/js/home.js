@@ -34,23 +34,45 @@
   }
 
   /* ---------- Post card ---------- */
+  const postImages = (p) => (p.images && p.images.length ? p.images : [p.img]).filter(Boolean);
+  const hashBtn = (tag) => `<button type="button" class="hash" data-action="openHashtag" data-tag="${esc(tag)}">#${esc(tag)}</button>`;
+  const richCaption = (text) => esc(text || '').replace(/#([A-Za-z\u0900-\u097F][\w\u0900-\u097F]*)/g, (_, t) => hashBtn(t));
+  const tagsLine = (ids) => {
+    const users = (ids || []).map(NX.user).filter(Boolean);
+    if (!users.length) return '';
+    const btn = (u) => `<button class="link-strong" data-go="user" data-id="${u.id}">${esc(u.username)}</button>`;
+    const line = users.length === 1 ? btn(users[0])
+      : users.length === 2 ? `${btn(users[0])} and ${btn(users[1])}`
+      : `${btn(users[0])} and ${users.length - 1} others`;
+    return `<p class="post-with">with ${line}</p>`;
+  };
+
   window.postCard = (p) => {
     const u = NX.user(p.userId);
     if (!u) return '';
     const mine = p.userId === 'me';
     const n = p.comments.length;
+    const imgs = postImages(p);
+    const extraTags = (p.hashtags || []).filter(h => !(p.caption || '').toLowerCase().includes('#' + h.toLowerCase()));
+    const media = imgs.length > 1
+      ? `<div class="post-slides" data-slide="${p.id}" data-i="0">${imgs.map(src => `<img src="${esc(src)}" alt="Photo shared by ${esc(u.username)}" draggable="false" loading="lazy" onerror="this.remove()">`).join('')}</div>
+          <button class="post-arrow left" data-action="postSlide" data-id="${p.id}" data-dir="-1" aria-label="Previous photo">${Icon('back', 18)}</button>
+          <button class="post-arrow right" data-action="postSlide" data-id="${p.id}" data-dir="1" aria-label="Next photo">${Icon('chevronRight', 18)}</button>
+          <div class="post-dots" aria-hidden="true">${imgs.map((_, i) => `<i class="${i === 0 ? 'on' : ''}"></i>`).join('')}</div>
+          <span class="post-multi" aria-label="${imgs.length} photos">${Icon('layers', 18)}</span>`
+      : `<img src="${esc(imgs[0] || '')}" alt="Photo shared by ${esc(u.username)}" loading="lazy" onerror="this.remove()">`;
     return `
       <article class="post card" data-post="${p.id}">
         <header class="post-head">
           <button class="post-user" data-go="user" data-id="${u.id}">
             ${avatar(u, 38, { ring: NX.hasStory(u.id), seen: NX.storySeen(u.id) })}
-            <span><b>${esc(u.username)}${premiumBadge(u)}</b><small>${timeAgoLong(p.time)}</small></span>
+            <span><b>${esc(u.username)}${premiumBadge(u)}</b><small>${p.location ? `<span class="post-loc">${esc(p.location)}</span> · ` : ''}${timeAgoLong(p.time)}</small></span>
           </button>
           ${!mine && !NX.isFollowing(u.id) ? `<button class="btn btn-xs btn-tonal" data-action="follow" data-id="${u.id}">Follow</button>` : ''}
           <button class="icon-btn" data-action="postMenu" data-id="${p.id}" aria-label="More options">${Icon('more', 22)}</button>
         </header>
         <div class="post-media" data-dbl="dblLikePost" data-id="${p.id}">
-          <img src="${esc(p.img)}" alt="Photo shared by ${esc(u.username)}" loading="lazy" onerror="this.remove()">
+          ${media}
           <span class="big-heart" aria-hidden="true">${Icon('heart', 96)}</span>
         </div>
         <div class="post-actions">
@@ -60,10 +82,54 @@
         </div>
         <div class="post-body">
           <p class="post-likes"><b data-likes="${p.id}">${p.likes.toLocaleString('en-IN')}</b> likes</p>
-          <p class="post-caption"><button class="link-strong" data-go="user" data-id="${u.id}">${esc(u.username)}</button> ${esc(p.caption)}</p>
+          ${tagsLine(p.tags)}
+          ${p.caption || extraTags.length ? `<p class="post-caption"><button class="link-strong" data-go="user" data-id="${u.id}">${esc(u.username)}</button> ${richCaption(p.caption)}${extraTags.length ? ' ' + extraTags.map(hashBtn).join(' ') : ''}</p>` : ''}
           <button class="link-muted" data-action="openComments" data-id="${p.id}" data-kind="post">${n ? `View all ${n} comment${n > 1 ? 's' : ''}` : 'Add a comment…'}</button>
         </div>
       </article>`;
+  };
+
+  function setPostSlide(slides, i) {
+    const n = slides.children.length;
+    const next = (i + n) % n;
+    slides.dataset.i = next;
+    slides.style.transform = `translateX(-${next * 100}%)`;
+    const dots = slides.parentElement.querySelectorAll('.post-dots i');
+    dots.forEach((d, k) => d.classList.toggle('on', k === next));
+  }
+  function bindPostCarousels(root) {
+    (root || document).querySelectorAll('.post-slides').forEach(slides => {
+      const media = slides.parentElement;
+      let x0 = 0, dx = 0, tracking = false;
+      media.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.post-arrow')) return;
+        tracking = true; x0 = e.clientX; dx = 0;
+      });
+      media.addEventListener('pointermove', (e) => { if (tracking) dx = e.clientX - x0; });
+      const end = () => {
+        if (!tracking) return;
+        tracking = false;
+        if (Math.abs(dx) < 42) return;
+        setPostSlide(slides, +(slides.dataset.i || 0) + (dx < 0 ? 1 : -1));
+      };
+      media.addEventListener('pointerup', end);
+      media.addEventListener('pointercancel', () => { tracking = false; });
+    });
+  }
+  Actions.postSlide = (el) => {
+    const slides = document.querySelector(`[data-slide="${el.dataset.id}"]`);
+    if (slides) setPostSlide(slides, +(slides.dataset.i || 0) + (+el.dataset.dir));
+  };
+  Actions.openHashtag = (el) => {
+    const tag = (el.dataset.tag || '').replace(/^#/, '');
+    const key = tag.toLowerCase();
+    const posts = S.posts.filter(p => (p.hashtags || []).some(h => h.toLowerCase() === key) || (p.caption || '').toLowerCase().includes('#' + key));
+    Modal.open({
+      title: '#' + tag, cls: 'sheet-tall',
+      body: posts.length
+        ? `<p class="fine hash-count">${posts.length} post${posts.length > 1 ? 's' : ''}</p><div class="hash-grid">${posts.map(p => `<button class="hash-grid-item" data-go="post" data-id="${p.id}" aria-label="Open post"><img src="${esc(p.img)}" alt="" loading="lazy" onerror="this.remove()"></button>`).join('')}</div>`
+        : `<div class="tag-empty">${Icon('hash', 28)}<b>No posts for #${esc(tag)}</b><span>When someone shares this hashtag, it will show up here.</span></div>`
+    });
   };
 
   const feedSkeleton = () => [0, 1].map(() => `
@@ -110,7 +176,8 @@
         ${S.demo.offline ? emptyState({ icon: 'refresh', title: 'You\'re offline', text: 'We couldn\'t load your feed. Check your connection and try again.', actions: '<button class="btn btn-primary" data-action="retryFeed">Try again</button>', cls: 'empty-error' })
           : App.loaded.home ? feed() : feedSkeleton()}
       </div>`,
-    mount() {
+    mount(root) {
+      bindPostCarousels(root);
       if (!App.loaded.home && !S.demo.offline) setTimeout(() => { App.loaded.home = true; if (Nav.is('home')) App.refresh(); }, 700);
       if (!S.me.locPermission && !S.me.nearbyEnabled && !App.locAsking) { App.locAsking = true; setTimeout(askLocation, 1500); }
     }
@@ -124,12 +191,11 @@
       cls: 'confirm-layer os-permission', hideHeader: true, label: 'Location permission',
       body: `<div class="confirm">
         <div class="confirm-ic">${Icon('radar', 26)}</div>
-        <h2>Allow "Nexity" to use this device's location?</h2>
-        <p>Only used for the optional Nearby feature — only the latest day you were near someone is kept. Your place, time and history are never stored or shown.</p>
+        <h2>Allow location</h2>
+        <p>Nearby needs location. Open Settings and turn Location on. Your place is never shown.</p>
         <div class="confirm-actions os">
-          <button class="btn btn-block btn-primary" data-perm="while-using">While using the app</button>
-          <button class="btn btn-block btn-secondary" data-perm="once">Only this time</button>
-          <button class="btn btn-block btn-ghost" data-perm="denied">Don't allow</button>
+          <button class="btn btn-block btn-primary" data-perm="while-using">Open Settings</button>
+          <button class="btn btn-block btn-ghost" data-perm="denied">Not now</button>
         </div></div>`
     });
     el.querySelectorAll('[data-perm]').forEach(b => b.addEventListener('click', () => {
@@ -150,7 +216,8 @@
     render: (p) => {
       const post = S.posts.find(x => x.id === p.id);
       return `${appbar({ title: 'Post' })}<div class="page">${post && !NX.isBlocked(post.userId) ? postCard(post) : emptyState({ icon: 'image', title: 'Post unavailable', text: 'This post was removed or is no longer available.' })}</div>`;
-    }
+    },
+    mount(root) { bindPostCarousels(root); }
   };
 
   /* ---------- Likes ---------- */

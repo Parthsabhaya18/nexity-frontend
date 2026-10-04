@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { HomeScreen } from '@/screens/home/HomeScreen';
-import { ProfileScreen } from '@/screens/profile/ProfileScreen';
+import { PremiumScreen } from '@/screens/premium/PremiumScreen';
 import { ReelsScreen } from '@/screens/reels/ReelsScreen';
 import { SearchScreen } from '@/screens/search/SearchScreen';
 
@@ -23,8 +23,8 @@ export function MainTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
+      <Tab.Screen name="Premium" component={PremiumScreen} />
       <Tab.Screen name="Reels" component={ReelsScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }

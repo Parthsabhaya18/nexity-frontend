@@ -1,3 +1,7 @@
+import { useEffect, useSyncExternalStore } from 'react';
+
+import { notificationsApi } from '@/services/api/notifications';
+
 export type NotificationType =
   | 'like'
   | 'comment'
@@ -19,11 +23,11 @@ export type AppNotification = {
   id: string;
   type: NotificationType;
   text: string;
-  /** Epoch milliseconds. */
   createdAt: number;
   read: boolean;
-  /** Null for anonymous categories (secret messages, crushes). */
   actor: NotificationActor | null;
+  postId: string | null;
+  reelId: string | null;
 };
 
 type NotificationsState = {
@@ -32,8 +36,52 @@ type NotificationsState = {
 };
 
 const EMPTY: NotificationsState = { items: [], unreadCount: 0 };
+let state: NotificationsState = EMPTY;
+const listeners = new Set<() => void>();
 
-/** Notifications for the signed-in user. Backed by the API once the notifications service ships. */
+function emit(next: NotificationsState) {
+  state = next;
+  listeners.forEach(listener => listener());
+}
+
+export async function refreshNotifications() {
+  const [page, unread] = await Promise.all([
+    notificationsApi.list(),
+    notificationsApi.unread(),
+  ]);
+  emit({
+    unreadCount: unread.notifications,
+    items: page.items.map(item => ({
+      id: item.id,
+      type: 'comment',
+      text: item.text,
+      createdAt: new Date(item.created_at).getTime(),
+      read: item.read,
+      postId: item.post_id,
+      reelId: item.reel_id,
+      actor: item.actor,
+    })),
+  });
+}
+
+export async function markNotificationsRead() {
+  await notificationsApi.readAll();
+  emit({
+    unreadCount: 0,
+    items: state.items.map(item => ({ ...item, read: true })),
+  });
+}
+
 export function useNotifications(): NotificationsState {
-  return EMPTY;
+  const snap = useSyncExternalStore(
+    listener => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => state,
+  );
+  useEffect(() => {
+    refreshNotifications().catch(() => {});
+  }, []);
+  return snap;
 }

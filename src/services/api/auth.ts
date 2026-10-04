@@ -9,13 +9,35 @@ export interface Me {
   display_name: string;
   avatar_url: string | null;
   bio: string;
+  /** Full URL including the scheme, or `''`. */
+  website: string;
   gender: Gender;
   date_of_birth: string;
   is_private: boolean;
   is_verified: boolean;
+  posts_count: number;
+  followers_count: number;
+  following_count: number;
+  /** Pending requests to this (private) account. */
+  follow_requests_count: number;
   role: 'user' | 'moderator' | 'admin';
   onboarding_completed: boolean;
-  preferences: { theme: 'system' | 'light' | 'dark' };
+  preferences: {
+    theme: 'system' | 'light' | 'dark';
+    /** Replaces Light / Dark / System while set. */
+    mood:
+      | 'happy'
+      | 'calm'
+      | 'romantic'
+      | 'sad'
+      | 'angry'
+      | 'cool'
+      | 'relaxed'
+      | 'excited'
+      | 'tired'
+      | 'motivated'
+      | null;
+  };
   created_at: string;
 }
 
