@@ -48,6 +48,8 @@ export type RootStackParamList = {
   BlockedAccounts: undefined;
   Notifications: undefined;
   Chats: undefined;
+  ChatThread: { conversationId: string };
+  NewMessage: undefined;
 };
 
 export type ScreenProps<T extends keyof RootStackParamList> =

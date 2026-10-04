@@ -1,4 +1,8 @@
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import {
+  StackActions,
+  useFocusEffect,
+  useNavigation,
+} from '@react-navigation/native';
 import {
   Ban,
   Camera,
@@ -43,6 +47,7 @@ import { PostGrid } from '@/components/posts/PostGrid';
 import { ReelGrid } from '@/components/reels/ReelGrid';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
+import { chat } from '@/features/chats/chatController';
 import {
   primeFollowStatuses,
   useFollowStatus,
@@ -203,6 +208,7 @@ function ProfileBody({ profile }: { profile: Profile }) {
     [profile?.id],
   );
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [opening, setOpening] = useState(false);
   const status = useFollowStatus(profile.id, profile.follow_status);
   const { unfollow } = useFollowAction(profile, profile.follow_status);
 
@@ -221,6 +227,33 @@ function ProfileBody({ profile }: { profile: Profile }) {
           tab: initialTab,
         })
     : undefined;
+
+  // Opened from that same chat: go back to it instead of stacking a second copy.
+  const message = async () => {
+    if (opening) return;
+    setOpening(true);
+    try {
+      const conversationId = await chat.openDirect(profile.id);
+      const routes = navigation.getState()?.routes ?? [];
+      const previous = routes[routes.length - 2];
+      if (
+        previous?.name === 'ChatThread' &&
+        (previous.params as { conversationId?: string } | undefined)
+          ?.conversationId === conversationId
+      ) {
+        navigation.goBack();
+      } else {
+        navigation.dispatch(StackActions.push('ChatThread', { conversationId }));
+      }
+    } catch (err) {
+      Alert.alert(
+        "Couldn't open chat",
+        err instanceof ApiError ? err.message : 'Please try again.',
+      );
+    } finally {
+      setOpening(false);
+    }
+  };
 
   return (
     <>
@@ -280,6 +313,13 @@ function ProfileBody({ profile }: { profile: Profile }) {
             followsYou={profile.follows_you}
             size="lg"
             onFollowingPress={() => setSheetOpen(true)}
+          />
+          <Button
+            title="Message"
+            variant="secondary"
+            loading={opening}
+            onPress={message}
+            style={styles.message}
           />
         </View>
       </View>
@@ -464,6 +504,7 @@ const styles = StyleSheet.create({
   bio: { fontSize: 14.5, lineHeight: 21, marginTop: 4 },
   followsYou: { fontSize: 13, fontWeight: '600', marginTop: 6 },
   actions: { flexDirection: 'row', gap: spacing.sm, marginBottom: 14 },
+  message: { flex: 1, height: 38, minHeight: 38, paddingVertical: 0 },
   pressed: { opacity: 0.7 },
   private: {
     alignItems: 'center',

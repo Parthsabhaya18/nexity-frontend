@@ -9,7 +9,7 @@
     "reverse": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:4000 tcp:4000",
     "start": "react-native start",
     "start:reset": "react-native start --reset-cache",
-    "android": "react-native run-android --active-arch-only",
+    "android": "react-native run-android --port 8081 --no-packager --active-arch-only",
     "android:release": "react-native run-android --mode release --active-arch-only",
     "apk:debug": "react-native build-android --mode debug --tasks assembleDebug",
     "apk:release": "react-native build-android --mode release --tasks assembleRelease",
@@ -19,6 +19,7 @@
     "uninstall": "adb uninstall com.nexity.app",
     "logcat": "react-native log-android",
     "clean:android": "react-native build-android --tasks clean",
+    "clean:all": "powershell -ExecutionPolicy Bypass -File scripts/clean-all.ps1",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
@@ -27,6 +28,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
     "@react-native-camera-roll/camera-roll": "^7.10.2",
+    "@react-native-clipboard/clipboard": "^1.16.3",
     "@react-native-community/datetimepicker": "^9.2.1",
     "@react-native-community/image-editor": "^4.3.1",
     "@react-navigation/bottom-tabs": "^7.20.0",
@@ -43,11 +45,13 @@
     "react-native-keychain": "^10.0.0",
     "react-native-nitro-image": "^0.15.2",
     "react-native-nitro-modules": "^0.37.1",
+    "react-native-permissions": "^5.6.2",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.28.0",
     "react-native-svg": "^15.15.5",
     "react-native-video": "^6.19.3",
     "react-native-vision-camera": "^5.2.3",
+    "socket.io-client": "^4.8.4",
     "zod": "^3.25.76"
   },
   "devDependencies": {
