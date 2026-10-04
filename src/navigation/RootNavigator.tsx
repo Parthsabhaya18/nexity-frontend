@@ -16,6 +16,8 @@ import { RegisterScreen } from '@/screens/auth/RegisterScreen';
 import { ResetPasswordScreen } from '@/screens/auth/ResetPasswordScreen';
 import { VerifyEmailScreen } from '@/screens/auth/VerifyEmailScreen';
 import { ChatsScreen } from '@/screens/chats/ChatsScreen';
+import { ChatThreadScreen } from '@/screens/chats/ChatThreadScreen';
+import { NewMessageScreen } from '@/screens/chats/NewMessageScreen';
 import { CreatePostCropScreen } from '@/screens/create/CreatePostCropScreen';
 import { CreatePostDetailsScreen } from '@/screens/create/CreatePostDetailsScreen';
 import { CreateReelScreen } from '@/screens/create/CreateReelScreen';
@@ -105,6 +107,12 @@ export function RootNavigator() {
               component={NotificationsScreen}
             />
             <Stack.Screen name="Chats" component={ChatsScreen} />
+            <Stack.Screen name="ChatThread" component={ChatThreadScreen} />
+            <Stack.Screen
+              name="NewMessage"
+              component={NewMessageScreen}
+              options={{ animation: 'slide_from_bottom' }}
+            />
             <Stack.Screen
               name="Create"
               component={CreateScreen}

@@ -1,8 +1,21 @@
-import { MessageCircle, Search, SquarePen, X } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
+  Bell,
+  BellOff,
+  CloudOff,
+  MessageCircle,
+  Search,
+  SquarePen,
+  Trash2,
+  X,
+} from 'lucide-react-native';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -10,12 +23,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ActionSheet, type SheetAction } from '@/components/chat/ActionSheet';
+import { useToast } from '@/components/chat/Toast';
+import { useNow } from '@/components/chat/useNow';
 import { AppBar } from '@/components/ui/AppBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
-import { type ChatSummary, useChats } from '@/features/chats/useChats';
+import { chat as chatActions } from '@/features/chats/chatController';
+import {
+  type ChatSummary,
+  inboxSubtitle,
+  useChats,
+} from '@/features/chats/useChats';
 import type { ScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { radius, spacing, useAppTheme } from '@/theme';
@@ -23,10 +44,62 @@ import { timeAgo } from '@/utils/time';
 
 export function ChatsScreen({ navigation }: ScreenProps<'Chats'>) {
   const { colors } = useAppTheme();
-  const { chats } = useChats();
+  const { chats, status, error } = useChats();
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [menuFor, setMenuFor] = useState<ChatSummary | null>(null);
+  const { toast, show: showToast } = useToast();
+  useNow();
   useStatusBar();
+
+  useFocusEffect(
+    useCallback(() => {
+      chatActions.refreshPresence();
+    }, []),
+  );
+
+  const menuActions: SheetAction[] = menuFor
+    ? [
+        {
+          key: 'mute',
+          label: menuFor.muted ? 'Unmute messages' : 'Mute messages',
+          Icon: menuFor.muted ? Bell : BellOff,
+          onPress: () =>
+            chatActions
+              .setMuted(menuFor.id, !menuFor.muted)
+              .catch(() => showToast("Couldn't update. Try again.")),
+        },
+        {
+          key: 'delete',
+          label: 'Delete chat',
+          Icon: Trash2,
+          destructive: true,
+          onPress: () =>
+            Alert.alert(
+              'Delete chat?',
+              `This removes the chat with ${menuFor.peer.display_name} from your inbox. ${menuFor.peer.display_name} will still see it.`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: () =>
+                    chatActions
+                      .deleteForMe(menuFor.id)
+                      .catch(() => showToast("Couldn't delete. Try again.")),
+                },
+              ],
+            ),
+        },
+      ]
+    : [];
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await chatActions.refreshInbox();
+    setRefreshing(false);
+  }, []);
 
   const q = query.trim().toLowerCase();
   const shown = useMemo(() => {
@@ -41,7 +114,9 @@ export function ChatsScreen({ navigation }: ScreenProps<'Chats'>) {
     );
   }, [chats, q]);
 
-  const newMessage = () => navigation.navigate('Main', { screen: 'Search' });
+  const newMessage = () => navigation.navigate('NewMessage');
+  const openChat = (id: string) =>
+    navigation.navigate('ChatThread', { conversationId: id });
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -60,6 +135,17 @@ export function ChatsScreen({ navigation }: ScreenProps<'Chats'>) {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerStyle={styles.content}
+        onEndReached={() => chatActions.loadMoreInbox()}
+        onEndReachedThreshold={0.4}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.surface}
+          />
+        }
         ListHeaderComponent={
           <View
             style={[
@@ -98,9 +184,31 @@ export function ChatsScreen({ navigation }: ScreenProps<'Chats'>) {
             ) : null}
           </View>
         }
-        renderItem={({ item }) => <ChatRow chat={item} />}
+        renderItem={({ item }) => (
+          <ChatRow
+            chat={item}
+            onPress={() => openChat(item.id)}
+            onLongPress={() => setMenuFor(item)}
+          />
+        )}
         ListEmptyComponent={
-          q ? (
+          status === 'idle' || status === 'loading' ? (
+            <ActivityIndicator color={colors.primary} style={styles.loader} />
+          ) : status === 'error' ? (
+            <EmptyState
+              icon={<CloudOff size={34} color={colors.primary} />}
+              title="Couldn't load chats"
+              text={error ?? 'Check your connection and try again.'}
+              action={
+                <Button
+                  title="Try again"
+                  variant="secondary"
+                  onPress={() => chatActions.refreshInbox()}
+                  style={styles.cta}
+                />
+              }
+            />
+          ) : q ? (
             <EmptyState
               icon={<Search size={34} color={colors.primary} />}
               title="No chats found"
@@ -122,20 +230,43 @@ export function ChatsScreen({ navigation }: ScreenProps<'Chats'>) {
           )
         }
       />
+      {toast}
+      <ActionSheet
+        visible={Boolean(menuFor)}
+        onClose={() => setMenuFor(null)}
+        actions={menuActions}
+      />
     </SafeAreaView>
   );
 }
 
-function ChatRow({ chat }: { chat: ChatSummary }) {
+function ChatRow({
+  chat,
+  onPress,
+  onLongPress,
+}: {
+  chat: ChatSummary;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
   const { colors } = useAppTheme();
   const unread = chat.unread > 0;
-  const preview = chat.lastMessage ?? 'Say hi 👋';
+  const subtitle = inboxSubtitle(chat);
+  const time =
+    subtitle.showTime && chat.lastMessageAt ? timeAgo(chat.lastMessageAt) : null;
+  const subtitleColor = unread ? colors.text : colors.textSecondary;
 
   return (
     <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={320}
       accessibilityRole="button"
-      accessibilityLabel={`${chat.peer.display_name}. ${preview}${
-        unread ? `. ${chat.unread} unread` : ''
+      accessibilityHint="Long press for options"
+      accessibilityLabel={`${chat.peer.display_name}. ${subtitle.text}${
+        time ? `, ${time}` : ''
+      }${chat.online && subtitle.text !== 'Active now' ? '. Active now' : ''}${
+        chat.muted ? '. Muted' : ''
       }`}
       style={({ pressed }) => [
         styles.row,
@@ -146,6 +277,7 @@ function ChatRow({ chat }: { chat: ChatSummary }) {
         uri={chat.peer.avatar_url}
         name={chat.peer.display_name}
         size={54}
+        online={chat.online}
       />
       <View style={styles.rowText}>
         <View style={styles.rowTop}>
@@ -179,31 +311,46 @@ function ChatRow({ chat }: { chat: ChatSummary }) {
             </Text>
           ) : null}
         </View>
-        <Text
-          style={[
-            styles.preview,
-            { color: unread ? colors.text : colors.textSecondary },
-            unread && styles.previewUnread,
-          ]}
-          numberOfLines={1}
-        >
-          {preview}
-        </Text>
-      </View>
-      <View style={styles.meta}>
-        {chat.lastMessageAt ? (
-          <Text style={[styles.time, { color: colors.textSecondary }]}>
-            {timeAgo(chat.lastMessageAt)}
+        <View style={styles.subtitleRow}>
+          <Text
+            style={[
+              styles.preview,
+              { color: subtitleColor },
+              unread && styles.previewUnread,
+            ]}
+            numberOfLines={1}
+          >
+            {subtitle.text}
           </Text>
-        ) : null}
-        {unread ? (
-          <View style={[styles.count, { backgroundColor: colors.primary }]}>
-            <Text style={styles.countText} allowFontScaling={false}>
-              {chat.unread > 99 ? '99+' : chat.unread}
+          {time ? (
+            <Text
+              style={[
+                styles.time,
+                { color: subtitleColor },
+                unread && styles.previewUnread,
+              ]}
+              numberOfLines={1}
+            >
+              {` · ${time}`}
             </Text>
-          </View>
-        ) : null}
+          ) : null}
+          {chat.muted ? (
+            <BellOff
+              size={13}
+              color={colors.textSecondary}
+              style={styles.mutedIcon}
+            />
+          ) : null}
+        </View>
       </View>
+      {unread ? (
+        <View
+          style={[
+            styles.unreadDot,
+            { backgroundColor: chat.muted ? colors.textSecondary : colors.primary },
+          ]}
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -249,18 +396,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     overflow: 'hidden',
   },
-  preview: { fontSize: 13.5 },
-  previewUnread: { fontWeight: '600' },
-  meta: { alignItems: 'flex-end', gap: 6 },
-  time: { fontSize: 12 },
-  count: {
-    minWidth: 22,
-    height: 22,
-    paddingHorizontal: 7,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  subtitleRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+  preview: { fontSize: 13.5, flexShrink: 1 },
+  previewUnread: { fontWeight: '700' },
+  time: { fontSize: 13.5, flexShrink: 0 },
+  mutedIcon: { marginLeft: 6 },
+  unreadDot: { width: 9, height: 9, borderRadius: 4.5, marginRight: 4 },
   cta: { minWidth: 200 },
+  loader: { marginTop: 48 },
 });

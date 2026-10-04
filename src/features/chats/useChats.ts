@@ -1,3 +1,9 @@
+import { useMemo } from 'react';
+
+import type { ConversationDto } from '@/services/api/chat';
+
+import { type ChatState, presenceOf, useChatStore } from './chatStore';
+
 export type ChatPeer = {
   id: string;
   username: string;
@@ -16,16 +22,96 @@ export type ChatSummary = {
   /** Epoch milliseconds of the last message. */
   lastMessageAt: number | null;
   unread: number;
+  online: boolean;
+  lastActiveAt: string | null;
+  muted: boolean;
 };
 
 type ChatsState = {
   chats: readonly ChatSummary[];
+  /** Conversations with unread messages, for the Home header badge. */
   unreadCount: number;
+  status: ChatState['inbox']['status'];
+  error: string | null;
+  hasMore: boolean;
 };
 
-const EMPTY: ChatsState = { chats: [], unreadCount: 0 };
+const FALLBACK_PEER: ChatPeer = {
+  id: 'unknown',
+  username: 'nexity.user',
+  display_name: 'Nexity user',
+  avatar_url: null,
+};
 
-/** Inbox for the signed-in user. Backed by the API once the chat service ships. */
+type LastMessage = NonNullable<ConversationDto['last_message']>;
+
+export function previewText(last: LastMessage, mine: boolean) {
+  if (last.is_deleted) return mine ? 'You unsent a message' : 'Unsent a message';
+  const text =
+    last.type === 'image'
+      ? 'Sent a photo'
+      : last.type === 'gif'
+        ? 'Sent a GIF'
+        : last.type === 'sticker'
+          ? 'Sent a sticker'
+          : last.type === 'voice'
+          ? 'Sent a voice message'
+          : last.body;
+  return mine ? `You: ${text}` : text;
+}
+
+/** Above this, the inbox shows "5+ new messages". */
+export const UNREAD_CAP = 5;
+
+/**
+ * Second line of an inbox row, Instagram style: the message itself when one is
+ * unread, "3 new messages" / "5+ new messages" for more, otherwise the preview.
+ */
+export function inboxSubtitle(
+  chat: Pick<ChatSummary, 'unread' | 'lastMessage' | 'online'>,
+): { text: string; showTime: boolean } {
+  if (chat.unread > UNREAD_CAP)
+    return { text: `${UNREAD_CAP}+ new messages`, showTime: true };
+  if (chat.unread > 1)
+    return { text: `${chat.unread} new messages`, showTime: true };
+  if (chat.unread === 1 || !chat.online)
+    return { text: chat.lastMessage ?? 'Say hi 👋', showTime: Boolean(chat.lastMessage) };
+  return { text: 'Active now', showTime: false };
+}
+
+/** Inbox for the signed-in user, kept live by the chat socket. */
 export function useChats(): ChatsState {
-  return EMPTY;
+  const conversations = useChatStore(s => s.conversations);
+  const presence = useChatStore(s => s.presence);
+  const meId = useChatStore(s => s.meId);
+  const inbox = useChatStore(s => s.inbox);
+
+  return useMemo(() => {
+    const chats = Object.values(conversations)
+      .filter(c => c.last_message)
+      .map<ChatSummary>(c => {
+        const last = c.last_message!;
+        const live = presenceOf(c.peer, presence);
+        return {
+          id: c.id,
+          kind: 'normal',
+          peer: c.peer ?? FALLBACK_PEER,
+          lastMessage: previewText(last, last.sender_id === meId),
+          lastMessageAt: Date.parse(last.created_at),
+          unread: c.unread_count,
+          online: live.online,
+          lastActiveAt: live.lastActiveAt,
+          muted: c.is_muted,
+        };
+      })
+      .sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
+
+    return {
+      chats,
+      unreadCount: chats.filter(c => c.unread > 0 && !c.muted).length,
+      status: inbox.status,
+      error: inbox.error,
+      hasMore: inbox.hasMore,
+    };
+  }, [conversations, presence, meId, inbox]);
 }

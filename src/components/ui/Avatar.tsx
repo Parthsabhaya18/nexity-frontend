@@ -17,10 +17,22 @@ type Props = {
   ring?: 'unseen' | 'seen';
   /** Colour between the ring and the photo; match the surface behind the avatar. */
   ringGap?: string;
+  /** Green presence dot, bordered with the surface behind the avatar. */
+  online?: boolean;
+  onlineBorder?: string;
   style?: ViewStyle;
 };
 
-export function Avatar({ uri, name, size = 40, ring, ringGap, style }: Props) {
+export function Avatar({
+  uri,
+  name,
+  size = 40,
+  ring,
+  ringGap,
+  online,
+  onlineBorder,
+  style,
+}: Props) {
   const { colors, gradient } = useAppTheme();
   const [failed, setFailed] = useState(false);
 
@@ -29,6 +41,7 @@ export function Avatar({ uri, name, size = 40, ring, ringGap, style }: Props) {
   const inner = ring ? size - RING_WIDTH * 2 : size;
   const imageUri = uri && !failed ? uri : null;
   const icon = Math.round(inner * 0.48);
+  const dot = Math.min(14, Math.max(10, Math.round(size * 0.28)));
 
   return (
     <View
@@ -72,6 +85,21 @@ export function Avatar({ uri, name, size = 40, ring, ringGap, style }: Props) {
           <User size={icon} color={colors.textSecondary} strokeWidth={1.75} />
         )}
       </View>
+      {online ? (
+        <View
+          style={[
+            styles.dot,
+            {
+              width: dot,
+              height: dot,
+              borderRadius: dot / 2,
+              backgroundColor: colors.online,
+              borderColor: onlineBorder ?? colors.background,
+            },
+          ]}
+          accessibilityLabel="Active now"
+        />
+      ) : null}
     </View>
   );
 }
@@ -83,4 +111,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  dot: { position: 'absolute', right: 1, bottom: 1, borderWidth: 2.5 },
 });

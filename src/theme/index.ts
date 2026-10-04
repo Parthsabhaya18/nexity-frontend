@@ -175,6 +175,16 @@ export type ThemeColors = {
   /** Count badges on header icons. */
   accent: string;
   like: string;
+  /** DM bubbles sent by me; text on it is `onButton`. */
+  bubbleOutgoing: string;
+  /** DM bubbles received; text on it is `text`. */
+  bubbleIncoming: string;
+  /** Presence dot on avatars. */
+  online: string;
+  /** Bottom sheets, modals and menus. */
+  surfaceElevated: string;
+  /** Scrim behind sheets and modals. */
+  overlay: string;
 };
 
 const status = { danger: '#ED4956', success: '#12935A' } as const;
@@ -199,6 +209,11 @@ export const lightTheme: ThemeColors = {
   surfaceAlt: '#EFEFEF',
   accent: '#E5487E',
   like: '#F0386B',
+  bubbleOutgoing: '#3797F0',
+  bubbleIncoming: '#EFEFEF',
+  online: '#22C55E',
+  surfaceElevated: '#FFFFFF',
+  overlay: 'rgba(0, 0, 0, 0.4)',
 };
 
 const darkTheme: ThemeColors = {
@@ -220,6 +235,11 @@ const darkTheme: ThemeColors = {
   surfaceAlt: '#1C1C1C',
   accent: '#F0679B',
   like: '#F0386B',
+  bubbleOutgoing: '#3797F0',
+  bubbleIncoming: '#262626',
+  online: '#22C55E',
+  surfaceElevated: '#262626',
+  overlay: 'rgba(0, 0, 0, 0.65)',
 };
 
 export function moodColors(mood: Mood): ThemeColors {
@@ -237,6 +257,11 @@ export function moodColors(mood: Mood): ThemeColors {
     surfaceAlt: `${p.border}80`,
     accent: '#E5487E',
     like: '#F0386B',
+    bubbleOutgoing: p.button,
+    bubbleIncoming: `${p.border}80`,
+    online: '#22C55E',
+    surfaceElevated: p.background,
+    overlay: `${p.text}80`,
   };
 }
 
