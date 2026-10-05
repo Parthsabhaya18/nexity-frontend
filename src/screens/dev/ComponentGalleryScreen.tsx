@@ -7,7 +7,7 @@ import {
 } from 'lucide-react-native';
 import { type ReactNode, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import {
   PermissionIcon,

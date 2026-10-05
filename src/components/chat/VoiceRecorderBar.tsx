@@ -1,63 +1,110 @@
 import { Mic, SendHorizontal, Square, Trash2 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  AudioEncoderAndroidType,
+  AudioSourceAndroidType,
+  OutputFormatAndroidType,
+} from 'react-native-nitro-sound';
 
+import { deleteFile, fileSize } from '@/features/media/localFiles';
+import { VOICE_MAX_MS } from '@/features/media/mediaRules';
+import type { LocalMedia } from '@/features/media/pickMedia';
+import { SOUND_UNAVAILABLE, voicePlayer, voiceRecorder } from '@/services/media/sound';
 import { useAppTheme } from '@/theme';
 
 const BAR_COUNT = 30;
-const TICK_MS = 110;
-export const VOICE_MAX_MS = 60_000;
+const MIN_MS = 500;
+const QUIET = 0.12;
+/** Metering is in dBFS (-160…0); speech mostly sits between -50 and -10. */
+const FLOOR_DB = -50;
+
+/** Small mono AAC: plenty for speech and quick to upload. */
+const AUDIO_SET = {
+  AudioSourceAndroid: AudioSourceAndroidType.MIC,
+  OutputFormatAndroid: OutputFormatAndroidType.MPEG_4,
+  AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
+  AudioSamplingRate: 44100,
+  AudioChannels: 1,
+  AudioEncodingBitRate: 64000,
+};
 
 type Props = {
   onCancel: () => void;
-  onSend: (durationMs: number) => void;
+  onSend: (file: LocalMedia) => void;
+  onError: (message: string) => void;
 };
 
-const quiet = () => Array.from({ length: BAR_COUNT }, () => 0.12);
+const quiet = () => Array.from({ length: BAR_COUNT }, () => QUIET);
+
+const levelOf = (db: number | undefined) =>
+  db === undefined
+    ? QUIET
+    : Math.max(QUIET, Math.min(1, (db - FLOOR_DB) / -FLOOR_DB));
 
 function formatDuration(ms: number) {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 }
 
-/**
- * Voice note recorder (Instagram-style). UI only for now: nothing is captured or
- * uploaded until the S3 media pipeline is ready.
- */
-export function VoiceRecorderBar({ onCancel, onSend }: Props) {
+/** Instagram-style voice note recorder; stops by itself at one minute. */
+export function VoiceRecorderBar({ onCancel, onSend, onError }: Props) {
   const { colors } = useAppTheme();
-  const [recording, setRecording] = useState(true);
+  const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [levels, setLevels] = useState(quiet);
-  const startedAt = useRef(Date.now());
-  const banked = useRef(0);
+  const [sending, setSending] = useState(false);
   const pulse = useRef(new Animated.Value(1)).current;
+  const uri = useRef<string | null>(null);
+  const elapsedRef = useRef(0);
+  const finished = useRef(false);
+  const callbacks = useRef({ onError, onCancel });
+  callbacks.current = { onError, onCancel };
 
   useEffect(() => {
-    if (!recording) return;
-    startedAt.current = Date.now();
-    const id = setInterval(() => {
-      const total = banked.current + Date.now() - startedAt.current;
-      if (total >= VOICE_MAX_MS) {
-        banked.current = VOICE_MAX_MS;
-        setElapsed(VOICE_MAX_MS);
+    const recorder = voiceRecorder();
+    if (!recorder) {
+      callbacks.current.onError(SOUND_UNAVAILABLE);
+      callbacks.current.onCancel();
+      return;
+    }
+    let alive = true;
+    voicePlayer()?.stopPlayer().catch(() => {});
+    recorder.setSubscriptionDuration(0.1);
+    recorder.addRecordBackListener(e => {
+      if (!alive) return;
+      const ms = Math.min(VOICE_MAX_MS, e.currentPosition);
+      elapsedRef.current = ms;
+      setElapsed(ms);
+      setLevels(prev => [...prev.slice(1), levelOf(e.currentMetering)]);
+      if (ms >= VOICE_MAX_MS) {
+        recorder.pauseRecorder().catch(() => {});
         setRecording(false);
-        return;
       }
-      setElapsed(total);
-      // Speech-like envelope: mostly mid levels with occasional peaks and pauses.
-      const r = Math.random();
-      const level = r < 0.12 ? 0.12 : r > 0.9 ? 0.95 : 0.3 + Math.random() * 0.5;
-      setLevels(prev => [...prev.slice(1), level]);
-    }, TICK_MS);
+    });
+    recorder
+      .startRecorder(undefined, AUDIO_SET, true)
+      .then(path => {
+        uri.current = path;
+        if (alive) setRecording(true);
+        else recorder.stopRecorder().then(() => deleteFile(path)).catch(() => {});
+      })
+      .catch(() => {
+        if (!alive) return;
+        callbacks.current.onError("Couldn't start recording. Try again.");
+        callbacks.current.onCancel();
+      });
     return () => {
-      clearInterval(id);
-      banked.current = Math.min(
-        VOICE_MAX_MS,
-        banked.current + Date.now() - startedAt.current,
-      );
+      alive = false;
+      recorder.removeRecordBackListener();
+      if (finished.current) return;
+      const path = uri.current;
+      recorder
+        .stopRecorder()
+        .then(() => deleteFile(path ?? undefined))
+        .catch(() => {});
     };
-  }, [recording]);
+  }, []);
 
   useEffect(() => {
     if (!recording) {
@@ -73,6 +120,43 @@ export function VoiceRecorderBar({ onCancel, onSend }: Props) {
     loop.start();
     return () => loop.stop();
   }, [recording, pulse]);
+
+  const togglePause = () => {
+    const recorder = voiceRecorder();
+    if (!recorder || !uri.current) return;
+    if (recording) {
+      recorder.pauseRecorder().catch(() => {});
+      setRecording(false);
+    } else if (elapsedRef.current < VOICE_MAX_MS) {
+      recorder.resumeRecorder().catch(() => {});
+      setRecording(true);
+    }
+  };
+
+  const send = async () => {
+    const recorder = voiceRecorder();
+    if (!recorder || sending) return;
+    setSending(true);
+    finished.current = true;
+    try {
+      const path = await recorder.stopRecorder();
+      const file = path.startsWith('file://') || path.startsWith('/') ? path : uri.current;
+      if (!file) throw new Error('No recording');
+      onSend({
+        uri: file,
+        kind: 'audio',
+        contentType: 'audio/mp4',
+        fileName: 'voice.m4a',
+        bytes: await fileSize(file),
+        durationMs: Math.max(MIN_MS, elapsedRef.current),
+      });
+    } catch {
+      onError("Couldn't save the recording. Try again.");
+      onCancel();
+    }
+  };
+
+  const ready = elapsed >= MIN_MS && !sending;
 
   return (
     <View style={styles.row}>
@@ -92,10 +176,10 @@ export function VoiceRecorderBar({ onCancel, onSend }: Props) {
 
       <View style={[styles.pill, { backgroundColor: colors.button }]}>
         <Pressable
-          onPress={() => setRecording(r => !r)}
+          onPress={togglePause}
           hitSlop={6}
           accessibilityRole="button"
-          accessibilityLabel={recording ? 'Stop recording' : 'Resume recording'}
+          accessibilityLabel={recording ? 'Pause recording' : 'Resume recording'}
           style={({ pressed }) => [styles.stop, pressed && styles.pressed]}
         >
           {recording ? (
@@ -128,15 +212,15 @@ export function VoiceRecorderBar({ onCancel, onSend }: Props) {
       </View>
 
       <Pressable
-        onPress={() => onSend(elapsed)}
-        disabled={elapsed < 500}
+        onPress={send}
+        disabled={!ready}
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel="Send voice message"
         style={({ pressed }) => [
           styles.circle,
           { backgroundColor: colors.button },
-          elapsed < 500 && styles.disabled,
+          !ready && styles.disabled,
           pressed && styles.pressed,
         ]}
       >

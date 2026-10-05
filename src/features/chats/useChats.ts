@@ -46,17 +46,22 @@ const FALLBACK_PEER: ChatPeer = {
 type LastMessage = NonNullable<ConversationDto['last_message']>;
 
 export function previewText(last: LastMessage, mine: boolean) {
-  if (last.is_deleted) return mine ? 'You unsent a message' : 'Unsent a message';
+  if (last.is_deleted)
+    return mine ? 'You unsent a message' : 'Unsent a message';
   const text =
     last.type === 'image'
       ? 'Sent a photo'
+      : last.type === 'video'
+      ? 'Sent a video'
+      : last.type === 'album'
+      ? 'Sent photos'
       : last.type === 'gif'
-        ? 'Sent a GIF'
-        : last.type === 'sticker'
-          ? 'Sent a sticker'
-          : last.type === 'voice'
-          ? 'Sent a voice message'
-          : last.body;
+      ? 'Sent a GIF'
+      : last.type === 'sticker'
+      ? 'Sent a sticker'
+      : last.type === 'voice'
+      ? 'Sent a voice message'
+      : last.body;
   return mine ? `You: ${text}` : text;
 }
 
@@ -75,7 +80,10 @@ export function inboxSubtitle(
   if (chat.unread > 1)
     return { text: `${chat.unread} new messages`, showTime: true };
   if (chat.unread === 1 || !chat.online)
-    return { text: chat.lastMessage ?? 'Say hi 👋', showTime: Boolean(chat.lastMessage) };
+    return {
+      text: chat.lastMessage ?? 'Say hi 👋',
+      showTime: Boolean(chat.lastMessage),
+    };
   return { text: 'Active now', showTime: false };
 }
 

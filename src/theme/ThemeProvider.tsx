@@ -1,9 +1,15 @@
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useLayoutEffect, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 
-import { type AppTheme, publishTheme, resolveTheme, ThemeOverrideContext } from './index';
+import {
+  type AppTheme,
+  publishTheme,
+  resolveTheme,
+  stageTheme,
+  ThemeOverrideContext,
+} from './index';
 
 /** Renders `children` in `theme` instead of the app theme (component demos, captured themes). */
 export function ThemeScope({ theme, children }: { theme: AppTheme | null; children: ReactNode }) {
@@ -23,6 +29,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       ),
     [user?.preferences.theme, user?.preferences.mood, system],
   );
-  publishTheme(theme);
+  // Notifying other components during render is not allowed; layout effects still run before paint.
+  stageTheme(theme);
+  useLayoutEffect(() => {
+    publishTheme();
+  }, [theme]);
   return children;
 }

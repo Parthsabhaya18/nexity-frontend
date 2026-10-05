@@ -12,6 +12,8 @@ export interface ChatUser {
 export type MessageType =
   | 'text'
   | 'image'
+  | 'video'
+  | 'album'
   | 'gif'
   | 'sticker'
   | 'voice'
@@ -28,6 +30,16 @@ export interface MessageMedia {
   duration_ms: number | null;
 }
 
+/** Thumbnail of the quoted photo / video; `count` > 1 when a whole album is quoted. */
+export interface QuotedMedia {
+  url: string;
+  kind: 'image' | 'video';
+  count: number;
+  next_url: string | null;
+  /** Up to three album cards, drawn like the album bubble; empty for one item. */
+  stack?: { url: string; kind: 'image' | 'video' }[];
+}
+
 export interface ReplyPreview {
   id: string;
   sender_id: string;
@@ -35,6 +47,7 @@ export interface ReplyPreview {
   body: string;
   is_deleted: boolean;
   is_edited?: boolean;
+  media?: QuotedMedia | null;
 }
 
 /** Reactions grouped by emoji; each person has at most one reaction per message. */
@@ -57,7 +70,11 @@ export interface MessageDto {
   type: MessageType;
   body: string;
   media: MessageMedia | null;
+  /** Album photos / videos, in order; empty for every other type. */
+  media_items?: MessageMedia[];
   reply_to_id: string | null;
+  /** Which album item the reply is about. */
+  reply_to_index?: number | null;
   reply_to: ReplyPreview | null;
   client_message_id: string;
   reactions?: ReactionGroup[];
@@ -115,6 +132,11 @@ export interface SendMessageInput {
   client_message_id: string;
   body?: string;
   reply_to_id?: string;
+  reply_to_index?: number;
+  /** A finished `message` upload: photo, video or voice note. */
+  media_id?: string;
+  /** Several finished photo / video uploads sent as one album. */
+  media_ids?: string[];
   gif?: Pick<GifItem, 'id' | 'url' | 'width' | 'height'> & {
     preview_url: string | null;
     kind: GifKind;

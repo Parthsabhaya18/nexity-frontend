@@ -1,7 +1,7 @@
 import { ImageOff } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import {
   CommentsSheet,

@@ -1,14 +1,12 @@
-import { ImageOff } from 'lucide-react-native';
+﻿import { ImageOff } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  ScrollView,
   StyleSheet,
-  useWindowDimensions,
-  View,
+  type ListViewToken,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import {
   CommentsSheet,
@@ -26,10 +24,11 @@ import { type Post, postsApi } from '@/services/api/posts';
 import { useAppTheme } from '@/theme';
 
 const MAX_PAGES_TO_FIND = 12;
+const VIEWABILITY = { itemVisiblePercentThreshold: 60 };
 
 /**
- * One post per page; swipe left/right to move between the posts of the
- * profile (or the saved list) it was opened from.
+ * Feed-style vertical list of the posts of the profile (or the saved list)
+ * it was opened from, starting at the tapped post.
  */
 export function PostViewerScreen({
   route,
@@ -37,7 +36,6 @@ export function PostViewerScreen({
 }: ScreenProps<'PostViewer'>) {
   const { postId, source, userId } = route.params;
   const { colors } = useAppTheme();
-  const { width } = useWindowDimensions();
   const [items, setItems] = useState<Post[]>([]);
   const [startIndex, setStartIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +44,13 @@ export function PostViewerScreen({
   const cursor = useRef<string | null>(null);
   const loadingMore = useRef(false);
   const list = useRef<FlatList<Post>>(null);
+  const jumped = useRef(false);
+  const onViewable = useRef(
+    ({ viewableItems }: { viewableItems: ListViewToken[] }) => {
+      const first = viewableItems[0];
+      if (first?.index != null) setIndex(first.index);
+    },
+  );
   useStatusBar();
   useEngagementSync<Post>('post', setItems);
 
@@ -58,6 +63,7 @@ export function PostViewerScreen({
   const load = useCallback(async () => {
     setError(null);
     setStartIndex(null);
+    jumped.current = false;
     try {
       let all: Post[] = [];
       let next: string | null = null;
@@ -109,19 +115,18 @@ export function PostViewerScreen({
     }
   };
 
+  const jumpToStart = () => {
+    if (jumped.current || startIndex === null || startIndex === 0) return;
+    jumped.current = true;
+    list.current?.scrollToIndex({ index: startIndex, animated: false });
+  };
+
   const current = items[index];
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <AppBar
         title={source === 'saved' ? 'Saved' : 'Posts'}
-        subtitle={
-          items.length > 1 && startIndex !== null
-            ? `${Math.min(index + 1, items.length)} of ${items.length}${
-                cursor.current ? '+' : ''
-              }`
-            : undefined
-        }
         back
       />
       {error ? (
@@ -138,37 +143,39 @@ export function PostViewerScreen({
           ref={list}
           data={items}
           keyExtractor={p => p.id}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          initialScrollIndex={startIndex}
-          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-          windowSize={3}
-          initialNumToRender={1}
-          maxToRenderPerBatch={2}
-          onMomentumScrollEnd={e => {
-            const i = Math.round(e.nativeEvent.contentOffset.x / width);
-            setIndex(i);
-            if (i >= items.length - 3) loadMore();
+          initialNumToRender={startIndex + 2}
+          onContentSizeChange={jumpToStart}
+          onScrollToIndexFailed={({ index: i, averageItemLength }) => {
+            list.current?.scrollToOffset({
+              offset: averageItemLength * i,
+              animated: false,
+            });
+            setTimeout(
+              () => list.current?.scrollToIndex({ index: i, animated: false }),
+              50,
+            );
           }}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          viewabilityConfig={VIEWABILITY}
+          onViewableItemsChanged={onViewable.current}
           renderItem={({ item, index: i }) => (
-            <View style={{ width }}>
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <PostCard
-                  post={item}
-                  active={i === index}
-                  onComment={() =>
-                    setComments({
-                      kind: 'post',
-                      id: item.id,
-                      commentsDisabled: item.comments_disabled,
-                      isOwner: item.is_owner,
-                      commentsCount: item.comments_count,
-                    })
-                  }
-                />
-              </ScrollView>
-            </View>
+            <PostCard
+              post={item}
+              active={i === index}
+              onComment={() =>
+                setComments({
+                  kind: 'post',
+                  id: item.id,
+                  commentsDisabled: item.comments_disabled,
+                  isOwner: item.is_owner,
+                  commentsCount: item.comments_count,
+                })
+              }
+              onDeleted={() =>
+                setItems(prev => prev.filter(p => p.id !== item.id))
+              }
+            />
           )}
         />
       )}

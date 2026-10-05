@@ -66,8 +66,17 @@ export function tooLongMessage(purpose: MediaPurpose) {
   return `${VIDEO_LABEL[purpose]} can be up to ${formatDuration(max)}. Choose a shorter video.`;
 }
 
+const KIND_LABEL: Record<MediaKind, string> = {
+  image: 'Photos',
+  video: 'Videos',
+  audio: 'Voice messages',
+};
+
 export function tooLargeMessage(kind: MediaKind, maxBytes: number) {
-  return `${kind === 'image' ? 'Photos' : 'Videos'} can be up to ${formatBytes(
+  if (kind === 'audio') {
+    return `Voice messages can be up to ${formatBytes(maxBytes)}.`;
+  }
+  return `${KIND_LABEL[kind]} can be up to ${formatBytes(
     maxBytes,
   )}. This one is still larger after compressing. Choose a smaller file.`;
 }
@@ -88,9 +97,7 @@ export function isTooLong(media: LocalMedia, purpose: MediaPurpose) {
  */
 export function validateMedia(media: LocalMedia, purpose: MediaPurpose) {
   if (!MEDIA_RULES[purpose][media.kind]) {
-    throw new MediaError(
-      `${media.kind === 'image' ? 'Photos' : 'Videos'} can't be used here.`,
-    );
+    throw new MediaError(`${KIND_LABEL[media.kind]} can't be used here.`);
   }
   if (isTooLong(media, purpose)) throw new MediaError(tooLongMessage(purpose));
 }

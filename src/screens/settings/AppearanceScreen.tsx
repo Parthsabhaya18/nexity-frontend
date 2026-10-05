@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { AppBar } from '@/components/ui/AppBar';
 import { useAuth } from '@/features/auth/AuthProvider';

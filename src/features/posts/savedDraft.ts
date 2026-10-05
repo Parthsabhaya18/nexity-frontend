@@ -1,5 +1,6 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
 
+import type { MediaKind } from '@/features/media/mediaRules';
 import type { LocalMedia } from '@/features/media/pickMedia';
 
 import {
@@ -13,7 +14,7 @@ import {
 const DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/nexity-drafts`;
 const FILE = `${DIR}/post.json`;
 
-const extensionOf = (fileName: string, kind: 'image' | 'video') =>
+const extensionOf = (fileName: string, kind: MediaKind) =>
   /^[\w]+\.(\w{2,5})$/.exec(fileName)?.[1] ?? (kind === 'video' ? 'mp4' : 'jpg');
 
 async function copyIntoDraft(uri: string, name: string) {

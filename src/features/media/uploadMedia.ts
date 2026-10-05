@@ -22,7 +22,7 @@ import {
 export { isUploadCancelled, UploadCancelledError };
 
 /** Progress bar split: compression, then S3 transfer, then verification. */
-const PREPARE_SHARE = { image: 0.05, video: 0.4 } as const;
+const PREPARE_SHARE = { image: 0.05, video: 0.4, audio: 0 } as const;
 const VERIFY_SHARE = 0.05;
 
 export type UploadPhase = 'processing' | 'uploading';

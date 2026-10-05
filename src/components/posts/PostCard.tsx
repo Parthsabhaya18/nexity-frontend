@@ -12,7 +12,8 @@ import {
   Alert,
   Animated,
   Easing,
-  FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   Share,
   StyleSheet,
@@ -58,6 +59,7 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
   const lastTap = useRef(0);
   const burst = useRef(new Animated.Value(0)).current;
   const pop = useRef(new Animated.Value(1)).current;
+  const scrollX = useRef(new Animated.Value(0)).current;
 
   const like = useCallback(
     (liked: boolean) => {
@@ -96,6 +98,17 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
       lastTap.current = now;
     }
   };
+
+  const syncIndex = (offsetX: number) => {
+    const next = pageAt(offsetX, width, post.media.length);
+    setIndex(prev => (prev === next ? prev : next));
+  };
+
+  const onCarouselScroll = useRef(
+    Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+      useNativeDriver: true,
+    }),
+  ).current;
 
   const toggleSave = async () => {
     if (saving.current) return;
@@ -189,40 +202,54 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
         </Pressable>
       </View>
 
-      <Pressable
-        onPress={onMediaPress}
-        style={{ height, backgroundColor: colors.surfaceAlt }}
-      >
-        <FlatList
+      <View style={{ height, backgroundColor: colors.surfaceAlt }}>
+        <Animated.FlatList
           data={post.media}
-          keyExtractor={m => m.id}
+          keyExtractor={(m: Post['media'][number]) => m.id}
+          extraData={index}
           horizontal
           pagingEnabled
           nestedScrollEnabled
+          decelerationRate="fast"
+          disableIntervalMomentum
           showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={e =>
-            setIndex(Math.round(e.nativeEvent.contentOffset.x / width))
+          scrollEventThrottle={16}
+          onScroll={onCarouselScroll}
+          onMomentumScrollEnd={(e: NativeSyntheticEvent<NativeScrollEvent>) =>
+            syncIndex(e.nativeEvent.contentOffset.x)
           }
-          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-          renderItem={({ item, index: i }) => (
-            <FilterFrame adjustments={post.adjustments} style={{ width, height }}>
-              <PlayableMedia
-                uri={item.url}
-                kind={item.kind}
-                active={!!active && i === index}
-                blurRadius={Math.round((post.adjustments?.blur ?? 0) / 8)}
-                style={{ width, height }}
-                accessibilityLabel={item.alt_text || `Photo ${i + 1}`}
-              />
-            </FilterFrame>
+          getItemLayout={(_: unknown, i: number) => ({
+            length: width,
+            offset: width * i,
+            index: i,
+          })}
+          renderItem={({
+            item,
+            index: i,
+          }: {
+            item: Post['media'][number];
+            index: number;
+          }) => (
+            <Pressable onPress={onMediaPress} style={{ width, height }}>
+              <FilterFrame adjustments={post.adjustments} style={{ width, height }}>
+                <PlayableMedia
+                  uri={item.url}
+                  kind={item.kind}
+                  active={!!active && i === index}
+                  blurRadius={Math.round((post.adjustments?.blur ?? 0) / 8)}
+                  style={{ width, height }}
+                  accessibilityLabel={item.alt_text || `Photo ${i + 1}`}
+                />
+              </FilterFrame>
+            </Pressable>
           )}
         />
         {post.media.length > 1 ? (
-          <View style={styles.counter} pointerEvents="none">
-            <Text style={styles.counterText}>
-              {index + 1}/{post.media.length}
-            </Text>
-          </View>
+          <PageCounter
+            scrollX={scrollX}
+            width={width}
+            count={post.media.length}
+          />
         ) : null}
         {post.tagged_users.length ? (
           <>
@@ -259,18 +286,29 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
             <Heart size={96} color="#FFFFFF" fill="#FFFFFF" />
           </Animated.View>
         </View>
-      </Pressable>
+      </View>
 
       {post.media.length > 1 ? (
         <View style={styles.dots}>
           {post.media.map((m, i) => (
             <View
               key={m.id}
-              style={[
-                styles.dot,
-                { backgroundColor: i === index ? colors.primary : colors.border },
-              ]}
-            />
+              style={[styles.dot, { backgroundColor: colors.border }]}
+            >
+              <Animated.View
+                style={[
+                  styles.dotFill,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: scrollX.interpolate({
+                      inputRange: [(i - 1) * width, i * width, (i + 1) * width],
+                      outputRange: [0, 1, 0],
+                      extrapolate: 'clamp',
+                    }),
+                  },
+                ]}
+              />
+            </View>
           ))}
         </View>
       ) : null}
@@ -383,6 +421,54 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
   );
 }
 
+function pageAt(offsetX: number, width: number, count: number) {
+  return Math.min(count - 1, Math.max(0, Math.round(offsetX / width)));
+}
+
+function PageCounter({
+  scrollX,
+  width,
+  count,
+}: {
+  scrollX: Animated.Value;
+  width: number;
+  count: number;
+}) {
+  return (
+    <View style={styles.counter} pointerEvents="none">
+      <Text style={[styles.counterText, styles.hidden]}>
+        {count}/{count}
+      </Text>
+      {Array.from({ length: count }, (_, i) => {
+        const start = (i - 0.5) * width;
+        const end = (i + 0.5) * width;
+        const opacity =
+          count === 1
+            ? 1
+            : scrollX.interpolate({
+                inputRange:
+                  i === 0
+                    ? [end - 1, end]
+                    : i === count - 1
+                      ? [start - 1, start]
+                      : [start - 1, start, end - 1, end],
+                outputRange:
+                  i === 0 ? [1, 0] : i === count - 1 ? [0, 1] : [0, 1, 1, 0],
+                extrapolate: 'clamp',
+              });
+        return (
+          <Animated.Text
+            key={i}
+            style={[styles.counterText, styles.counterLabel, { opacity }]}
+          >
+            {i + 1}/{count}
+          </Animated.Text>
+        );
+      })}
+    </View>
+  );
+}
+
 export const PostCard = memo(PostCardBase);
 
 const styles = StyleSheet.create({
@@ -406,6 +492,14 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   counterText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  counterLabel: {
+    position: 'absolute',
+    top: 3,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+  },
+  hidden: { opacity: 0 },
   tagButton: {
     position: 'absolute',
     left: 12,
@@ -444,7 +538,14 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: 8,
   },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  dot: { width: 6, height: 6, borderRadius: 3, overflow: 'hidden' },
+  dotFill: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
