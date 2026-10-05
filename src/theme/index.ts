@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { createContext, useContext, useSyncExternalStore } from 'react';
 
 export const brand = {
   primary: '#2563EB',
@@ -185,6 +185,10 @@ export type ThemeColors = {
   surfaceElevated: string;
   /** Scrim behind sheets and modals. */
   overlay: string;
+  /** Loading placeholders. */
+  skeleton: string;
+  /** The moving shine on top of `skeleton`. */
+  skeletonHighlight: string;
 };
 
 const status = { danger: '#ED4956', success: '#12935A' } as const;
@@ -214,6 +218,8 @@ export const lightTheme: ThemeColors = {
   online: '#22C55E',
   surfaceElevated: '#FFFFFF',
   overlay: 'rgba(0, 0, 0, 0.4)',
+  skeleton: '#EFEFEF',
+  skeletonHighlight: '#FAFAFA',
 };
 
 const darkTheme: ThemeColors = {
@@ -240,6 +246,8 @@ const darkTheme: ThemeColors = {
   online: '#22C55E',
   surfaceElevated: '#262626',
   overlay: 'rgba(0, 0, 0, 0.65)',
+  skeleton: '#262626',
+  skeletonHighlight: '#363636',
 };
 
 export function moodColors(mood: Mood): ThemeColors {
@@ -262,6 +270,8 @@ export function moodColors(mood: Mood): ThemeColors {
     online: '#22C55E',
     surfaceElevated: p.background,
     overlay: `${p.text}80`,
+    skeleton: `${p.border}CC`,
+    skeletonHighlight: p.background,
   };
 }
 
@@ -271,6 +281,7 @@ export const brandGradient = ['#38BDF8', '#3B82F6', '#1D4ED8'] as const;
 /** Colours that stay fixed on full-bleed dark screens such as Reels. */
 export const darkScreen = {
   background: '#000000',
+  iconTile: 'rgba(255, 255, 255, 0.12)',
   text: '#FFFFFF',
   textSecondary: 'rgba(255, 255, 255, 0.72)',
   navBackground: 'rgba(8, 6, 12, 0.88)',
@@ -333,9 +344,18 @@ export function publishTheme(next: AppTheme) {
   listeners.forEach(l => l());
 }
 
+/** Set by `ThemeScope` to show part of the tree in another theme. */
+export const ThemeOverrideContext = createContext<AppTheme | null>(null);
+
+const subscribe = (listener: Listener) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+
 export function useAppTheme() {
-  return useSyncExternalStore((listener: Listener) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  }, getAppTheme);
+  const override = useContext(ThemeOverrideContext);
+  const global = useSyncExternalStore(subscribe, getAppTheme);
+  return override ?? global;
 }

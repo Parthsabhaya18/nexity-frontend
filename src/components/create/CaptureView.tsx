@@ -1,33 +1,18 @@
-import {
-  CameraRoll,
-  type PhotoIdentifier,
-} from '@react-native-camera-roll/camera-roll';
 import { useIsFocused } from '@react-navigation/native';
 import {
-  Camera as CameraIcon,
   Image as ImageIcon,
-  RefreshCw,
-  Settings,
   SwitchCamera,
-  Upload,
   X,
   Zap,
   ZapOff,
 } from 'lucide-react-native';
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   AppState,
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -43,16 +28,17 @@ import {
   useVideoOutput,
 } from 'react-native-vision-camera';
 
-import { formatDuration, maxDurationMs } from '@/features/media/mediaRules';
+import { GalleryPicker } from '@/components/create/GalleryPicker';
 import {
-  type LocalMedia,
-  MediaError,
-  pickFromLibrary,
-} from '@/features/media/pickMedia';
+  formatDuration,
+  type MediaKind,
+  maxDurationMs,
+} from '@/features/media/mediaRules';
 import {
-  openPermissionSettings,
   requestAccess,
+  showPermissionPrompt,
 } from '@/features/media/permissionPrompt';
+import { type LocalMedia, MediaError, validateMedia } from '@/features/media/pickMedia';
 import { radius, spacing } from '@/theme';
 
 export type CaptureMode = 'post' | 'story' | 'reel';
@@ -60,35 +46,18 @@ export type CaptureMode = 'post' | 'story' | 'reel';
 type Props = {
   mode: CaptureMode;
   onClose: () => void;
-  /** One item for a story or reel; one or more photos for a post. */
+  /** What was shot or chosen. Posts can arrive with several items. */
   onDone: (media: LocalMedia[]) => void;
   /** Post ↔ Reel tabs under the shutter. Stories have no tabs. */
   onSwitchMode?: (mode: 'post' | 'reel') => void;
+  /** Items already in the post, so the gallery counts them against the limit. */
+  alreadySelected?: number;
 };
 
-const MAX_POST_PHOTOS = 10;
-const THUMB = 56;
+// Controls sit on top of a live camera, so they are always white on dark glass.
 const WHITE = '#FFFFFF';
-const DIM = 'rgba(255, 255, 255, 0.72)';
-const GLASS = 'rgba(255, 255, 255, 0.14)';
-
-function toMedia(node: PhotoIdentifier['node']): LocalMedia {
-  const image = node.image;
-  const video = node.type === 'video' || node.type === 'pairedVideo';
-  return {
-    uri: image.uri,
-    kind: video ? 'video' : 'image',
-    contentType: video ? 'video/mp4' : 'image/jpeg',
-    fileName: image.filename ?? (video ? 'video.mp4' : 'photo.jpg'),
-    bytes: image.fileSize ?? 0,
-    width: image.width,
-    height: image.height,
-    durationMs:
-      video && image.playableDuration
-        ? Math.round(image.playableDuration * 1000)
-        : undefined,
-  };
-}
+const DIM = 'rgba(255, 255, 255, 0.78)';
+const GLASS = 'rgba(0, 0, 0, 0.38)';
 
 const fileUri = (path: string) =>
   path.startsWith('file://') ? path : `file://${path}`;
@@ -105,24 +74,31 @@ function useAppActive() {
 }
 
 /**
- * The camera that opens first for a story, post or reel, like the prototype.
- * The phone asks for camera (and microphone for video) the moment it opens.
+ * Full-screen camera for a post, story or reel. The phone's own permission
+ * dialogs appear as soon as the camera opens. The gallery icon opens the
+ * gallery grid; nothing else sits on the picture.
  */
-export function CaptureView({ mode, onClose, onDone, onSwitchMode }: Props) {
+export function CaptureView({
+  mode,
+  onClose,
+  onDone,
+  onSwitchMode,
+  alreadySelected = 0,
+}: Props) {
   const story = mode === 'story';
   const reel = mode === 'reel';
-  const vertical = story || reel;
-  const maxMs = maxDurationMs(mode) ?? 60_000;
+  const canRecord = story || reel;
+  const maxMs = maxDurationMs(mode) ?? 120_000;
 
   const camera = useCameraPermission();
   const mic = useMicrophonePermission();
-  const [facing, setFacing] = useState<'front' | 'back'>('front');
+  const [facing, setFacing] = useState<'front' | 'back'>('back');
   const device = useCameraDevice(facing);
   const [flash, setFlash] = useState(false);
   const [asked, setAsked] = useState(false);
   const [requesting, setRequesting] = useState(true);
-  const [photos, setPhotos] = useState<PhotoIdentifier[]>([]);
-  const [picks, setPicks] = useState<LocalMedia[]>([]);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [lastShot, setLastShot] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -134,24 +110,9 @@ export function CaptureView({ mode, onClose, onDone, onSwitchMode }: Props) {
 
   const photoOutput = usePhotoOutput();
   const videoOutput = useVideoOutput({ enableAudio: mic.hasPermission });
-  const outputs = vertical ? [photoOutput, videoOutput] : [photoOutput];
+  const outputs = canRecord ? [photoOutput, videoOutput] : [photoOutput];
 
-  const loadRecent = useCallback(async () => {
-    if ((await requestAccess('photos')) !== 'granted') return;
-    try {
-      const page = await CameraRoll.getPhotos({
-        first: 30,
-        assetType: reel ? 'Videos' : story ? 'All' : 'Photos',
-        include: ['filename', 'fileSize', 'imageSize', 'playableDuration'],
-      });
-      setPhotos(page.edges);
-    } catch {
-      setPhotos([]);
-    }
-  }, [reel, story]);
-
-  // Ask in the order the screen needs them: camera, then microphone for
-  // video, then photos for the strip. Each is the phone's own dialog.
+  // The phone's dialogs, in the order the screen needs them.
   useEffect(() => {
     if (asked) return;
     setAsked(true);
@@ -160,19 +121,11 @@ export function CaptureView({ mode, onClose, onDone, onSwitchMode }: Props) {
         await camera.requestPermission().catch(() => false);
       }
       setRequesting(false);
-      if (vertical && !mic.hasPermission && mic.canRequestPermission) {
-        await mic.requestPermission();
+      if (canRecord && !mic.hasPermission && mic.canRequestPermission) {
+        await mic.requestPermission().catch(() => false);
       }
-      await loadRecent();
-    })().catch(() => {});
-  }, [asked, camera, mic, vertical, loadRecent]);
-
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', s => {
-      if (s === 'active') loadRecent().catch(() => {});
-    });
-    return () => sub.remove();
-  }, [loadRecent]);
+    })().catch(() => setRequesting(false));
+  }, [asked, camera, mic, canRecord]);
 
   useEffect(() => {
     if (!recording) return;
@@ -185,6 +138,15 @@ export function CaptureView({ mode, onClose, onDone, onSwitchMode }: Props) {
 
   const ready = camera.hasPermission && !!device;
   const canFlash = facing === 'back' && !!device?.hasFlash;
+
+  const askAgain = async () => {
+    if (camera.canRequestPermission) {
+      await camera.requestPermission().catch(() => false);
+      return;
+    }
+    // Android no longer shows its dialog; Settings is the only way left.
+    showPermissionPrompt('camera');
+  };
 
   const takePhoto = async () => {
     if (!ready || busy || recording) return;
@@ -199,16 +161,17 @@ export function CaptureView({ mode, onClose, onDone, onSwitchMode }: Props) {
       photo.dispose();
       const uri = fileUri(path);
       const size = await Image.getSize(uri).catch(() => fallback);
-      const shot: LocalMedia = {
-        uri,
-        kind: 'image',
-        contentType: 'image/jpeg',
-        fileName: `photo-${Date.now()}.jpg`,
-        bytes: 0,
-        width: size.width,
-        height: size.height,
-      };
-      onDone(story ? [shot] : [...picks, shot].slice(0, MAX_POST_PHOTOS));
+      onDone([
+        {
+          uri,
+          kind: 'image',
+          contentType: 'image/jpeg',
+          fileName: `photo-${Date.now()}.jpg`,
+          bytes: 0,
+          width: size.width,
+          height: size.height,
+        },
+      ]);
     } catch {
       Alert.alert("Couldn't take the photo", 'Please try again.');
     } finally {
@@ -217,7 +180,7 @@ export function CaptureView({ mode, onClose, onDone, onSwitchMode }: Props) {
   };
 
   const startRecording = async () => {
-    if (!ready || busy || recording || !vertical) return;
+    if (!ready || busy || recording || !canRecord) return;
     try {
       const rec = await videoOutput.createRecorder({
         maxDuration: maxMs / 1000,
@@ -260,315 +223,196 @@ export function CaptureView({ mode, onClose, onDone, onSwitchMode }: Props) {
   };
 
   const openGallery = async () => {
-    try {
-      const items = await pickFromLibrary(mode, {
-        kind: reel ? 'video' : story ? undefined : 'image',
-        limit: vertical ? 1 : MAX_POST_PHOTOS,
-        allowLong: reel,
-      });
-      if (items.length) onDone(items);
-    } catch (err) {
-      Alert.alert(
-        "Couldn't open photos",
-        err instanceof MediaError ? err.message : 'Please try again.',
-      );
-    }
-  };
-
-  const tapThumb = (media: LocalMedia) => {
-    if (vertical) {
-      onDone([media]);
+    const access = await requestAccess('photos');
+    if (access === 'blocked') {
+      showPermissionPrompt('photos');
       return;
     }
-    setPicks(current => {
-      if (current.some(p => p.uri === media.uri)) {
-        return current.filter(p => p.uri !== media.uri);
-      }
-      if (current.length >= MAX_POST_PHOTOS) return current;
-      return [...current, media];
-    });
+    if (access === 'granted') setGalleryOpen(true);
   };
 
-  const viewport = () => {
-    if (ready) {
-      return (
+  const picked = (items: LocalMedia[]) => {
+    try {
+      items.forEach(m => validateMedia(m, mode));
+    } catch (err) {
+      Alert.alert(
+        "Couldn't use that",
+        err instanceof MediaError ? err.message : 'Please try again.',
+      );
+      return;
+    }
+    setGalleryOpen(false);
+    setLastShot(items[0]?.uri ?? null);
+    onDone(items);
+  };
+
+  const galleryKind: MediaKind | undefined = reel ? 'video' : undefined;
+  const tip = recording
+    ? `${formatDuration(elapsed)} / ${formatDuration(maxMs)}`
+    : reel
+    ? 'Tap to record'
+    : story
+    ? 'Tap for photo · hold for video'
+    : null;
+
+  return (
+    <View style={styles.root}>
+      {ready ? (
         <Camera
           style={StyleSheet.absoluteFill}
           device={device}
           outputs={outputs}
-          isActive={focused && appActive}
+          isActive={focused && appActive && !galleryOpen}
           torchMode={recording && flash && canFlash ? 'on' : 'off'}
           enableNativeZoomGesture
           enableNativeTapToFocusGesture
           onError={() => {}}
         />
-      );
-    }
-    if (camera.hasPermission && !device) {
-      return (
-        <CamState
-          title="No camera found"
-          text="We couldn't find a camera on this device. Choose from your gallery instead."
-        />
-      );
-    }
-    if (requesting) {
-      return (
-        <View style={styles.state}>
-          <ActivityIndicator color={WHITE} />
-          <Text style={styles.stateTitle}>Opening camera…</Text>
-        </View>
-      );
-    }
-    const blocked = !camera.canRequestPermission;
-    return (
-      <CamState
-        title="Camera access is off"
-        text={
-          blocked
-            ? 'Camera is turned off for Nexity. Turn it on in Settings, or choose from your gallery.'
-            : 'Allow camera access to take photos in Nexity, or choose from your gallery.'
-        }
-        action={
-          blocked ? (
-            <StateButton
-              icon={<Settings size={18} color="#0F172A" />}
-              label="Open Settings"
-              onPress={() => openPermissionSettings('camera').catch(() => {})}
-            />
-          ) : (
-            <StateButton
-              icon={<RefreshCw size={18} color="#0F172A" />}
-              label="Try again"
-              onPress={() => camera.requestPermission().catch(() => {})}
-            />
-          )
-        }
-      />
-    );
-  };
-
-  const title = story ? 'Your story' : reel ? 'New reel' : 'New post';
-  const tip = recording
-    ? `Recording · ${formatDuration(elapsed)} / ${formatDuration(maxMs)}`
-    : reel
-    ? `Tap or hold to record (up to ${formatDuration(maxMs)})`
-    : story
-    ? `Tap for photo · hold for video (up to ${formatDuration(maxMs)})`
-    : picks.length
-    ? `Tap Next, or keep selecting up to ${MAX_POST_PHOTOS} photos`
-    : 'Tap photos to select more than one, or take a photo';
-
-  return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <View style={styles.top}>
-        <RoundButton label="Close camera" onPress={onClose}>
-          <X size={24} color={WHITE} />
-        </RoundButton>
-        <Text style={styles.title} accessibilityRole="header">
-          {title}
-        </Text>
-        <RoundButton
-          label={flash ? 'Flash on' : 'Flash off'}
-          onPress={() => setFlash(v => !v)}
-          disabled={!ready || !canFlash}
-          active={flash}
+      ) : (
+        <Pressable
+          style={styles.state}
+          onPress={camera.hasPermission ? undefined : askAgain}
+          accessibilityRole="button"
+          accessibilityLabel="Allow camera"
         >
-          {flash ? (
-            <Zap size={22} color={WHITE} />
+          {requesting ? (
+            <ActivityIndicator color={WHITE} />
           ) : (
-            <ZapOff size={22} color={WHITE} />
+            <Text style={styles.stateText}>
+              {camera.hasPermission
+                ? 'No camera found on this device.'
+                : 'Camera permission is needed. Tap to allow.'}
+            </Text>
           )}
-        </RoundButton>
-      </View>
+        </Pressable>
+      )}
 
-      <View style={styles.view}>
-        <View
-          style={[styles.frame, vertical ? styles.vertical : styles.square]}
-        >
-          {viewport()}
+      <SafeAreaView style={styles.overlay} edges={['top', 'bottom']} pointerEvents="box-none">
+        <View style={styles.top} pointerEvents="box-none">
+          <RoundButton label="Close camera" onPress={onClose}>
+            <X size={24} color={WHITE} />
+          </RoundButton>
           {recording ? (
             <View style={styles.rec}>
               <View style={styles.recDot} />
               <Text style={styles.recText}>{formatDuration(elapsed)}</Text>
             </View>
           ) : null}
-        </View>
-      </View>
-
-      <View style={styles.bottom}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.strip}
-          accessibilityLabel="Recent photos"
-        >
-          <Pressable
-            onPress={openGallery}
-            accessibilityRole="button"
-            accessibilityLabel={
-              vertical ? 'Upload from device' : 'Upload photos'
-            }
-            style={[styles.thumb, styles.upload]}
-          >
-            <Upload size={20} color={WHITE} />
-          </Pressable>
-          {photos.map((edge, i) => {
-            const media = toMedia(edge.node);
-            const n = vertical ? -1 : picks.findIndex(p => p.uri === media.uri);
-            return (
-              <Pressable
-                key={media.uri + i}
-                onPress={() => tapThumb(media)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: n >= 0 }}
-                accessibilityLabel={
-                  n >= 0 ? `Photo ${n + 1} selected` : 'Select this photo'
-                }
-                style={[styles.thumb, n >= 0 && styles.picked]}
-              >
-                <Image source={{ uri: media.uri }} style={styles.fill} />
-                {n >= 0 ? (
-                  <View style={styles.num}>
-                    <Text style={styles.numText}>{n + 1}</Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        <View style={styles.controls}>
-          <RoundButton label="Choose from gallery" onPress={openGallery} big>
-            <ImageIcon size={24} color={WHITE} />
-          </RoundButton>
-          <Pressable
-            onPress={() => {
-              if (reel) {
-                if (recording) stopRecording();
-                else startRecording().catch(() => {});
-                return;
-              }
-              takePhoto().catch(() => {});
-            }}
-            onLongPress={() => {
-              if (!vertical) return;
-              held.current = true;
-              startRecording().catch(() => {});
-            }}
-            onPressOut={() => {
-              if (held.current) {
-                held.current = false;
-                stopRecording();
-              }
-            }}
-            delayLongPress={250}
-            disabled={!ready || busy}
-            accessibilityRole="button"
-            accessibilityLabel={
-              reel
-                ? recording
-                  ? 'Stop recording'
-                  : 'Record'
-                : story
-                ? 'Take photo, or hold to record video'
-                : 'Take photo'
-            }
-            style={[styles.shutter, !ready && styles.disabled]}
-          >
-            <View
-              style={[
-                styles.shutterInner,
-                (recording || reel) && styles.shutterRec,
-                recording && styles.shutterRecOn,
-              ]}
-            />
-          </Pressable>
           <RoundButton
-            label="Switch camera"
-            onPress={() => setFacing(f => (f === 'front' ? 'back' : 'front'))}
-            disabled={!ready || recording}
-            big
+            label={flash ? 'Flash on' : 'Flash off'}
+            onPress={() => setFlash(v => !v)}
+            disabled={!ready || !canFlash}
           >
-            <SwitchCamera size={24} color={WHITE} />
+            {flash ? (
+              <Zap size={22} color={WHITE} />
+            ) : (
+              <ZapOff size={22} color={WHITE} />
+            )}
           </RoundButton>
         </View>
 
-        {!vertical && picks.length ? (
-          <Pressable
-            onPress={() => onDone(picks)}
-            accessibilityRole="button"
-            style={styles.next}
-          >
-            <Text style={styles.nextText}>Next · {picks.length}</Text>
-          </Pressable>
-        ) : null}
+        <View style={styles.spacer} pointerEvents="none" />
 
-        {story || !onSwitchMode ? null : (
-          <View style={styles.modes} accessibilityRole="tablist">
-            {(['post', 'reel'] as const).map(m => {
-              const active = mode === m;
-              return (
-                <Pressable
-                  key={m}
-                  onPress={() => (active ? null : onSwitchMode(m))}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: active }}
-                  style={[styles.mode, active && styles.modeOn]}
-                >
-                  <Text style={[styles.modeText, active && styles.modeTextOn]}>
-                    {m === 'post' ? 'Post' : 'Reel'}
-                  </Text>
-                </Pressable>
-              );
-            })}
+        <View style={styles.bottom} pointerEvents="box-none">
+          {tip ? <Text style={styles.tip}>{tip}</Text> : null}
+          <View style={styles.controls}>
+            <Pressable
+              onPress={openGallery}
+              accessibilityRole="button"
+              accessibilityLabel="Choose from gallery"
+              style={styles.gallery}
+            >
+              {lastShot ? (
+                <Image source={{ uri: lastShot }} style={styles.galleryImg} />
+              ) : (
+                <ImageIcon size={24} color={WHITE} />
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (reel) {
+                  if (recording) stopRecording();
+                  else startRecording().catch(() => {});
+                  return;
+                }
+                takePhoto().catch(() => {});
+              }}
+              onLongPress={() => {
+                if (!story) return;
+                held.current = true;
+                startRecording().catch(() => {});
+              }}
+              onPressOut={() => {
+                if (held.current) {
+                  held.current = false;
+                  stopRecording();
+                }
+              }}
+              delayLongPress={250}
+              disabled={!ready || busy}
+              accessibilityRole="button"
+              accessibilityLabel={
+                reel
+                  ? recording
+                    ? 'Stop recording'
+                    : 'Record'
+                  : story
+                  ? 'Take photo, or hold to record video'
+                  : 'Take photo'
+              }
+              style={[styles.shutter, !ready && styles.disabled]}
+            >
+              <View
+                style={[
+                  styles.shutterInner,
+                  reel && styles.shutterRec,
+                  recording && styles.shutterRecOn,
+                ]}
+              />
+            </Pressable>
+            <RoundButton
+              label="Switch camera"
+              onPress={() => setFacing(f => (f === 'front' ? 'back' : 'front'))}
+              disabled={!ready || recording}
+              big
+            >
+              <SwitchCamera size={24} color={WHITE} />
+            </RoundButton>
           </View>
-        )}
-        <Text style={styles.tip}>{tip}</Text>
-      </View>
-    </SafeAreaView>
-  );
-}
 
-function CamState({
-  title,
-  text,
-  action,
-}: {
-  title: string;
-  text: string;
-  action?: ReactNode;
-}) {
-  return (
-    <View style={styles.state}>
-      <View style={styles.stateIcon}>
-        <CameraIcon size={30} color={WHITE} />
-      </View>
-      <Text style={styles.stateTitle}>{title}</Text>
-      <Text style={styles.stateText}>{text}</Text>
-      {action}
+          {story || !onSwitchMode ? null : (
+            <View style={styles.modes} accessibilityRole="tablist">
+              {(['post', 'reel'] as const).map(m => {
+                const active = mode === m;
+                return (
+                  <Pressable
+                    key={m}
+                    onPress={() => (active ? null : onSwitchMode(m))}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: active }}
+                    style={[styles.mode, active && styles.modeOn]}
+                  >
+                    <Text style={[styles.modeText, active && styles.modeTextOn]}>
+                      {m === 'post' ? 'Post' : 'Reel'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+
+      <GalleryPicker
+        visible={galleryOpen}
+        purpose={mode}
+        kind={galleryKind}
+        multiple={mode === 'post'}
+        alreadySelected={alreadySelected}
+        onClose={() => setGalleryOpen(false)}
+        onPick={picked}
+      />
     </View>
-  );
-}
-
-function StateButton({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: ReactNode;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      style={({ pressed }) => [styles.stateBtn, pressed && styles.pressed]}
-    >
-      {icon}
-      <Text style={styles.stateBtnText}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -576,14 +420,12 @@ function RoundButton({
   label,
   onPress,
   disabled,
-  active,
   big,
   children,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
-  active?: boolean;
   big?: boolean;
   children: ReactNode;
 }) {
@@ -594,11 +436,10 @@ function RoundButton({
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled, selected: active }}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.round,
         big && styles.roundBig,
-        active && styles.roundOn,
         disabled && styles.disabled,
         pressed && styles.pressed,
       ]}
@@ -609,7 +450,15 @@ function RoundButton({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000000' },
+  root: { flex: 1, backgroundColor: '#000000' },
+  overlay: { ...StyleSheet.absoluteFill },
+  state: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  stateText: { color: DIM, fontSize: 15, textAlign: 'center' },
   top: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -617,112 +466,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     minHeight: 56,
   },
-  title: { color: WHITE, fontSize: 16, fontWeight: '800' },
-  view: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  frame: {
-    width: '100%',
-    overflow: 'hidden',
-    borderRadius: radius.lg,
-    backgroundColor: '#111111',
-  },
-  vertical: { flex: 1 },
-  square: { aspectRatio: 1 },
-  state: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingHorizontal: spacing.lg,
-  },
-  stateIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: GLASS,
-  },
-  stateTitle: {
-    color: WHITE,
-    fontSize: 18,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  stateText: {
-    color: DIM,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  stateBtn: {
-    marginTop: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 18,
-    height: 44,
-    borderRadius: radius.full,
-    backgroundColor: WHITE,
-  },
-  stateBtnText: { color: '#0F172A', fontWeight: '800', fontSize: 15 },
+  spacer: { flex: 1 },
+  bottom: { paddingBottom: spacing.sm, gap: 12 },
   rec: {
-    position: 'absolute',
-    top: 12,
-    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
     height: 28,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: GLASS,
   },
   recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444' },
   recText: { color: WHITE, fontWeight: '700', fontSize: 13 },
-  bottom: { paddingTop: spacing.sm, paddingBottom: spacing.sm, gap: 10 },
-  strip: { gap: 8, paddingHorizontal: spacing.md },
-  thumb: {
-    width: THUMB,
-    height: THUMB,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  upload: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: GLASS,
-  },
-  picked: { borderColor: WHITE },
-  fill: { width: '100%', height: '100%' },
-  num: {
-    position: 'absolute',
-    top: 3,
-    right: 3,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: WHITE,
-  },
-  numText: { color: '#0F172A', fontSize: 11, fontWeight: '800' },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingHorizontal: spacing.lg,
   },
+  gallery: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: WHITE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: GLASS,
+  },
+  galleryImg: { width: '100%', height: '100%' },
   round: {
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: GLASS,
   },
-  roundBig: { width: 48, height: 48, borderRadius: 24, backgroundColor: GLASS },
-  roundOn: { backgroundColor: 'rgba(255, 255, 255, 0.28)' },
+  roundBig: { width: 48, height: 48, borderRadius: 24 },
   shutter: {
     width: 78,
     height: 78,
@@ -740,30 +523,23 @@ const styles = StyleSheet.create({
   },
   shutterRec: { backgroundColor: '#EF4444' },
   shutterRecOn: { width: 30, height: 30, borderRadius: 8 },
-  next: {
-    alignSelf: 'center',
-    paddingHorizontal: 20,
-    height: 40,
-    borderRadius: radius.full,
-    justifyContent: 'center',
-    backgroundColor: WHITE,
-  },
-  nextText: { color: '#0F172A', fontWeight: '800', fontSize: 15 },
   modes: { flexDirection: 'row', alignSelf: 'center', gap: 6 },
   mode: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     height: 32,
     justifyContent: 'center',
     borderRadius: radius.full,
   },
-  modeOn: { backgroundColor: GLASS },
+  modeOn: { backgroundColor: 'rgba(255, 255, 255, 0.24)' },
   modeText: { color: DIM, fontWeight: '700', fontSize: 14 },
   modeTextOn: { color: WHITE },
   tip: {
-    color: DIM,
-    fontSize: 12.5,
+    color: WHITE,
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center',
-    paddingHorizontal: spacing.md,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowRadius: 4,
   },
   disabled: { opacity: 0.4 },
   pressed: { opacity: 0.6 },

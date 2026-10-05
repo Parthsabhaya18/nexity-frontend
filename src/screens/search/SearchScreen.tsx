@@ -1,12 +1,18 @@
-import { useNavigation, useScrollToTop } from '@react-navigation/native';
-import { SearchX, Users } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import {
+  useFocusEffect,
+  useNavigation,
+  useScrollToTop,
+} from '@react-navigation/native';
+import { Clock, SearchX, X } from 'lucide-react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   type FlatListInstance,
+  Pressable,
   StyleSheet,
   Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,8 +26,12 @@ import { useTabBarInset } from '@/navigation/BottomNav';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { ApiError } from '@/services/api/client';
 import { followsApi, type UserSummary } from '@/services/api/follows';
+import { searchHistoryApi } from '@/services/api/search';
 import { spacing, useAppTheme } from '@/theme';
 import { useDebouncedValue } from '@/utils/useDebouncedValue';
+
+const message = (err: unknown) =>
+  err instanceof ApiError ? err.message : 'Something went wrong. Please try again.';
 
 export function SearchScreen() {
   const { colors } = useAppTheme();
@@ -30,13 +40,22 @@ export function SearchScreen() {
   const listRef = useRef<FlatListInstance>(null);
   const [query, setQuery] = useState('');
   const q = useDebouncedValue(query.trim(), 300);
-  const [suggestions, setSuggestions] = useState<UserSummary[]>([]);
+  const [history, setHistory] = useState<UserSummary[]>([]);
   const [results, setResults] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const mounted = useRef(false);
   useScrollToTop(listRef);
   useStatusBar();
+
+  // Coming back to this tab (e.g. after blocking someone) shows fresh data.
+  useFocusEffect(
+    useCallback(() => {
+      if (mounted.current) setAttempt(a => a + 1);
+      mounted.current = true;
+    }, []),
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -44,20 +63,16 @@ export function SearchScreen() {
     setError(null);
     const request = q
       ? followsApi.searchUsers(q, controller.signal)
-      : followsApi.suggestUsers(controller.signal);
+      : searchHistoryApi.list(controller.signal);
     request
       .then(users => {
+        if (controller.signal.aborted) return;
         primeFollowStatuses(users);
         if (q) setResults(users);
-        else setSuggestions(users);
+        else setHistory(users);
       })
       .catch(err => {
-        if (controller.signal.aborted) return;
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : 'Something went wrong. Please try again.',
-        );
+        if (!controller.signal.aborted) setError(message(err));
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -65,8 +80,31 @@ export function SearchScreen() {
     return () => controller.abort();
   }, [q, attempt]);
 
+  const open = (user: UserSummary) => {
+    if (user.is_self) {
+      navigation.navigate('Profile');
+      return;
+    }
+    // Remember the visit; the list is re-fetched when the tab is focused again.
+    searchHistoryApi.add(user.id).catch(() => {});
+    navigation.navigate('UserProfile', { username: user.username });
+  };
+
+  const removeFromHistory = (user: UserSummary) => {
+    const before = history;
+    setHistory(h => h.filter(u => u.id !== user.id));
+    searchHistoryApi.remove(user.id).catch(() => setHistory(before));
+  };
+
+  const clearHistory = () => {
+    const before = history;
+    setHistory([]);
+    searchHistoryApi.clear().catch(() => setHistory(before));
+  };
+
   const typing = query.trim() !== q;
-  const people = q ? results : suggestions;
+  const showingHistory = !q && !typing;
+  const people = q ? results : history;
 
   return (
     <SafeAreaView
@@ -86,24 +124,40 @@ export function SearchScreen() {
         keyboardDismissMode="on-drag"
         contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]}
         ListHeaderComponent={
-          !q && !loading && !error && people.length ? (
-            <Text style={[styles.heading, { color: colors.textSecondary }]}>
-              Suggested for you
-            </Text>
+          showingHistory && !loading && !error && history.length ? (
+            <View style={styles.headingRow}>
+              <Text style={[styles.heading, { color: colors.text }]}>
+                Recent
+              </Text>
+              <Pressable
+                onPress={clearHistory}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Clear all recent searches"
+              >
+                <Text style={[styles.clear, { color: colors.primary }]}>
+                  Clear all
+                </Text>
+              </Pressable>
+            </View>
           ) : undefined
         }
         renderItem={({ item }) => (
           <UserRow
             user={item}
-            onPress={() =>
-              item.is_self
-                ? navigation.navigate('Profile')
-                : navigation.navigate('UserProfile', {
-                    username: item.username,
-                  })
-            }
+            onPress={() => open(item)}
             trailing={
-              item.is_self ? null : (
+              showingHistory ? (
+                <Pressable
+                  onPress={() => removeFromHistory(item)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${item.username} from recent searches`}
+                  style={styles.remove}
+                >
+                  <X size={20} color={colors.textSecondary} />
+                </Pressable>
+              ) : item.is_self ? null : (
                 <FollowButton user={item} status={item.follow_status} />
               )
             }
@@ -128,9 +182,9 @@ export function SearchScreen() {
             />
           ) : !q ? (
             <EmptyState
-              icon={<Users size={34} color={colors.primary} />}
-              title="No suggestions yet"
-              text="Search by name or username to find someone."
+              icon={<Clock size={34} color={colors.primary} />}
+              title="No recent searches"
+              text="People you look up will show here."
             />
           ) : (
             <EmptyState
@@ -148,14 +202,17 @@ export function SearchScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { flexGrow: 1 },
-  heading: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: 4,
   },
+  heading: { fontSize: 16, fontWeight: '800' },
+  clear: { fontSize: 14, fontWeight: '700' },
+  remove: { padding: 6 },
   loader: { marginTop: spacing.xl },
   retry: { minWidth: 180 },
 });

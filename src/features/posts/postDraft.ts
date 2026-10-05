@@ -5,6 +5,7 @@ import {
   type Adjustments,
 } from '@/features/create/adjustments';
 import type { LocalMedia } from '@/features/media/pickMedia';
+import type { UserSummary } from '@/services/api/follows';
 
 /** Frame shapes Instagram offers when cropping a post. */
 export type AspectOption = 'square' | 'portrait' | 'landscape' | 'original';
@@ -34,8 +35,6 @@ export interface DraftItem {
   media: LocalMedia;
   altText: string;
   crop: CropTransform;
-  /** Named colour look for this photo. `normal` leaves it unchanged. */
-  filter?: string;
   /** Frame size the crop was made in, so share can cut the same rectangle. */
   frameWidth?: number;
   frameHeight?: number;
@@ -49,7 +48,8 @@ export interface PostDraft {
   locationLat: number | null;
   locationLng: number | null;
   adjustments: Adjustments;
-  music: string;
+  /** People picked in Tag people; saved on the post. */
+  tagged: UserSummary[];
   hideLikeCount: boolean;
   commentsDisabled: boolean;
 }
@@ -62,7 +62,7 @@ const EMPTY: PostDraft = {
   locationLat: null,
   locationLng: null,
   adjustments: ZERO_ADJUSTMENTS,
-  music: '',
+  tagged: [],
   hideLikeCount: false,
   commentsDisabled: false,
 };
@@ -99,7 +99,6 @@ export function toDraftItems(medias: LocalMedia[]): DraftItem[] {
     media,
     altText: '',
     crop: IDENTITY_CROP,
-    filter: 'normal',
   }));
 }
 

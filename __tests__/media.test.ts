@@ -9,6 +9,7 @@ import {
 } from 'react-native-compressor';
 
 import { sweepUploadCache } from '@/features/media/localFiles';
+import { pendingUploads } from '@/features/media/uploadJournal';
 import { resolveContentType } from '@/features/media/mediaRules';
 import {
   type LocalMedia,
@@ -38,6 +39,10 @@ jest.mock('react-native-blob-util', () => ({
       mkdir: jest.fn(() => Promise.resolve()),
       slice: jest.fn((_src: string, dest: string) => Promise.resolve(dest)),
       lstat: jest.fn(() => Promise.resolve([])),
+      readFile: jest.fn(() => Promise.resolve('[]')),
+      writeFile: jest.fn(() => Promise.resolve()),
+      mv: jest.fn(() => Promise.resolve()),
+      cp: jest.fn(() => Promise.resolve()),
     },
   },
 }));
@@ -68,7 +73,10 @@ jest.mock('@/services/api/media', () => ({
 const api = mediaApi as jest.Mocked<typeof mediaApi>;
 const blob = ReactNativeBlobUtil as unknown as {
   fetch: jest.Mock;
-  fs: Record<'stat' | 'exists' | 'unlink' | 'slice' | 'lstat', jest.Mock>;
+  fs: Record<
+    'stat' | 'exists' | 'unlink' | 'slice' | 'lstat' | 'mv' | 'cp' | 'writeFile',
+    jest.Mock
+  >;
 };
 const imageCompress = ImageCompressor.compress as jest.Mock;
 const videoCompress = VideoCompressor.compress as jest.Mock;
@@ -93,7 +101,7 @@ const longVideo: LocalMedia = {
   bytes: 1200 * MB,
   width: 3840,
   height: 2160,
-  durationMs: 175_000,
+  durationMs: 115_000,
 };
 
 const hourLongVideo: LocalMedia = { ...longVideo, durationMs: 60 * 60 * 1000 };
@@ -119,16 +127,17 @@ describe('validateMedia', () => {
 
   it("applies Instagram's video lengths per purpose", () => {
     const at = (ms: number) => ({ ...longVideo, durationMs: ms });
-    expect(() => validateMedia(at(180_400), 'reel')).not.toThrow();
-    expect(() => validateMedia(at(182_000), 'reel')).toThrow(
-      'Reels can be up to 3 minutes. Choose a shorter video.',
+    expect(() => validateMedia(at(120_400), 'reel')).not.toThrow();
+    expect(() => validateMedia(at(122_000), 'reel')).toThrow(
+      'Reels can be up to 2 minutes. Choose a shorter video.',
     );
-    expect(() => validateMedia(at(60_000), 'story')).not.toThrow();
-    expect(() => validateMedia(at(75_000), 'story')).toThrow(
-      'Story videos can be up to 60 seconds.',
+    expect(() => validateMedia(at(120_000), 'story')).not.toThrow();
+    expect(() => validateMedia(at(125_000), 'story')).toThrow(
+      'Story videos can be up to 2 minutes.',
     );
-    expect(() => validateMedia(at(90_000), 'post')).toThrow(
-      'Share longer videos as a reel.',
+    expect(() => validateMedia(at(120_000), 'post')).not.toThrow();
+    expect(() => validateMedia(at(130_000), 'post')).toThrow(
+      'Videos in a post can be up to 2 minutes.',
     );
     expect(() => validateMedia(hourLongVideo, 'message')).not.toThrow();
   });
@@ -242,6 +251,7 @@ describe('uploadMedia', () => {
         width: 2048,
         height: 1536,
         duration_ms: undefined,
+        client_upload_id: expect.stringMatching(/^cu-[\w-]{8,}$/),
       },
       undefined,
     );
@@ -270,7 +280,7 @@ describe('uploadMedia', () => {
         content_type: 'video/mp4',
         bytes: 95 * MB,
         width: 1280,
-        duration_ms: 175_000,
+        duration_ms: 115_000,
       }),
       undefined,
     );
@@ -290,7 +300,7 @@ describe('uploadMedia', () => {
     (getVideoMetaData as jest.Mock).mockResolvedValueOnce({ duration: 240 });
     await expect(
       uploadMedia({ ...longVideo, durationMs: undefined }, 'reel'),
-    ).rejects.toThrow('Reels can be up to 3 minutes.');
+    ).rejects.toThrow('Reels can be up to 2 minutes.');
     expect(videoCompress).not.toHaveBeenCalled();
     expect(api.createUpload).not.toHaveBeenCalled();
   });
@@ -298,17 +308,27 @@ describe('uploadMedia', () => {
   it('uploads the original when the device cannot compress it', async () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     videoCompress.mockRejectedValueOnce(new Error('codec not supported'));
+    blob.fs.stat.mockImplementation(async () => ({ size: 150 * MB }));
     await uploadMedia(
-      { ...longVideo, bytes: 300 * MB, durationMs: 45_000 },
+      { ...longVideo, bytes: 150 * MB, durationMs: 45_000 },
       'story',
     );
     expect(api.createUpload).toHaveBeenCalledWith(
       expect.objectContaining({
         content_type: 'video/quicktime',
-        bytes: 300 * MB,
+        bytes: 150 * MB,
       }),
       undefined,
     );
+  });
+
+  it('refuses a file still over the limit after compressing, before any upload starts', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    videoCompress.mockRejectedValueOnce(new Error('codec not supported'));
+    await expect(
+      uploadMedia({ ...longVideo, bytes: 300 * MB, durationMs: 45_000 }, 'reel'),
+    ).rejects.toThrow('Videos can be up to 200 MB.');
+    expect(api.createUpload).not.toHaveBeenCalled();
   });
 
   it('maps S3 size errors and releases the reservation', async () => {
@@ -318,7 +338,7 @@ describe('uploadMedia', () => {
       x.onload?.();
     };
     await expect(uploadMedia(photo, 'post')).rejects.toThrow(
-      'The limit is 50 MB',
+      'The limit is 10 MB',
     );
     expect(api.remove).toHaveBeenCalledWith('m1');
     expect(api.complete).not.toHaveBeenCalled();
@@ -335,8 +355,15 @@ describe('uploadMedia', () => {
 
   it('deletes the compressed copy after a successful upload, never the original', async () => {
     await uploadMedia(photo, 'post');
-    expect(blob.fs.unlink).toHaveBeenCalledWith('/cache/compressed.jpg');
+    // Kept in Documents while uploading so it survives a restart, then removed.
+    expect(blob.fs.mv).toHaveBeenCalledWith(
+      '/cache/compressed.jpg',
+      expect.stringMatching(/^\/app\/Documents\/nexity-pending-uploads\/cu-.+\.jpg$/),
+    );
+    const kept = blob.fs.mv.mock.calls[0][1];
+    expect(blob.fs.unlink).toHaveBeenCalledWith(kept);
     expect(blob.fs.unlink).not.toHaveBeenCalledWith(photo.uri);
+    expect(blob.fs.cp).not.toHaveBeenCalled();
   });
 });
 
@@ -413,7 +440,7 @@ describe('uploadMedia — large files in parts', () => {
     );
     expect(blob.fetch).toHaveBeenCalledTimes(PARTS);
     expect(blob.fs.slice).toHaveBeenCalledWith(
-      '/cache/compressed.mp4',
+      expect.stringMatching(/^\/app\/Documents\/nexity-pending-uploads\/cu-.+\.mp4$/),
       '/cache/nexity-upload/big1-12.part',
       11 * PART,
       TOTAL,
@@ -422,7 +449,7 @@ describe('uploadMedia — large files in parts', () => {
     expect(blob.fs.unlink).toHaveBeenCalledWith(
       '/cache/nexity-upload/big1-1.part',
     );
-    expect(blob.fs.unlink).toHaveBeenCalledWith('/cache/compressed.mp4');
+    expect(blob.fs.unlink).toHaveBeenCalledWith(blob.fs.mv.mock.calls[0][1]);
     expect(progress[progress.length - 1]).toBe(1);
   });
 
@@ -555,5 +582,116 @@ describe('sweepUploadCache', () => {
     expect(await sweepUploadCache()).toBe(3);
     expect(blob.fs.unlink).not.toHaveBeenCalledWith('/cache/http-cache.db');
     os.restore();
+  });
+});
+
+describe('uploadMedia - retry and resume (client_upload_id)', () => {
+  const netError = () =>
+    new ApiError('Check your connection.', undefined, 'NETWORK_ERROR');
+
+  afterEach(() => jest.useRealTimers());
+
+  it('retries createUpload, the S3 POST and complete with backoff', async () => {
+    jest.useFakeTimers();
+    api.createUpload.mockRejectedValueOnce(netError());
+    api.complete.mockRejectedValueOnce(netError());
+    let posts = 0;
+    respond = x => {
+      posts += 1;
+      if (posts === 1) x.onerror?.();
+      else {
+        x.status = 204;
+        x.onload?.();
+      }
+    };
+
+    const done = uploadMedia(photo, 'post');
+    await jest.advanceTimersByTimeAsync(10_000);
+    await expect(done).resolves.toMatchObject({ id: 'm1', status: 'ready' });
+    expect(api.createUpload).toHaveBeenCalledTimes(2);
+    expect(posts).toBe(2);
+    expect(api.complete).toHaveBeenCalledTimes(2);
+    expect(api.remove).not.toHaveBeenCalled();
+  });
+
+  it('keeps the journal entry when retries run out, then resumes with the same id', async () => {
+    jest.useFakeTimers();
+    api.createUpload.mockRejectedValue(netError());
+    const session: UploadSession = {};
+    const failed = uploadMedia(photo, 'post', { session }).catch(e => e);
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(await failed).toMatchObject({ code: 'NETWORK_ERROR' });
+
+    const id = session.clientUploadId!;
+    const [entry] = (await pendingUploads('post')).filter(e => e.clientUploadId === id);
+    expect(entry).toMatchObject({ purpose: 'post', original: { uri: photo.uri } });
+    expect(entry.prepared!.uri).toMatch(/nexity-pending-uploads\/cu-.+\.jpg$/);
+
+    // App restarted: a new session is rebuilt from the journal entry.
+    jest.useRealTimers();
+    imageCompress.mockClear();
+    api.createUpload.mockReset();
+    api.createUpload.mockResolvedValue({
+      media: { id: 'm1' } as never,
+      resumed: true,
+      upload: {
+        method: 'post',
+        url: 'https://bucket.s3.amazonaws.com/',
+        fields: { key: 'media/posts/u/m1.jpg', Policy: 'p' },
+        expires_at: '2030-01-01T00:00:00Z',
+      },
+    });
+    await uploadMedia(entry.original, 'post', {
+      session: { clientUploadId: id, prepared: entry.prepared },
+    });
+    expect(imageCompress).not.toHaveBeenCalled();
+    expect(api.createUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ client_upload_id: id }),
+      undefined,
+    );
+    expect((await pendingUploads('post')).some(e => e.clientUploadId === id)).toBe(false);
+  });
+
+  it('finishes at once when the server already has the file', async () => {
+    api.createUpload.mockResolvedValueOnce({
+      media: { id: 'm9', status: 'ready' } as never,
+      upload: { method: 'complete' },
+      resumed: true,
+    });
+    const asset = await uploadMedia(photo, 'post', {
+      session: { clientUploadId: 'cu-already-done' },
+    });
+    expect(asset).toMatchObject({ id: 'm9', status: 'ready' });
+    expect(globalThis.XMLHttpRequest).not.toHaveBeenCalled();
+    expect(api.complete).not.toHaveBeenCalled();
+  });
+
+  it('lists parts S3 already has only for a resumed multipart upload', async () => {
+    api.createUpload.mockResolvedValueOnce({
+      media: { id: 'big1' } as never,
+      resumed: true,
+      upload: { method: 'multipart', part_size: 8 * MB, part_count: 12, expires_at: '2030-01-01T00:00:00Z' },
+    });
+    api.listParts.mockResolvedValueOnce({
+      part_size: 8 * MB,
+      part_count: 12,
+      parts: Array.from({ length: 12 }, (_, i) => ({ part_number: i + 1, bytes: 8 * MB })),
+    });
+    api.complete.mockResolvedValueOnce({ id: 'big1', status: 'ready' } as never);
+    await uploadMedia(longVideo, 'reel', { session: { clientUploadId: 'cu-resume-big' } });
+    expect(api.listParts).toHaveBeenCalledWith('big1', undefined);
+    expect(blob.fetch).not.toHaveBeenCalled();
+  });
+
+  it('cancel forgets the journal entry and starts the next try with a new id', async () => {
+    const controller = new AbortController();
+    respond = () => controller.abort();
+    const session: UploadSession = {};
+    await expect(
+      uploadMedia(photo, 'post', { session, signal: controller.signal }),
+    ).rejects.toBeInstanceOf(UploadCancelledError);
+    expect(api.remove).toHaveBeenCalledWith('m1');
+    expect(session.clientUploadId).toBeUndefined();
+    expect(await pendingUploads('post')).toEqual([]);
   });
 });

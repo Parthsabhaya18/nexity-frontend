@@ -25,6 +25,13 @@ export const safetyApi = {
   async unblock(userId: string) {
     await apiClient.delete(`/users/${userId}/block`);
   },
+  /** Hides their posts, reels and stories from my feeds; they are not told. */
+  async mute(userId: string) {
+    await apiClient.post(`/users/${userId}/mute`);
+  },
+  async unmute(userId: string) {
+    await apiClient.delete(`/users/${userId}/mute`);
+  },
   async blocked() {
     const { data } = await apiClient.get<{ items: BlockedUser[] }>('/users/me/blocked');
     return data.items;

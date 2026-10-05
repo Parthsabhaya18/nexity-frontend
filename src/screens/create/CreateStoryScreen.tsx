@@ -1,88 +1,111 @@
 import { usePreventRemove } from '@react-navigation/native';
-import { Music, X } from 'lucide-react-native';
-import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ChevronRight, MapPin, X } from 'lucide-react-native';
+import { useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CaptureView } from '@/components/create/CaptureView';
-import { PlayableMedia } from '@/components/posts/PlayableMedia';
 import { LocationSheet } from '@/components/posts/LocationSheet';
-import { MusicSheet } from '@/components/posts/MusicSheet';
+import { PlayableMedia } from '@/components/posts/PlayableMedia';
 import { TagPeopleSheet } from '@/components/posts/TagPeopleSheet';
-import { LookStrip, LookTint } from '@/components/media/LookStrip';
 import { StoryStage } from '@/components/stories/StoryStage';
-import { Button } from '@/components/ui/Button';
-import { useSubmitLock } from '@/features/auth/useSubmitLock';
-import { uploadMedia } from '@/features/media/uploadMedia';
 import { type LocalMedia, MediaError } from '@/features/media/pickMedia';
 import {
-  overlayId,
-  placed,
-  type StoryOverlay,
-} from '@/features/stories/overlay';
-import { storiesApi } from '@/services/api/stories';
-import { ApiError } from '@/services/api/client';
+  isUploadCancelled,
+  uploadErrorMessage,
+  uploadMedia,
+} from '@/features/media/uploadMedia';
+import { overlayId, placed, type StoryOverlay } from '@/features/stories/overlay';
 import type { ScreenProps } from '@/navigation/types';
-import { darkScreen, spacing } from '@/theme';
+import { ApiError } from '@/services/api/client';
+import { storiesApi } from '@/services/api/stories';
+import { radius, spacing } from '@/theme';
 
-/** Opens on the camera, like the prototype. Then text, mentions and looks. */
+// Story editing happens over the photo, so controls are white on dark glass.
+const WHITE = '#FFFFFF';
+const GLASS = 'rgba(0,0,0,0.45)';
+
+/** Opens on the full-screen camera; then stickers, location and Share. */
 export function CreateStoryScreen({ navigation }: ScreenProps<'CreateStory'>) {
   const [media, setMedia] = useState<LocalMedia | null>(null);
-  const [music, setMusic] = useState('');
   const [overlays, setOverlays] = useState<StoryOverlay[]>([]);
-  const [filter, setFilter] = useState('normal');
   const [location, setLocation] = useState('');
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLng, setLocationLng] = useState<number | null>(null);
-  const [musicOpen, setMusicOpen] = useState(false);
   const [places, setPlaces] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const submit = useSubmitLock();
+  const [progress, setProgress] = useState<number | null>(null);
+  const controller = useRef<AbortController | null>(null);
+  const busy = progress !== null;
 
-  usePreventRemove(!!media && !busy, ({ data }) => {
+  usePreventRemove(!!media, ({ data }) => {
     Alert.alert(
-      'Discard this story?',
-      'This photo or video will not be shared.',
+      busy ? 'Stop sharing?' : 'Discard this story?',
+      busy
+        ? 'Your story is still uploading.'
+        : 'This photo or video will not be shared.',
       [
-        { text: 'Keep editing', style: 'cancel' },
+        { text: busy ? 'Keep uploading' : 'Keep editing', style: 'cancel' },
         {
           text: 'Discard',
           style: 'destructive',
-          onPress: () => navigation.dispatch(data.action),
+          onPress: () => {
+            controller.current?.abort();
+            navigation.dispatch(data.action);
+          },
         },
       ],
     );
   });
 
-  const share = () => {
+  const reset = () => {
+    setMedia(null);
+    setOverlays([]);
+    setLocation('');
+    setLocationLat(null);
+    setLocationLng(null);
+  };
+
+  const share = async () => {
     if (!media || busy) return;
-    submit(async () => {
-      setBusy(true);
-      try {
-        const asset = await uploadMedia(media, 'story');
-        await storiesApi.create({
-          media_id: asset.id,
-          music_title: music,
-          location_name: location,
-          location_lat: locationLat,
-          location_lng: locationLng,
-          filter,
-          overlays: overlays.map(item =>
-            item.type === 'poll' ? { ...item, votes: undefined } : item,
-          ),
-        });
-        navigation.goBack();
-      } catch (err) {
-        Alert.alert(
-          "Couldn't share story",
-          err instanceof ApiError || err instanceof MediaError
-            ? err.message
-            : 'Please check your connection and try again.',
-        );
-        setBusy(false);
-      }
-    });
+    const c = new AbortController();
+    controller.current = c;
+    setProgress(0);
+    try {
+      const asset = await uploadMedia(media, 'story', {
+        signal: c.signal,
+        onProgress: f => setProgress(Math.min(0.95, f * 0.95)),
+      });
+      await storiesApi.create({
+        media_id: asset.id,
+        location_name: location,
+        location_lat: locationLat,
+        location_lng: locationLng,
+        overlays: overlays.map(item =>
+          item.type === 'poll' ? { ...item, votes: undefined } : item,
+        ),
+      });
+      setProgress(1);
+      // Leaving is allowed now that the story is live.
+      setMedia(null);
+      setTimeout(() => navigation.goBack(), 0);
+    } catch (err) {
+      setProgress(null);
+      if (c.signal.aborted || isUploadCancelled(err)) return;
+      Alert.alert(
+        "Couldn't share story",
+        err instanceof ApiError || err instanceof MediaError
+          ? err.message
+          : uploadErrorMessage(err),
+      );
+    }
   };
 
   if (!media) {
@@ -98,107 +121,93 @@ export function CreateStoryScreen({ navigation }: ScreenProps<'CreateStory'>) {
   }
 
   return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: darkScreen.background }]}
-    >
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => {
-            Alert.alert(
-              'Choose another?',
-              'The story you started will be cleared.',
-              [
-                { text: 'Keep editing', style: 'cancel' },
-                {
-                  text: 'Choose another',
-                  style: 'destructive',
-                  onPress: () => {
-                    setMedia(null);
-                    setMusic('');
-                    setOverlays([]);
-                    setFilter('normal');
-                    setLocation('');
-                    setLocationLat(null);
-                    setLocationLng(null);
-                  },
-                },
-              ],
-            );
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Back to camera"
-          hitSlop={8}
-        >
-          <X size={28} color={darkScreen.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: darkScreen.text }]}>
-          Your story
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
+    <View style={styles.root}>
+      <PlayableMedia
+        uri={media.uri}
+        kind={media.kind}
+        active={!busy}
+        resizeMode="cover"
+        style={StyleSheet.absoluteFill}
+      />
+      <StoryStage
+        overlays={overlays}
+        editable={!busy}
+        onChange={setOverlays}
+        onTagPeople={() => setPeopleOpen(true)}
+      />
 
-      <>
-        <View style={styles.preview}>
-          <PlayableMedia
-            uri={media.uri}
-            kind={media.kind}
-            style={styles.preview}
-          />
-          <LookTint id={filter} />
-          <StoryStage
-            overlays={overlays}
-            editable
-            onChange={setOverlays}
-            onTagPeople={() => setPeopleOpen(true)}
-          />
+      <SafeAreaView style={styles.chrome} edges={['top', 'bottom']} pointerEvents="box-none">
+        <View style={styles.header} pointerEvents="box-none">
+          <Pressable
+            onPress={() =>
+              Alert.alert('Start over?', 'This photo or video and its stickers will be cleared.', [
+                { text: 'Keep editing', style: 'cancel' },
+                { text: 'Start over', style: 'destructive', onPress: reset },
+              ])
+            }
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel="Back to camera"
+            hitSlop={8}
+            style={styles.round}
+          >
+            <X size={24} color={WHITE} />
+          </Pressable>
         </View>
-        <View style={styles.tools}>
-          <LookStrip value={filter} onChange={setFilter} tone="dark" />
-          <Text style={styles.hint}>
-            Drag text and mentions on the photo. Tap a filter to change the
-            look.
-          </Text>
-          <View style={styles.music}>
-            <Pressable
-              onPress={() => setMusicOpen(true)}
-              accessibilityRole="button"
-              style={styles.musicMain}
-            >
-              <Music size={18} color="#FFFFFF" />
-              <Text style={styles.musicText} numberOfLines={1}>
-                {music || 'Add music'}
-              </Text>
-            </Pressable>
-            {music ? (
+
+        <View style={styles.flex} pointerEvents="box-none" />
+
+        <View style={styles.bottom} pointerEvents="box-none">
+          <Pressable
+            onPress={() => setPlaces(true)}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={location ? `Location ${location}. Change` : 'Add location'}
+            style={styles.pill}
+          >
+            <MapPin size={16} color={WHITE} />
+            <Text style={styles.pillText} numberOfLines={1}>
+              {location || 'Location'}
+            </Text>
+            {location ? (
               <Pressable
-                onPress={() => setMusic('')}
-                accessibilityRole="button"
-                accessibilityLabel="Remove music"
+                onPress={() => {
+                  setLocation('');
+                  setLocationLat(null);
+                  setLocationLng(null);
+                }}
                 hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Remove location"
               >
-                <X size={18} color="#FFFFFF" />
+                <X size={14} color={WHITE} />
               </Pressable>
             ) : null}
-          </View>
-          <Button
-            title={location || 'Add location'}
-            variant="secondary"
-            onPress={() => setPlaces(true)}
-          />
-          <Button
-            title={busy ? 'Sharing…' : 'Share to story'}
+          </Pressable>
+          <Pressable
             onPress={share}
             disabled={busy}
-          />
-          <Text style={styles.hint}>Disappears after 24 hours</Text>
+            accessibilityRole="button"
+            accessibilityLabel="Share to your story"
+            style={styles.share}
+          >
+            {busy ? (
+              <>
+                <ActivityIndicator size="small" color="#0F172A" />
+                <Text style={styles.shareText}>
+                  {Math.round((progress ?? 0) * 100)}%
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.shareText}>Your story</Text>
+                <ChevronRight size={18} color="#0F172A" />
+              </>
+            )}
+          </Pressable>
         </View>
-      </>
+      </SafeAreaView>
 
-      <MusicSheet
-        visible={musicOpen}
-        onClose={() => setMusicOpen(false)}
-        onSelect={setMusic}
-      />
       <LocationSheet
         visible={places}
         onClose={() => setPlaces(false)}
@@ -210,50 +219,72 @@ export function CreateStoryScreen({ navigation }: ScreenProps<'CreateStory'>) {
       />
       <TagPeopleSheet
         visible={peopleOpen}
+        selected={[]}
         onClose={() => setPeopleOpen(false)}
-        onSelect={username => {
-          setOverlays(current => [
-            ...current,
-            placed({
-              id: overlayId(),
-              type: 'mention',
-              x: 0,
-              y: 0,
-              scale: 1,
-              rotation: 0,
-              username,
-            }),
-          ]);
+        onDone={people => {
+          const already = new Set(
+            overlays.flatMap(o => (o.type === 'mention' ? [o.username] : [])),
+          );
+          const added = people
+            .filter(u => !already.has(u.username))
+            .map(u =>
+              placed({
+                id: overlayId(),
+                type: 'mention',
+                x: 0,
+                y: 0,
+                scale: 1,
+                rotation: 0,
+                username: u.username,
+              }),
+            );
+          if (added.length) setOverlays(current => [...current, ...added].slice(0, 12));
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  header: {
+  root: { flex: 1, backgroundColor: '#000000' },
+  flex: { flex: 1 },
+  chrome: { ...StyleSheet.absoluteFill },
+  header: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: 4 },
+  round: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: GLASS,
+  },
+  bottom: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
     paddingHorizontal: spacing.md,
-    minHeight: 52,
+    paddingBottom: spacing.sm,
   },
-  title: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  headerSpacer: { width: 28 },
-  preview: { flex: 1 },
-  tools: { padding: spacing.md, gap: 10 },
-  music: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  musicMain: {
-    flex: 1,
+  pill: {
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: radius.full,
+    backgroundColor: GLASS,
   },
-  musicText: { color: '#FFFFFF', fontWeight: '700', flex: 1 },
-  hint: { color: 'rgba(255,255,255,0.65)', textAlign: 'center' },
+  pillText: { color: WHITE, fontWeight: '700', fontSize: 14, flexShrink: 1 },
+  share: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: radius.full,
+    backgroundColor: WHITE,
+  },
+  shareText: { color: '#0F172A', fontWeight: '800', fontSize: 15 },
 });

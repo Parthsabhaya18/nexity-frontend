@@ -11,8 +11,6 @@ export interface PostMedia {
   height: number | null;
   alt_text: string;
   duration_ms: number | null;
-  /** Named colour look. Missing means Normal. */
-  filter?: string;
 }
 
 export interface Comment {
@@ -39,16 +37,16 @@ export interface Post {
   /** Carousel order. */
   media: PostMedia[];
   caption: string;
-  hashtags: string[];
   mentions: string[];
+  /** People picked in "Tag people". */
+  tagged_users: UserSummary[];
   location_name: string;
   location_lat?: number | null;
   location_lng?: number | null;
   adjustments?: Adjustments;
-  music_title: string;
   /** Width / height of the frame every carousel item is shown in. */
   aspect_ratio: number;
-  /** Null when the owner hid the like count. */
+  /** Null while `hide_like_count` is on, for everyone including the owner. */
   likes_count: number | null;
   comments_count: number;
   liked_by_me: boolean;
@@ -68,19 +66,12 @@ export interface CreatePostInput {
   location_lat?: number | null;
   location_lng?: number | null;
   adjustments?: Adjustments;
-  /** One look per photo, in carousel order. */
-  filters?: string[];
-  music_title: string;
+  tagged_user_ids?: string[];
   aspect_ratio: number;
   hide_like_count: boolean;
   comments_disabled: boolean;
   /** Same id on every retry, so a timed-out share is never posted twice. */
   client_upload_id: string;
-}
-
-export interface TagSuggestion {
-  name: string;
-  post_count: number;
 }
 
 export interface PlaceSuggestion {
@@ -92,6 +83,12 @@ export interface PlaceSuggestion {
   longitude?: number;
 }
 
+export interface LikeResult {
+  liked: boolean;
+  likes_count: number | null;
+  post: Post;
+}
+
 export const postsApi = {
   async create(input: CreatePostInput) {
     const { data } = await apiClient.post<Post>('/posts', input);
@@ -101,14 +98,6 @@ export const postsApi = {
   async get(id: string, signal?: AbortSignal) {
     const { data } = await apiClient.get<Post>(`/posts/${id}`, { signal });
     return data;
-  },
-
-  async searchTags(q: string, signal?: AbortSignal) {
-    const { data } = await apiClient.get<{ tags: TagSuggestion[] }>('/search', {
-      params: { q, type: 'tags', limit: 10 },
-      signal,
-    });
-    return data.tags;
   },
 
   async feed(cursor?: string | null, signal?: AbortSignal) {
@@ -135,20 +124,11 @@ export const postsApi = {
     return data;
   },
 
-  async byTag(tag: string, cursor?: string | null, signal?: AbortSignal) {
-    const { data } = await apiClient.get<Page<Post>>(
-      `/tags/${encodeURIComponent(tag)}/posts`,
-      { params: cursor ? { cursor } : {}, signal },
-    );
-    return data;
-  },
-
-  async like(id: string) {
-    const { data } = await apiClient.post<{
-      liked: boolean;
-      likes_count: number | null;
-      post: Post;
-    }>(`/posts/${id}/like`);
+  /** Idempotent: repeating a request never flips the like the wrong way. */
+  async setLiked(id: string, liked: boolean) {
+    const { data } = liked
+      ? await apiClient.put<LikeResult>(`/posts/${id}/like`)
+      : await apiClient.delete<LikeResult>(`/posts/${id}/like`);
     return data;
   },
 

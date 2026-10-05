@@ -4,6 +4,7 @@ import type { MediaAsset } from '@/services/api/media';
 
 import type { MediaPurpose } from './mediaRules';
 import type { LocalMedia } from './pickMedia';
+import { newClientUploadId, pendingUploads } from './uploadJournal';
 import {
   discardUploadSession,
   isUploadCancelled,
@@ -23,6 +24,8 @@ export type UploadStatus =
 
 export interface UploadItem {
   key: string;
+  /** Sent as `client_upload_id`; survives app restarts through the upload journal. */
+  clientUploadId: string;
   media: LocalMedia;
   status: UploadStatus;
   progress: number;
@@ -95,7 +98,7 @@ export function useMediaUpload(
       controllers.current.set(item.key, controller);
       let session = sessions.current.get(item.key);
       if (!session) {
-        session = {};
+        session = { clientUploadId: item.clientUploadId };
         sessions.current.set(item.key, session);
       }
       patch(item.key, { status: 'processing', progress: 0, error: undefined });
@@ -116,11 +119,17 @@ export function useMediaUpload(
         sessions.current.delete(item.key);
         patch(item.key, { status: 'done', progress: 1, asset });
       } catch (err) {
+        // Cancelled or permanent failures release the old id; the retry gets a new one.
+        const clientUploadId = (session.clientUploadId ??= newClientUploadId());
         patch(
           item.key,
           isUploadCancelled(err)
-            ? { status: 'cancelled', progress: 0 }
-            : { status: 'error', error: uploadErrorMessage(err) },
+            ? { status: 'cancelled', progress: 0, clientUploadId }
+            : {
+                status: 'error',
+                error: uploadErrorMessage(err),
+                clientUploadId,
+              },
         );
       } finally {
         controllers.current.delete(item.key);
@@ -159,6 +168,7 @@ export function useMediaUpload(
       commit(
         medias.map(media => ({
           key: `upload-${++nextKey}`,
+          clientUploadId: newClientUploadId(),
           media,
           status: 'queued' as const,
           progress: 0,
@@ -168,6 +178,37 @@ export function useMediaUpload(
     },
     [abortAll, commit, runPending],
   );
+
+  /**
+   * Picks up this purpose's uploads that were interrupted by an app restart
+   * (from the on-disk journal) and finishes them: compressed copies are reused,
+   * multipart uploads skip parts S3 already has, finished files return at once.
+   * Resolves with `[]` when nothing was pending.
+   */
+  const resumePending = useCallback(async (): Promise<MediaAsset[]> => {
+    abortAll();
+    const pending = await pendingUploads(purpose);
+    if (!pending.length) {
+      commit([]);
+      return [];
+    }
+    const next = pending.map(entry => {
+      const key = `upload-${++nextKey}`;
+      sessions.current.set(key, {
+        clientUploadId: entry.clientUploadId,
+        prepared: entry.prepared,
+      });
+      return {
+        key,
+        clientUploadId: entry.clientUploadId,
+        media: entry.original,
+        status: 'queued' as const,
+        progress: 0,
+      };
+    });
+    commit(next);
+    return runPending();
+  }, [abortAll, commit, purpose, runPending]);
 
   /** Re-uploads failed or cancelled files (resuming large ones); finished ones are kept. */
   const retryFailed = useCallback(() => {
@@ -210,6 +251,7 @@ export function useMediaUpload(
     ),
     hasFailed: items.some(i => i.status === 'error'),
     start,
+    resumePending,
     retryFailed,
     cancel,
     reset,

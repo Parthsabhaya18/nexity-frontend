@@ -8,7 +8,6 @@ import {
 
 import { deleteFile } from './localFiles';
 import {
-  formatBytes,
   IMAGE_MAX_EDGE,
   MEDIA_RULES,
   type MediaPurpose,
@@ -19,6 +18,7 @@ import {
   isTooLong,
   type LocalMedia,
   MediaError,
+  tooLargeMessage,
   tooLongMessage,
 } from './pickMedia';
 
@@ -152,13 +152,7 @@ export async function prepareMedia(
   const max = MEDIA_RULES[purpose][prepared.kind]?.maxBytes ?? Infinity;
   if (prepared.bytes > max) {
     if (prepared.uri !== media.uri) await deleteFile(prepared.uri);
-    throw new MediaError(
-      `This ${
-        prepared.kind === 'image' ? 'photo' : 'video'
-      } is over ${formatBytes(
-        max,
-      )} and couldn't be made smaller. Try a different one.`,
-    );
+    throw new MediaError(tooLargeMessage(prepared.kind, max));
   }
   return prepared;
 }

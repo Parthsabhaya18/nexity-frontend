@@ -13,6 +13,9 @@ import {
 const DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/nexity-drafts`;
 const FILE = `${DIR}/post.json`;
 
+const extensionOf = (fileName: string, kind: 'image' | 'video') =>
+  /^[\w]+\.(\w{2,5})$/.exec(fileName)?.[1] ?? (kind === 'video' ? 'mp4' : 'jpg');
+
 async function copyIntoDraft(uri: string, name: string) {
   const dest = `${DIR}/${name}`;
   await ReactNativeBlobUtil.fs.cp(uri, dest);
@@ -30,7 +33,7 @@ export async function saveDraftToDisk() {
     try {
       uri = await copyIntoDraft(
         item.media.uri.replace(/^file:\/\//, ''),
-        `${item.key}.jpg`,
+        `${item.key}.${extensionOf(item.media.fileName, item.media.kind)}`,
       );
     } catch {
       // Keep the picker URI if the copy fails; it still works until the cache is cleared.
@@ -49,7 +52,7 @@ export async function loadSavedDraft(): Promise<PostDraft | null> {
     const raw = await ReactNativeBlobUtil.fs.readFile(FILE, 'utf8');
     const parsed = JSON.parse(raw) as PostDraft;
     if (!parsed.items?.length) return null;
-    parsed.music = parsed.music ?? '';
+    parsed.tagged = parsed.tagged ?? [];
     parsed.locationLat = parsed.locationLat ?? null;
     parsed.locationLng = parsed.locationLng ?? null;
     parsed.adjustments = parsed.adjustments ?? {
@@ -65,7 +68,6 @@ export async function loadSavedDraft(): Promise<PostDraft | null> {
     parsed.items = parsed.items.map(item => ({
       ...item,
       crop: item.crop ?? IDENTITY_CROP,
-      filter: item.filter || 'normal',
       media: item.media as LocalMedia,
     }));
     return parsed;
