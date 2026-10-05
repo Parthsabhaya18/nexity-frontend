@@ -11,12 +11,17 @@ import {
   type GifItem,
   type GifKind,
   type MessageDto,
+  type MessageMedia,
   type PresenceStatus,
+  type QuotedMedia,
   type ReactionGroup,
   type ReactionUpdate,
   type ReadReceipt,
   type ReplyPreview,
 } from '@/services/api/chat';
+import { deleteFile } from '@/features/media/localFiles';
+import type { LocalMedia } from '@/features/media/pickMedia';
+import { uploadErrorMessage, uploadMedia } from '@/features/media/uploadMedia';
 import { ApiError, refreshAccessToken } from '@/services/api/client';
 import {
   createChatSocket,
@@ -31,6 +36,7 @@ import {
   emptyThread,
   mergeMessages,
   myReaction,
+  type PendingUpload,
   type ThreadState,
   toggleReaction,
 } from './chatStore';
@@ -149,7 +155,9 @@ function patchMessage(
 }
 
 const markDeleted = (m: ChatMessage): ChatMessage =>
-  m.is_deleted ? m : { ...m, is_deleted: true, body: '', media: null };
+  m.is_deleted
+    ? m
+    : { ...m, is_deleted: true, body: '', media: null, media_items: [] };
 
 /** Quotes pointing at an unsent message must not keep showing its text. */
 function hideQuotesOf(conversationId: string, messageId: string) {
@@ -159,7 +167,15 @@ function hideQuotesOf(conversationId: string, messageId: string) {
           ...t,
           messages: t.messages.map(m =>
             m.reply_to?.id === messageId && m.reply_to
-              ? { ...m, reply_to: { ...m.reply_to, body: '', is_deleted: true } }
+              ? {
+                  ...m,
+                  reply_to: {
+                    ...m.reply_to,
+                    body: '',
+                    is_deleted: true,
+                    media: null,
+                  },
+                }
               : m,
           ),
         }
@@ -448,7 +464,71 @@ function scheduleMarkRead(conversationId: string) {
   );
 }
 
-async function deliver(message: ChatMessage) {
+/** Uploads in one chat go up one at a time, so photos arrive in the order they were picked. */
+const uploadQueues = new Map<string, Promise<void>>();
+
+function enqueueUpload(message: ChatMessage) {
+  const id = message.conversation_id;
+  const next = (uploadQueues.get(id) ?? Promise.resolve()).then(() =>
+    deliver(message),
+  );
+  uploadQueues.set(id, next);
+  next.finally(() => {
+    if (uploadQueues.get(id) === next) uploadQueues.delete(id);
+  });
+}
+
+const PROGRESS_STEP = 0.04;
+
+/**
+ * Uploads each file once, in order; a retry skips files already stored.
+ * Progress is shown across all of an album's files.
+ */
+async function uploadFor(message: ChatMessage): Promise<ChatMessage> {
+  const upload = message.upload;
+  if (!upload) return message;
+  const items = upload.items.slice();
+  const total = items.length;
+  let current = message;
+  let shown = upload.progress;
+  const report = (fraction: number) => {
+    if (fraction - shown < PROGRESS_STEP && fraction < 1) return;
+    shown = fraction;
+    patchMessage(message.conversation_id, message.id, m =>
+      m.upload ? { ...m, upload: { ...m.upload, progress: fraction } } : m,
+    );
+  };
+  for (let i = 0; i < total; i++) {
+    const item = items[i]!;
+    if (item.mediaId) continue;
+    const asset = await uploadMedia(item.file, 'message', {
+      session: item.session,
+      onProgress: fraction => report((i + fraction) / total),
+    });
+    items[i] = { ...item, mediaId: asset.id };
+    const sized = (m: MessageMedia): MessageMedia => ({
+      ...m,
+      width: asset.width ?? m.width,
+      height: asset.height ?? m.height,
+      duration_ms: asset.duration_ms ?? m.duration_ms,
+    });
+    current = {
+      ...current,
+      upload: { items: items.slice(), progress: (i + 1) / total },
+      media: current.media && total === 1 ? sized(current.media) : current.media,
+      media_items: current.media_items?.map((m, j) => (j === i ? sized(m) : m)),
+    };
+    // Keep finished ids on the message, so a failure later in the album doesn't redo them.
+    const done = current.upload;
+    patchMessage(message.conversation_id, message.id, m =>
+      m.upload ? { ...m, upload: done } : m,
+    );
+  }
+  return current;
+}
+
+async function deliver(original: ChatMessage) {
+  let message = original;
   const gif =
     (message.type === 'gif' || message.type === 'sticker') && message.media
       ? {
@@ -461,13 +541,31 @@ async function deliver(message: ChatMessage) {
         }
       : undefined;
   try {
+    if (message.upload) message = await uploadFor(message);
+    const ids = (message.upload?.items ?? []).map(i => i.mediaId!);
     const saved = await chatApi.sendMessage(message.conversation_id, {
       body: message.body || undefined,
       client_message_id: message.client_message_id,
       reply_to_id: message.reply_to_id ?? undefined,
+      reply_to_index:
+        message.reply_to_id && message.reply_to_index != null
+          ? message.reply_to_index
+          : undefined,
+      media_id: ids.length === 1 ? ids[0] : undefined,
+      media_ids: ids.length > 1 ? ids : undefined,
       gif,
     });
-    addToThread(message.conversation_id, [{ ...saved, status: 'sent' }]);
+    // A recording is only needed until it's stored; play it back from the server after that.
+    const keepLocal = message.upload?.items[0]?.file.kind !== 'audio';
+    if (!keepLocal && message.localUri) deleteFile(message.localUri).catch(() => {});
+    addToThread(message.conversation_id, [
+      {
+        ...saved,
+        status: 'sent',
+        localUri: keepLocal ? message.localUri : undefined,
+        localUris: message.localUris,
+      },
+    ]);
     setPreview(saved);
   } catch (err) {
     // The quoted message was unsent meanwhile: send it as a plain message instead.
@@ -476,15 +574,64 @@ async function deliver(message: ChatMessage) {
       err.code === 'REPLY_TARGET_NOT_FOUND' &&
       message.reply_to_id
     ) {
-      const plain = { ...message, reply_to_id: null, reply_to: null };
+      const plain = {
+        ...message,
+        reply_to_id: null,
+        reply_to_index: null,
+        reply_to: null,
+      };
       addToThread(message.conversation_id, [plain]);
       return deliver(plain);
     }
-    addToThread(message.conversation_id, [{ ...message, status: 'failed' }]);
+    // Album files stored before the failure are recorded on the live message only.
+    const live = get().threads[message.conversation_id]?.messages.find(
+      m => m.id === message.id,
+    );
+    addToThread(message.conversation_id, [
+      {
+        ...message,
+        upload: live?.upload ?? message.upload,
+        status: 'failed',
+        failure: message.upload ? uploadErrorMessage(err) : undefined,
+      },
+    ]);
   }
 }
 
-function replyPreviewOf(m: ChatMessage | null | undefined): ReplyPreview | null {
+/** The same thumbnail the server sends with a quote, so the optimistic bubble matches. */
+function quotedMediaOf(m: ChatMessage, index: number | null): QuotedMedia | null {
+  const items = m.media_items ?? [];
+  if (items.length) {
+    const picked = index != null ? items[index] : undefined;
+    const shown = picked ?? items[0]!;
+    const next = picked ? undefined : items[1];
+    const card = (item: MessageMedia) => ({
+      url: item.preview_url ?? item.url,
+      kind: item.duration_ms != null ? ('video' as const) : ('image' as const),
+    });
+    return {
+      ...card(shown),
+      count: picked ? 1 : items.length,
+      next_url: next ? next.preview_url ?? next.url : null,
+      stack: picked ? [] : items.slice(0, 3).map(card),
+    };
+  }
+  if (m.media && ['image', 'video', 'gif', 'sticker'].includes(m.type)) {
+    return {
+      url: m.media.preview_url ?? m.media.url,
+      kind: m.type === 'video' ? 'video' : 'image',
+      count: 1,
+      next_url: null,
+      stack: [],
+    };
+  }
+  return null;
+}
+
+function replyPreviewOf(
+  m: ChatMessage | null | undefined,
+  index: number | null = null,
+): ReplyPreview | null {
   if (!m || m.status !== 'sent' || m.is_deleted) return null;
   return {
     id: m.id,
@@ -493,34 +640,72 @@ function replyPreviewOf(m: ChatMessage | null | undefined): ReplyPreview | null 
     body: m.body.slice(0, 200),
     is_deleted: false,
     is_edited: Boolean(m.edited_at),
+    media: quotedMediaOf(m, index),
   };
+}
+
+let lastLocalTime = 0;
+/** Several files sent at once must keep their order, so no two get the same timestamp. */
+function nextLocalTime() {
+  lastLocalTime = Math.max(Date.now(), lastLocalTime + 1);
+  return new Date(lastLocalTime).toISOString();
 }
 
 function sendOptimistic(
   conversationId: string,
-  content: Pick<ChatMessage, 'type' | 'body' | 'media'>,
+  content: Pick<ChatMessage, 'type' | 'body' | 'media'> &
+    Partial<Pick<ChatMessage, 'media_items' | 'upload' | 'localUri' | 'localUris'>>,
   replyTo?: ChatMessage | null,
+  replyIndex: number | null = null,
 ) {
   const meId = get().meId;
   if (!meId) return;
   chat.stopTyping(conversationId);
   const clientId = uuidv4();
-  const reply = replyPreviewOf(replyTo);
+  const index =
+    replyIndex != null && replyIndex < (replyTo?.media_items?.length ?? 0)
+      ? replyIndex
+      : null;
+  const reply = replyPreviewOf(replyTo, index);
   const message: ChatMessage = {
     id: `local:${clientId}`,
     conversation_id: conversationId,
     sender_id: meId,
     ...content,
     reply_to_id: reply?.id ?? null,
+    reply_to_index: reply ? index : null,
     reply_to: reply,
     client_message_id: clientId,
     is_deleted: false,
-    created_at: new Date().toISOString(),
+    created_at: nextLocalTime(),
     status: 'sending',
   };
   addToThread(conversationId, [message]);
   setPreview(message);
-  deliver(message);
+  if (message.upload) enqueueUpload(message);
+  else deliver(message);
+}
+
+const MESSAGE_TYPE_OF = {
+  image: 'image',
+  video: 'video',
+  audio: 'voice',
+} as const;
+
+/** Matches the server's limit on files per message. */
+const MAX_ALBUM = 10;
+
+function localMediaOf(file: LocalMedia): MessageMedia {
+  return {
+    provider: 'upload',
+    provider_id: null,
+    media_id: null,
+    url: file.uri,
+    preview_url: null,
+    width: file.width ?? null,
+    height: file.height ?? null,
+    duration_ms: file.kind === 'image' ? null : file.durationMs ?? 0,
+  };
 }
 
 /* ---------- Public API ---------- */
@@ -671,10 +856,21 @@ export const chat = {
     }
   },
 
-  send(conversationId: string, text: string, replyTo?: ChatMessage | null) {
+  /** `replyIndex` quotes one photo / video of an album instead of the whole stack. */
+  send(
+    conversationId: string,
+    text: string,
+    replyTo?: ChatMessage | null,
+    replyIndex: number | null = null,
+  ) {
     const body = text.trim();
     if (!body) return;
-    sendOptimistic(conversationId, { type: 'text', body, media: null }, replyTo);
+    sendOptimistic(
+      conversationId,
+      { type: 'text', body, media: null },
+      replyTo,
+      replyIndex,
+    );
   },
 
   sendGif(
@@ -701,6 +897,58 @@ export const chat = {
       },
       replyTo,
     );
+  },
+
+  /**
+   * Several photos / videos go as one album (Instagram's stack); one file or a
+   * voice note is a message of its own. Uploads run in order.
+   */
+  sendFiles(
+    conversationId: string,
+    files: readonly LocalMedia[],
+    replyTo?: ChatMessage | null,
+  ) {
+    const visual = files.filter(f => f.kind !== 'audio');
+    const voice = files.filter(f => f.kind === 'audio');
+    const albums: LocalMedia[][] = [];
+    for (let i = 0; i < visual.length; i += MAX_ALBUM) {
+      albums.push(visual.slice(i, i + MAX_ALBUM));
+    }
+    const groups = [...albums, ...voice.map(f => [f])];
+    groups.forEach((group, i) => {
+      const quote = i === 0 ? replyTo : null;
+      const upload: PendingUpload = {
+        items: group.map(file => ({ file, session: {} })),
+        progress: 0,
+      };
+      if (group.length === 1) {
+        const file = group[0]!;
+        sendOptimistic(
+          conversationId,
+          {
+            type: MESSAGE_TYPE_OF[file.kind],
+            body: '',
+            media: localMediaOf(file),
+            localUri: file.uri,
+            upload,
+          },
+          quote,
+        );
+        return;
+      }
+      sendOptimistic(
+        conversationId,
+        {
+          type: 'album',
+          body: '',
+          media: null,
+          media_items: group.map(localMediaOf),
+          localUris: group.map(f => f.uri),
+          upload,
+        },
+        quote,
+      );
+    });
   },
 
   /** Removes my message for everyone. Optimistic; restored if the server refuses. */
@@ -866,9 +1114,14 @@ export const chat = {
       m => m.client_message_id === clientMessageId && m.status === 'failed',
     );
     if (!message) return;
-    const sending = { ...message, status: 'sending' as const };
+    const sending = {
+      ...message,
+      status: 'sending' as const,
+      failure: undefined,
+    };
     addToThread(conversationId, [sending]);
-    deliver(sending);
+    if (sending.upload) enqueueUpload(sending);
+    else deliver(sending);
   },
 
   /** Call on every keystroke; throttled to one `typing.start` per few seconds. */

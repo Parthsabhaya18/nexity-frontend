@@ -2,14 +2,17 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   ArrowLeft,
+  Camera,
   Check,
   CheckCheck,
   CloudOff,
   Copy,
+  Download,
   Info,
   Pencil,
   Reply,
   Undo2,
+  Video,
 } from 'lucide-react-native';
 import {
   type ComponentRef,
@@ -32,6 +35,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ActionSheet } from '@/components/chat/ActionSheet';
 import {
   ChatComposer,
   type ComposerEdit,
@@ -43,12 +47,18 @@ import {
 } from '@/components/chat/GallerySheet';
 import { GifSheet } from '@/components/chat/GifSheet';
 import {
+  AlbumViewer,
+  type ViewerItem,
+  type ViewerTarget,
+} from '@/components/chat/AlbumViewer';
+import {
   MessageActionsOverlay,
   type OverlayAction,
   type OverlayTarget,
 } from '@/components/chat/MessageActionsOverlay';
 import {
   CHAT_LIST_PADDING_X,
+  isVideoItem,
   type MeasureBubble,
   MessageBubble,
   messageSnippet,
@@ -75,6 +85,10 @@ import {
   presenceOf,
   useChatStore,
 } from '@/features/chats/chatStore';
+import { voicePlayback } from '@/features/chats/voicePlayback';
+import { captureWithCamera, type LocalMedia } from '@/features/media/pickMedia';
+import { saveToGallery } from '@/features/media/saveToGallery';
+import { uploadErrorMessage } from '@/features/media/uploadMedia';
 import {
   loadReactionPrefs,
   reactionPrefs,
@@ -179,11 +193,89 @@ export function ChatThreadScreen({
   useFocusEffect(
     useCallback(() => {
       chat.openThread(conversationId);
-      return () => chat.closeThread(conversationId);
+      return () => {
+        chat.closeThread(conversationId);
+        voicePlayback.stop();
+      };
     }, [conversationId]),
   );
 
+  const [viewer, setViewer] = useState<ViewerTarget | null>(null);
+  const [cameraSheet, setCameraSheet] = useState(false);
+
+  const sendFiles = (files: LocalMedia[]) => {
+    if (!files.length) return;
+    chat.sendFiles(conversationId, files, replyTo);
+    setReplyTo(null);
+    scrollToLatest();
+  };
+
+  const capture = async (kind: 'image' | 'video') => {
+    try {
+      const file = await captureWithCamera('message', kind);
+      if (file) sendFiles([file]);
+    } catch (err) {
+      showToast(uploadErrorMessage(err));
+    }
+  };
+
   const peer = convo?.peer ?? null;
+  const me = useChatStore(s =>
+    s.conversations[conversationId]?.participants.find(p => p.id === s.meId),
+  );
+
+  const openMedia = useCallback(
+    (m: ChatMessage) => {
+      const album = m.type === 'album';
+      const items: ViewerItem[] = album
+        ? (m.media_items ?? []).map((item, i) => ({
+            uri: m.localUris?.[i] ?? item.url,
+            remoteUrl: item.url,
+            video: isVideoItem(item),
+            width: item.width,
+            height: item.height,
+          }))
+        : m.media
+        ? [
+            {
+              uri: m.localUri ?? m.media.url,
+              remoteUrl: m.media.url,
+              video: m.type === 'video',
+              width: m.media.width,
+              height: m.media.height,
+            },
+          ]
+        : [];
+      if (!items.length) return;
+      const mine = m.sender_id === meId;
+      setViewer({
+        messageId: m.id,
+        items,
+        album,
+        sender: mine
+          ? { name: 'You', avatarUrl: me?.avatar_url ?? null }
+          : {
+              name: peer?.display_name ?? '',
+              avatarUrl: peer?.avatar_url ?? null,
+            },
+        createdAt: m.created_at,
+        canReply: m.status === 'sent',
+      });
+    },
+    [meId, me?.avatar_url, peer?.display_name, peer?.avatar_url],
+  );
+
+  const saveMedia = useCallback(
+    async (url: string, video: boolean) => {
+      try {
+        await saveToGallery(url, video ? 'video' : 'image');
+        showToast(video ? 'Video saved' : 'Photo saved');
+      } catch {
+        showToast(`Couldn't save the ${video ? 'video' : 'photo'}. Try again.`);
+      }
+    },
+    [showToast],
+  );
   const { online, lastActiveAt } = presenceOf(peer, presenceMap);
   const allMessages = thread?.messages ?? NO_MESSAGES;
   // Unsent messages disappear for both people, like Instagram.
@@ -344,6 +436,16 @@ export function ChatThreadScreen({
         },
       });
     }
+    if (sent && (m.type === 'image' || m.type === 'video') && m.media) {
+      const { url } = m.media;
+      const video = m.type === 'video';
+      list.push({
+        key: 'save',
+        label: 'Save',
+        Icon: Download,
+        onPress: () => saveMedia(url, video),
+      });
+    }
     if (isText) {
       list.push({
         key: 'copy',
@@ -371,7 +473,7 @@ export function ChatThreadScreen({
       });
     }
     return list;
-  }, [target, meId, conversationId, showToast, startReply]);
+  }, [target, meId, conversationId, showToast, startReply, saveMedia]);
 
   const people = useMemo(() => {
     const map: Record<string, ReactionPerson> = {};
@@ -433,6 +535,8 @@ export function ChatThreadScreen({
         onJumpTo={jumpTo}
         onPressReactions={openDetails}
         onPressAvatar={openProfile}
+        onOpenMedia={openMedia}
+        onNotice={showToast}
       />
     );
 
@@ -636,7 +740,10 @@ export function ChatThreadScreen({
             scrollToLatest();
           }}
           onTyping={() => chat.notifyTyping(conversationId)}
-          onCamera={() => showToast('Camera is coming soon')}
+          onCamera={() => {
+            Keyboard.dismiss();
+            setCameraSheet(true);
+          }}
           onPickImage={() => {
             Keyboard.dismiss();
             setGalleryLift(true);
@@ -648,7 +755,8 @@ export function ChatThreadScreen({
             setSheet(null);
           }}
           onPickGif={() => setSheet('gif')}
-          onVoiceSend={() => showToast('Voice messages are coming soon')}
+          onVoiceSend={file => sendFiles([file])}
+          onError={showToast}
           reply={reply}
           onCancelReply={() => setReplyTo(null)}
           editing={editing}
@@ -676,10 +784,39 @@ export function ChatThreadScreen({
         topInset={insets.top}
         onClose={() => setSheet(null)}
         onHidden={() => setGalleryLift(false)}
-        onSend={() => {
+        onSend={files => {
           setSheet(null);
-          showToast('Photo sharing is coming soon');
+          sendFiles(files);
         }}
+      />
+      <ActionSheet
+        visible={cameraSheet}
+        onClose={() => setCameraSheet(false)}
+        actions={[
+          {
+            key: 'photo',
+            label: 'Take photo',
+            Icon: Camera,
+            onPress: () => capture('image'),
+          },
+          {
+            key: 'video',
+            label: 'Record video',
+            Icon: Video,
+            onPress: () => capture('video'),
+          },
+        ]}
+      />
+      <AlbumViewer
+        target={viewer}
+        onClose={() => setViewer(null)}
+        onReply={(text, index) => {
+          const original = viewer && findLive(viewer.messageId);
+          if (!original) return;
+          chat.send(conversationId, text, original, index);
+          scrollToLatest();
+        }}
+        onSave={item => saveMedia(item.remoteUrl, item.video)}
       />
       <GifSheet
         visible={sheet === 'gif'}

@@ -330,17 +330,26 @@ export function getAppTheme() {
   return snapshot;
 }
 
-/** Called by ThemeProvider. Ignored when nothing visible changed. */
-export function publishTheme(next: AppTheme) {
-  if (
-    snapshot.scheme === next.scheme &&
-    snapshot.choice === next.choice &&
-    snapshot.mood === next.mood &&
-    snapshot.colors === next.colors
-  ) {
-    return;
-  }
-  snapshot = next;
+const sameTheme = (a: AppTheme, b: AppTheme) =>
+  a.scheme === b.scheme &&
+  a.choice === b.choice &&
+  a.mood === b.mood &&
+  a.colors === b.colors;
+
+let notified: AppTheme = snapshot;
+
+/**
+ * Called by ThemeProvider while rendering: updates the snapshot without notifying, so
+ * children rendering in the same pass already read the new theme.
+ */
+export function stageTheme(next: AppTheme) {
+  if (!sameTheme(snapshot, next)) snapshot = next;
+}
+
+/** Called by ThemeProvider after commit; re-renders subscribers outside the current pass. */
+export function publishTheme() {
+  if (notified === snapshot) return;
+  notified = snapshot;
   listeners.forEach(l => l());
 }
 

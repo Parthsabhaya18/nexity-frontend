@@ -2,7 +2,7 @@ import { useScrollToTop } from '@react-navigation/native';
 import { Crown } from 'lucide-react-native';
 import { useRef } from 'react';
 import { ScrollView, type ScrollViewInstance, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { AppBar } from '@/components/ui/AppBar';
 import { EmptyState } from '@/components/ui/EmptyState';

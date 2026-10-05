@@ -2,7 +2,7 @@ import { useScrollToTop } from '@react-navigation/native';
 import { Bell, Camera, MessageCircle } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, type FlatListInstance, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { BrandLogo } from '@/components/BrandLogo';
 import {

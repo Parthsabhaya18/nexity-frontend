@@ -20,7 +20,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import Video from 'react-native-video';
 
 import { FilterFrame } from '@/components/create/FilterFrame';

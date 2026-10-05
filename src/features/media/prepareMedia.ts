@@ -139,10 +139,10 @@ export async function prepareMedia(
 
   let prepared = media;
   try {
-    prepared =
-      media.kind === 'image'
-        ? await prepareImage(media, purpose)
-        : await prepareVideo(media, purpose, onProgress, opts.signal);
+    if (media.kind === 'image') prepared = await prepareImage(media, purpose);
+    else if (media.kind === 'video') {
+      prepared = await prepareVideo(media, purpose, onProgress, opts.signal);
+    }
   } catch (err) {
     if (opts.signal?.aborted) throw err;
     console.warn('Media compression failed, uploading the original', err);

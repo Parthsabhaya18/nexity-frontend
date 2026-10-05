@@ -1,5 +1,8 @@
 import { useSyncExternalStore } from 'react';
 
+import type { LocalMedia } from '@/features/media/pickMedia';
+import type { UploadSession } from '@/features/media/uploadMedia';
+
 import type {
   ChatUser,
   ConversationDto,
@@ -9,7 +12,32 @@ import type {
 } from '@/services/api/chat';
 
 export type DeliveryStatus = 'sending' | 'sent' | 'failed';
-export type ChatMessage = MessageDto & { status: DeliveryStatus };
+
+export type PendingFile = {
+  file: LocalMedia;
+  session: UploadSession;
+  /** Set once the file is stored, so a retry skips it. */
+  mediaId?: string;
+};
+
+/** Photos, videos or a voice note of mine still going up; kept so a retry resumes them. */
+export type PendingUpload = {
+  /** One file, or the album items in order. */
+  items: PendingFile[];
+  /** 0–1 across all items. */
+  progress: number;
+};
+
+export type ChatMessage = MessageDto & {
+  status: DeliveryStatus;
+  upload?: PendingUpload;
+  /** The file on this device, shown instead of the remote copy so the bubble doesn't reload. */
+  localUri?: string;
+  /** Same as `localUri`, per album item. */
+  localUris?: string[];
+  /** Why the last attempt failed, when there is something useful to say. */
+  failure?: string;
+};
 
 export type ThreadState = {
   /** Newest first, matching the inverted list. */
@@ -104,7 +132,14 @@ export function mergeMessages(
     const existing = byKey.get(messageKey(m));
     // A late optimistic update must never downgrade a delivered message.
     if (existing?.status === 'sent' && m.status !== 'sent') continue;
-    byKey.set(messageKey(m), m);
+    let next = m;
+    if (existing?.localUri && !('localUri' in m) && m.media) {
+      next = { ...next, localUri: existing.localUri };
+    }
+    if (existing?.localUris && !('localUris' in m) && m.media_items?.length) {
+      next = { ...next, localUris: existing.localUris };
+    }
+    byKey.set(messageKey(m), next);
   }
   return [...byKey.values()].sort((a, b) => {
     const pendingA = a.status !== 'sent';

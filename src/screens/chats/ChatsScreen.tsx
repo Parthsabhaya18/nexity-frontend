@@ -21,7 +21,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { ActionSheet, type SheetAction } from '@/components/chat/ActionSheet';
 import { useToast } from '@/components/chat/Toast';

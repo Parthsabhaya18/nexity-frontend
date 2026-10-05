@@ -16,6 +16,8 @@ import {
   View,
 } from 'react-native';
 
+import { ensureAccess } from '@/features/media/permissionPrompt';
+import type { LocalMedia } from '@/features/media/pickMedia';
 import { useAppTheme } from '@/theme';
 
 import { VoiceRecorderBar } from './VoiceRecorderBar';
@@ -34,7 +36,9 @@ type Props = {
   onCamera: () => void;
   onPickImage: () => void;
   onPickGif: () => void;
-  onVoiceSend: (durationMs: number) => void;
+  onVoiceSend: (file: LocalMedia) => void;
+  /** A problem worth telling the user about (e.g. recording failed). */
+  onError: (message: string) => void;
   reply: ComposerReply | null;
   onCancelReply: () => void;
   /** Editing one of my messages: the input holds its text and send saves the edit. */
@@ -53,6 +57,7 @@ export function ChatComposer({
   onPickImage,
   onPickGif,
   onVoiceSend,
+  onError,
   reply,
   onCancelReply,
   editing = null,
@@ -171,9 +176,10 @@ export function ChatComposer({
         {recording ? (
           <VoiceRecorderBar
             onCancel={() => setRecording(false)}
-            onSend={ms => {
+            onError={onError}
+            onSend={file => {
               setRecording(false);
-              onVoiceSend(ms);
+              onVoiceSend(file);
             }}
           />
         ) : (
@@ -231,7 +237,12 @@ export function ChatComposer({
               </Pressable>
             ) : (
               <View style={styles.tools}>
-                <Tool label="Record voice message" onPress={() => setRecording(true)}>
+                <Tool
+                  label="Record voice message"
+                  onPress={async () => {
+                    if (await ensureAccess('microphone')) setRecording(true);
+                  }}
+                >
                   <Mic size={22} color={colors.text} />
                 </Tool>
                 <Tool label="Send a photo" onPress={onPickImage}>

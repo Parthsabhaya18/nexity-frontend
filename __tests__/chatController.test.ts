@@ -60,6 +60,22 @@ jest.mock('../src/services/api/chat', () => ({
   },
 }));
 
+jest.mock('../src/features/media/uploadMedia', () => ({
+  uploadMedia: jest.fn(),
+  uploadErrorMessage: (err: Error) => err.message,
+}));
+
+jest.mock('../src/features/media/localFiles', () => ({
+  deleteFile: jest.fn(() => Promise.resolve()),
+}));
+
+const { uploadMedia } = jest.requireMock('../src/features/media/uploadMedia') as {
+  uploadMedia: jest.Mock;
+};
+const { deleteFile } = jest.requireMock('../src/features/media/localFiles') as {
+  deleteFile: jest.Mock;
+};
+
 const { chatApi } = jest.requireMock('../src/services/api/chat') as {
   chatApi: Record<string, jest.Mock>;
 };
@@ -440,6 +456,249 @@ describe('sending', () => {
     expect(chatApi.sendMessage.mock.calls[1][1].gif).toMatchObject({ kind: 'sticker' });
     expect(thread().messages[0]).toMatchObject({ type: 'sticker', status: 'sent' });
     expect(state().conversations[CONVO]?.last_message?.type).toBe('sticker');
+  });
+});
+
+describe('sending files', () => {
+  const photo = (name: string) => ({
+    uri: `content://media/${name}`,
+    kind: 'image' as const,
+    contentType: 'image/jpeg',
+    fileName: `${name}.jpg`,
+    bytes: 2048,
+    width: 1080,
+    height: 1350,
+  });
+  const voice = {
+    uri: 'file:///data/voice.mp4',
+    kind: 'audio' as const,
+    contentType: 'audio/mp4',
+    fileName: 'voice.m4a',
+    bytes: 4096,
+    durationMs: 3200,
+  };
+  const echo = (type: MessageDto['type'], url: string) =>
+    async (_id: string, input: any) =>
+      message({
+        sender_id: ME,
+        type,
+        body: '',
+        client_message_id: input.client_message_id,
+        media: {
+          provider: 'upload',
+          provider_id: null,
+          media_id: input.media_id,
+          url,
+          preview_url: null,
+          width: 1080,
+          height: 1350,
+          duration_ms: null,
+        },
+      });
+
+  const echoAlbum = async (_id: string, input: any) =>
+    message({
+      sender_id: ME,
+      type: 'album',
+      body: '',
+      client_message_id: input.client_message_id,
+      media: null,
+      media_items: input.media_ids.map((id: string) => ({
+        provider: 'upload',
+        provider_id: null,
+        media_id: id,
+        url: `https://cdn/${id}.jpg`,
+        preview_url: null,
+        width: 1080,
+        height: 1350,
+        duration_ms: null,
+      })),
+    });
+
+  it('sends files picked separately one after another', async () => {
+    await startWith();
+    await openThread();
+    const order: string[] = [];
+    uploadMedia.mockImplementation(async (file: { fileName: string }) => {
+      order.push(`upload:${file.fileName}`);
+      return { id: `media-${file.fileName}`, width: 1080, height: 1350, duration_ms: null };
+    });
+    chatApi.sendMessage.mockImplementation(async (id: string, input: any) => {
+      order.push(`send:${input.media_id}`);
+      return echo('image', 'https://cdn/x.jpg')(id, input);
+    });
+
+    chat.sendFiles(CONVO, [photo('a')]);
+    chat.sendFiles(CONVO, [photo('b')]);
+    expect(thread().messages.map(m => m.type)).toEqual(['image', 'image']);
+    expect(thread().messages[0]).toMatchObject({ status: 'sending', localUri: 'content://media/b' });
+    await flush(15);
+
+    expect(order).toEqual([
+      'upload:a.jpg',
+      'send:media-a.jpg',
+      'upload:b.jpg',
+      'send:media-b.jpg',
+    ]);
+    expect(uploadMedia.mock.calls[0][1]).toBe('message');
+    expect(thread().messages.every(m => m.status === 'sent')).toBe(true);
+    // The bubble keeps showing the file on the device instead of reloading the remote copy.
+    expect(thread().messages.map(m => m.localUri).sort()).toEqual([
+      'content://media/a',
+      'content://media/b',
+    ]);
+    expect(state().conversations[CONVO]?.last_message?.type).toBe('image');
+  });
+
+  it('sends several photos picked together as one album, in order', async () => {
+    await startWith();
+    await openThread();
+    uploadMedia.mockImplementation(async (file: { fileName: string }) => ({
+      id: `media-${file.fileName}`,
+      width: 1080,
+      height: 1350,
+      duration_ms: null,
+    }));
+    chatApi.sendMessage.mockImplementation(echoAlbum);
+
+    chat.sendFiles(CONVO, [photo('a'), photo('b'), photo('c')]);
+    expect(thread().messages).toHaveLength(1);
+    expect(thread().messages[0]).toMatchObject({
+      type: 'album',
+      status: 'sending',
+      localUris: ['content://media/a', 'content://media/b', 'content://media/c'],
+    });
+    await flush(20);
+
+    expect(uploadMedia.mock.calls.map(c => c[0].fileName)).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
+    expect(chatApi.sendMessage).toHaveBeenCalledTimes(1);
+    expect(chatApi.sendMessage.mock.calls[0][1]).toMatchObject({
+      media_ids: ['media-a.jpg', 'media-b.jpg', 'media-c.jpg'],
+    });
+    expect(chatApi.sendMessage.mock.calls[0][1].media_id).toBeUndefined();
+    expect(thread().messages[0]).toMatchObject({
+      status: 'sent',
+      type: 'album',
+      localUris: ['content://media/a', 'content://media/b', 'content://media/c'],
+    });
+  });
+
+  it('retries an album without uploading the files already stored', async () => {
+    await startWith();
+    await openThread();
+    uploadMedia
+      .mockResolvedValueOnce({ id: 'm-a', width: 1, height: 1, duration_ms: null })
+      .mockRejectedValueOnce(new Error('Network down'));
+    chat.sendFiles(CONVO, [photo('a'), photo('b')]);
+    await flush(10);
+    expect(thread().messages[0]?.status).toBe('failed');
+    expect(chatApi.sendMessage).not.toHaveBeenCalled();
+
+    uploadMedia.mockResolvedValueOnce({ id: 'm-b', width: 1, height: 1, duration_ms: null });
+    chatApi.sendMessage.mockImplementationOnce(echoAlbum);
+    chat.retry(CONVO, thread().messages[0]!.client_message_id);
+    await flush(10);
+    expect(uploadMedia).toHaveBeenCalledTimes(3);
+    expect(uploadMedia.mock.calls[2][0].fileName).toBe('b.jpg');
+    expect(chatApi.sendMessage.mock.calls[0][1].media_ids).toEqual(['m-a', 'm-b']);
+    expect(thread().messages[0]?.status).toBe('sent');
+  });
+
+  it('replies to one photo of an album with that photo as the quote', async () => {
+    await startWith();
+    const album = message({
+      sender_id: PEER,
+      type: 'album',
+      body: '',
+      media: null,
+      media_items: ['p0', 'p1'].map(id => ({
+        provider: 'upload' as const,
+        provider_id: null,
+        media_id: id,
+        url: `https://cdn/${id}.jpg`,
+        preview_url: null,
+        width: 10,
+        height: 10,
+        duration_ms: null,
+      })),
+    });
+    await openThread([album]);
+    chatApi.sendMessage.mockReturnValue(new Promise(() => {}));
+    chat.send(CONVO, 'this one', { ...album, status: 'sent' }, 1);
+    expect(thread().messages[0]).toMatchObject({
+      reply_to_index: 1,
+      reply_to: { media: { url: 'https://cdn/p1.jpg', count: 1 } },
+    });
+    expect(chatApi.sendMessage.mock.calls[0][1]).toMatchObject({
+      reply_to_id: album.id,
+      reply_to_index: 1,
+    });
+
+    chat.send(CONVO, 'all of them', { ...album, status: 'sent' });
+    expect(thread().messages[0]?.reply_to?.media).toMatchObject({
+      url: 'https://cdn/p0.jpg',
+      count: 2,
+      next_url: 'https://cdn/p1.jpg',
+      stack: [
+        { url: 'https://cdn/p0.jpg', kind: 'image' },
+        { url: 'https://cdn/p1.jpg', kind: 'image' },
+      ],
+    });
+  });
+
+  it('shows why an upload failed and resumes it on retry', async () => {
+    await startWith();
+    await openThread();
+    uploadMedia.mockRejectedValueOnce(new Error('This file is too large. The limit is 10 MB.'));
+    chat.sendFiles(CONVO, [photo('big')]);
+    await flush();
+    expect(thread().messages[0]).toMatchObject({
+      status: 'failed',
+      failure: 'This file is too large. The limit is 10 MB.',
+    });
+    expect(chatApi.sendMessage).not.toHaveBeenCalled();
+
+    const session = thread().messages[0]!.upload!.items[0]!.session;
+    uploadMedia.mockResolvedValueOnce({ id: 'media-1', width: 10, height: 10, duration_ms: null });
+    chatApi.sendMessage.mockImplementationOnce(echo('image', 'https://cdn/1.jpg'));
+    chat.retry(CONVO, thread().messages[0]!.client_message_id);
+    expect(thread().messages[0]?.failure).toBeUndefined();
+    await flush(10);
+    expect(uploadMedia.mock.calls[1][2].session).toBe(session);
+    expect(thread().messages[0]).toMatchObject({ status: 'sent', type: 'image' });
+  });
+
+  it('does not upload again when only sending the message failed', async () => {
+    await startWith();
+    await openThread();
+    uploadMedia.mockResolvedValueOnce({ id: 'media-7', width: 1, height: 1, duration_ms: null });
+    chatApi.sendMessage.mockRejectedValueOnce(new ApiError('Offline', 0));
+    chat.sendFiles(CONVO, [photo('a')]);
+    await flush(10);
+    expect(thread().messages[0]?.status).toBe('failed');
+
+    chatApi.sendMessage.mockImplementationOnce(echo('image', 'https://cdn/7.jpg'));
+    chat.retry(CONVO, thread().messages[0]!.client_message_id);
+    await flush(10);
+    expect(uploadMedia).toHaveBeenCalledTimes(1);
+    expect(chatApi.sendMessage.mock.calls[1][1].media_id).toBe('media-7');
+    expect(thread().messages[0]?.status).toBe('sent');
+  });
+
+  it('sends a voice note and deletes the recording once it is stored', async () => {
+    await startWith();
+    await openThread();
+    uploadMedia.mockResolvedValueOnce({ id: 'media-v', width: null, height: null, duration_ms: 3200 });
+    chatApi.sendMessage.mockImplementationOnce(echo('voice', 'https://cdn/v.m4a'));
+    chat.sendFiles(CONVO, [voice]);
+    expect(thread().messages[0]).toMatchObject({
+      type: 'voice',
+      media: { provider: 'upload', duration_ms: 3200 },
+    });
+    await flush(10);
+    expect(thread().messages[0]).toMatchObject({ status: 'sent', type: 'voice' });
+    expect(thread().messages[0]?.localUri).toBeUndefined();
+    expect(deleteFile).toHaveBeenCalledWith('file:///data/voice.mp4');
   });
 });
 

@@ -37,7 +37,7 @@ export function previewSize(
 }
 
 /** False on an app binary built before the native video player was added. */
-const hasVideoPlayer = () => UIManager.hasViewManagerConfig('RCTVideo');
+export const hasVideoPlayer = () => UIManager.hasViewManagerConfig('RCTVideo');
 
 /** `m:ss`, or `h:mm:ss` from an hour up. */
 export function formatDuration(seconds: number) {
@@ -110,24 +110,31 @@ export function MediaPreview({
   );
 }
 
-function VideoPreview({
+/** Video with play / pause and a seekable bar; `active` false pauses it (e.g. swiped away). */
+export function VideoPreview({
   uri,
   size,
+  active = true,
 }: {
   uri: string;
   size: { width: number; height: number };
+  active?: boolean;
 }) {
   const ref = useRef<VideoRef>(null);
-  const [paused, setPaused] = useState(false);
+  const [paused, setPaused] = useState(!active);
   const [duration, setDuration] = useState(0);
   const [time, setTime] = useState(0);
   const [barWidth, setBarWidth] = useState(0);
 
   useEffect(() => {
-    setPaused(false);
     setTime(0);
     setDuration(0);
   }, [uri]);
+
+  // Plays when it becomes the page in view, pauses when swiped away.
+  useEffect(() => {
+    setPaused(!active);
+  }, [active, uri]);
 
   const progress = duration ? Math.min(1, time / duration) : 0;
 

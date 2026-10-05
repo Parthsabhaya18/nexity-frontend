@@ -36,6 +36,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { cameraRollMedia } from '@/features/media/cameraRollMedia';
+import type { LocalMedia } from '@/features/media/pickMedia';
 import {
   checkPhotoAccess,
   openAppSettings,
@@ -60,7 +62,7 @@ const HEADER_HEIGHT = 58;
 
 export type PickedPhoto = { uri: string; width: number; height: number; video: boolean };
 
-type Media = PickedPhoto & { id: string; duration: number | null };
+type Media = PickedPhoto & { id: string; duration: number | null; file: LocalMedia };
 export type AlbumOption = {
   key: string;
   title: string;
@@ -143,6 +145,7 @@ const toMedia = ({ node }: PhotoIdentifier): Media => ({
   height: node.image.height,
   video: (node.type ?? '').startsWith('video'),
   duration: node.image.playableDuration ?? null,
+  file: cameraRollMedia(node),
 });
 
 type Props = {
@@ -154,7 +157,7 @@ type Props = {
   onClose: () => void;
   /** The close animation finished. */
   onHidden?: () => void;
-  onSend: (photos: PickedPhoto[]) => void;
+  onSend: (files: LocalMedia[]) => void;
 };
 
 /**
@@ -314,7 +317,7 @@ export function GallerySheet({
           first: PAGE_SIZE,
           after: reset ? undefined : state.cursor,
           ...mediaQuery(source),
-          include: ['imageSize', 'playableDuration'],
+          include: ['filename', 'fileSize', 'imageSize', 'playableDuration'],
         });
         if (page.current.request !== request) return;
         page.current = {
@@ -700,16 +703,10 @@ export function GallerySheet({
             </Text>
             <Button
               title={`Send${selected.length > 1 ? ` ${selected.length}` : ''}`}
-              onPress={() =>
-                onSend(
-                  selected.map(({ uri, width: w, height: h, video }) => ({
-                    uri,
-                    width: w,
-                    height: h,
-                    video,
-                  })),
-                )
-              }
+              onPress={() => {
+                onSend(selected.map(m => m.file));
+                setSelected([]);
+              }}
               style={styles.send}
             />
           </Animated.View>

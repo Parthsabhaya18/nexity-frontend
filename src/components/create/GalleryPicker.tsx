@@ -1,7 +1,4 @@
-import {
-  CameraRoll,
-  type PhotoIdentifier,
-} from '@react-native-camera-roll/camera-roll';
+import { CameraRoll } from '@react-native-camera-roll/camera-roll';
 import { Check, ImageOff, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -26,8 +23,8 @@ import {
   maxDurationMs,
   type MediaKind,
   type MediaPurpose,
-  resolveContentType,
 } from '@/features/media/mediaRules';
+import { cameraRollMedia } from '@/features/media/cameraRollMedia';
 import type { LocalMedia } from '@/features/media/pickMedia';
 import {
   requestAccess,
@@ -54,27 +51,7 @@ const PAGE = 60;
 const WHITE = '#FFFFFF';
 const INK = '#0F172A';
 
-function toMedia(node: PhotoIdentifier['node']): LocalMedia {
-  const image = node.image;
-  const video = node.type.startsWith('video') || node.type === 'pairedVideo';
-  const fileName = image.filename ?? (video ? 'video.mp4' : 'photo.jpg');
-  const contentType =
-    resolveContentType(node.type.includes('/') ? node.type : undefined, fileName) ??
-    (video ? 'video/mp4' : 'image/jpeg');
-  return {
-    uri: image.uri,
-    kind: video ? 'video' : 'image',
-    contentType,
-    fileName,
-    bytes: image.fileSize ?? 0,
-    width: image.width,
-    height: image.height,
-    durationMs:
-      video && image.playableDuration
-        ? Math.round(image.playableDuration * 1000)
-        : undefined,
-  };
-}
+const toMedia = cameraRollMedia;
 
 const clock = (ms: number) => {
   const s = Math.round(ms / 1000);

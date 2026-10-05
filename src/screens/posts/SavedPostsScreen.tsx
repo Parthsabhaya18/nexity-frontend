@@ -1,7 +1,7 @@
 import { Bookmark } from 'lucide-react-native';
 import { useCallback } from 'react';
 import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { PostGrid } from '@/components/posts/PostGrid';
 import { AppBar } from '@/components/ui/AppBar';

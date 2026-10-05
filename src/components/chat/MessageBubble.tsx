@@ -14,9 +14,15 @@ import {
 
 import { Avatar } from '@/components/ui/Avatar';
 import type { ChatMessage } from '@/features/chats/chatStore';
-import type { ReactionGroup, ReplyPreview } from '@/services/api/chat';
+import type {
+  MessageMedia,
+  ReactionGroup,
+  ReplyPreview,
+} from '@/services/api/chat';
 import { useAppTheme } from '@/theme';
 import { clockTime } from '@/utils/time';
+
+import { AlbumStack, QuoteThumb, VisualMedia, VoiceBody } from './MediaBubble';
 
 export const MESSAGE_AVATAR_SIZE = 28;
 /** Side padding of the message list; the time column extends over it. */
@@ -59,16 +65,41 @@ type Props = {
   onJumpTo?: (messageId: string) => void;
   onPressReactions?: (message: ChatMessage) => void;
   onPressAvatar?: () => void;
+  /** Tap on a sent photo or video. */
+  onOpenMedia?: (message: ChatMessage) => void;
+  /** Short message for the user (e.g. a voice note couldn't play). */
+  onNotice?: (text: string) => void;
 };
+
+const isVisual = (m: ChatMessage) =>
+  !m.is_deleted &&
+  (((m.type === 'image' || m.type === 'video') && Boolean(m.media)) ||
+    (m.type === 'album' && Boolean(m.media_items?.length)));
+
+/** Album items are videos when they have a length; photos never do. */
+export const isVideoItem = (m: MessageMedia) => m.duration_ms != null;
+
+/** "photos", "videos" or "photos and videos" for an album. */
+export function albumNoun(items: readonly MessageMedia[]) {
+  const videos = items.filter(isVideoItem).length;
+  if (!videos) return 'photos';
+  return videos === items.length ? 'videos' : 'photos and videos';
+}
 
 /** Short text for quotes, inbox previews and the reply bar. */
 export function messageSnippet(
-  m: Pick<ChatMessage, 'type' | 'body' | 'is_deleted'>,
+  m: Pick<ChatMessage, 'type' | 'body' | 'is_deleted'> &
+    Partial<Pick<ChatMessage, 'media_items'>>,
 ) {
   if (m.is_deleted) return 'Message unsent';
   if (m.type === 'gif') return 'GIF';
   if (m.type === 'sticker') return 'Sticker';
   if (m.type === 'image') return 'Photo';
+  if (m.type === 'video') return 'Video';
+  if (m.type === 'album') {
+    const items = m.media_items ?? [];
+    return items.length ? `${items.length} ${albumNoun(items)}` : 'Photos';
+  }
   if (m.type === 'voice') return 'Voice message';
   return m.body;
 }
@@ -221,9 +252,13 @@ export const MessageBubble = memo(function Bubble({
   onJumpTo,
   onPressReactions,
   onPressAvatar,
+  onOpenMedia,
+  onNotice,
 }: Props) {
   const { colors } = useAppTheme();
   const failed = message.status === 'failed';
+  const openable =
+    isVisual(message) && message.status !== 'sending' && Boolean(onOpenMedia);
   const deleted = message.is_deleted;
   const canReply = message.status === 'sent' && !deleted;
   const bubbleRef = useRef<ComponentRef<typeof View>>(null);
@@ -300,6 +335,19 @@ export const MessageBubble = memo(function Bubble({
             Edited
           </Text>
         ) : null}
+        {message.type === 'album' && !deleted && message.media_items?.length ? (
+          <Text
+            style={[
+              styles.edited,
+              mine ? styles.metaOut : styles.metaIn,
+              { color: colors.textSecondary },
+            ]}
+            numberOfLines={1}
+          >
+            {mine ? 'You' : peer?.display_name ?? ''} sent{' '}
+            {message.media_items.length} {albumNoun(message.media_items)}
+          </Text>
+        ) : null}
         <View style={[styles.row, mine ? styles.rowOut : styles.rowIn]}>
           {canReply ? (
             <Animated.View
@@ -356,6 +404,7 @@ export const MessageBubble = memo(function Bubble({
           ) : null}
           <View style={styles.press} {...handlers}>
             <Pressable
+              onPress={openable ? () => onOpenMedia?.(message) : undefined}
               onLongPress={() => onLongPress(message, measure)}
               delayLongPress={300}
               disabled={deleted}
@@ -366,7 +415,12 @@ export const MessageBubble = memo(function Bubble({
             >
               <Animated.View style={{ transform: [{ scale }] }}>
                 <View ref={bubbleRef} collapsable={false}>
-                  <BubbleBody message={message} mine={mine} tail={tail} />
+                  <BubbleBody
+                    message={message}
+                    mine={mine}
+                    tail={tail}
+                    onNotice={onNotice}
+                  />
                 </View>
               </Animated.View>
             </Pressable>
@@ -402,11 +456,11 @@ export const MessageBubble = memo(function Bubble({
             onPress={() => onRetry(message.client_message_id)}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Not delivered. Tap to retry"
+            accessibilityLabel={`${message.failure ?? 'Not delivered'}. Tap to retry`}
             style={styles.retry}
           >
             <Text style={[styles.retryText, { color: colors.danger }]}>
-              Not delivered · Tap to retry
+              {message.failure ?? 'Not delivered'} · Tap to retry
             </Text>
           </Pressable>
         ) : null}
@@ -420,16 +474,86 @@ export function BubbleBody({
   message,
   mine,
   tail,
+  onNotice,
 }: {
   message: ChatMessage;
   mine: boolean;
   tail: boolean;
+  onNotice?: (text: string) => void;
 }) {
   const { colors } = useAppTheme();
   const failed = message.status === 'failed';
   const deleted = message.is_deleted;
   const media = !deleted && message.media ? message.media : null;
   const shape = mine ? styles.outTail : tail ? styles.inTail : styles.inRun;
+  const progress =
+    message.status === 'sending' && message.upload
+      ? message.upload.progress
+      : undefined;
+
+  if (media && message.type === 'voice') {
+    return (
+      <View
+        style={[
+          styles.bubble,
+          shape,
+          styles.voiceBubble,
+          {
+            backgroundColor: mine
+              ? colors.bubbleOutgoing
+              : colors.bubbleIncoming,
+          },
+          failed && styles.failed,
+        ]}
+      >
+        <VoiceBody
+          messageId={message.id}
+          seed={message.client_message_id}
+          url={message.localUri ?? media.url}
+          durationMs={media.duration_ms}
+          mine={mine}
+          progress={progress}
+          onError={text => onNotice?.(text)}
+        />
+      </View>
+    );
+  }
+  const items = deleted ? [] : message.media_items ?? [];
+  if (message.type === 'album' && items.length) {
+    return (
+      <View style={[failed && styles.failed]}>
+        <AlbumStack
+          items={items.map((m, i) => ({
+            uri: message.localUris?.[i] ?? m.url,
+            video: isVideoItem(m),
+          }))}
+          mine={mine}
+          progress={progress}
+        />
+      </View>
+    );
+  }
+  if (media && (message.type === 'image' || message.type === 'video')) {
+    return (
+      <View style={[failed && styles.failed]}>
+        <VisualMedia
+          uri={message.localUri ?? media.url}
+          video={message.type === 'video'}
+          width={media.width}
+          height={media.height}
+          durationMs={media.duration_ms}
+          progress={progress}
+        />
+        {message.body ? (
+          <Text
+            style={[styles.text, styles.mediaCaption, { color: colors.text }]}
+          >
+            {message.body}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
 
   if (!deleted && message.type === 'gif' && media) {
     return (
@@ -603,6 +727,16 @@ export function estimateQuoteLines(text: string, width: number) {
     .reduce((n, para) => n + Math.max(1, Math.ceil(para.length / perLine)), 0);
 }
 
+function quotedNoun(
+  type: ReplyPreview['type'],
+  media: NonNullable<ReplyPreview['media']>,
+) {
+  if (type === 'gif') return 'a GIF';
+  if (type === 'sticker') return 'a sticker';
+  if (media.count > 1) return `${media.count} photos`;
+  return media.kind === 'video' ? 'a video' : 'a photo';
+}
+
 /**
  * Quoted message above a reply: label, faded bubble and a side bar, like Instagram.
  * At most three lines; "See more" (or tapping the quote) jumps to the original.
@@ -643,6 +777,45 @@ function Quote({
     <View style={[styles.quoteBar, { backgroundColor: colors.border }]} />
   );
   const canJump = Boolean(onJumpTo) && !unavailable;
+  const media = unavailable ? null : reply.media;
+
+  if (media) {
+    const who = mine ? 'You' : peerName;
+    const album = media.count > 1;
+    const thumbs = media.stack?.length
+      ? media.stack.map(c => ({ uri: c.url, video: c.kind === 'video' }))
+      : [
+          { uri: media.url, video: media.kind === 'video' },
+          ...(media.next_url ? [{ uri: media.next_url, video: false }] : []),
+        ];
+    return (
+      <View style={[styles.quoteWrap, mine ? styles.quoteOut : styles.quoteIn]}>
+        <Text
+          style={[styles.quoteLabel, { color: colors.textSecondary }]}
+          numberOfLines={1}
+        >
+          {album ? label : `${who} replied to ${quotedNoun(reply.type, media)}`}
+        </Text>
+        <View style={styles.quoteRow}>
+          {mine ? null : bar}
+          <Pressable
+            onPress={() => onJumpTo?.(reply.id)}
+            disabled={!canJump}
+            accessibilityRole={canJump ? 'button' : undefined}
+            accessibilityHint={canJump ? 'Shows the original message' : undefined}
+            style={({ pressed }) => [styles.quoteMedia, pressed && styles.quotePressed]}
+          >
+            {album ? (
+              <AlbumStack items={thumbs} mine={mine} small />
+            ) : (
+              <QuoteThumb item={thumbs[0]!} />
+            )}
+          </Pressable>
+          {mine ? bar : null}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.quoteWrap, mine ? styles.quoteOut : styles.quoteIn]}>
@@ -733,6 +906,8 @@ const styles = StyleSheet.create({
   },
   gif: { borderRadius: 16 },
   imageCaption: { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 4 },
+  mediaCaption: { marginTop: 4, paddingHorizontal: 4 },
+  voiceBubble: { paddingVertical: 8, paddingHorizontal: 10 },
   text: { fontSize: 15, lineHeight: 21 },
   deletedBubble: { borderWidth: 1, backgroundColor: 'transparent' },
   deleted: { fontStyle: 'italic' },
@@ -810,6 +985,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   quotePressed: { opacity: 0.6 },
+  quoteMedia: { opacity: 0.85 },
   quoteText: { fontSize: 14, lineHeight: 19 },
   seeMore: { fontSize: 13, fontWeight: '700', marginTop: 3 },
   measure: {

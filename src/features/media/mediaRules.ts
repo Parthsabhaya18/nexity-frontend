@@ -1,7 +1,8 @@
 export type MediaPurpose = 'avatar' | 'post' | 'story' | 'reel' | 'message';
-export type MediaKind = 'image' | 'video';
+export type MediaKind = 'image' | 'video' | 'audio';
 
 export const CONTENT_TYPES: Record<string, MediaKind> = {
+  'audio/mp4': 'audio',
   'image/jpeg': 'image',
   'image/png': 'image',
   'image/webp': 'image',
@@ -15,6 +16,9 @@ const ALIASES: Record<string, string> = {
   'image/jpg': 'image/jpeg',
   'image/pjpeg': 'image/jpeg',
   'video/mov': 'video/quicktime',
+  'audio/m4a': 'audio/mp4',
+  'audio/x-m4a': 'audio/mp4',
+  'audio/aac': 'audio/mp4',
 };
 
 const EXTENSIONS: Record<string, string> = {
@@ -27,6 +31,7 @@ const EXTENSIONS: Record<string, string> = {
   mp4: 'video/mp4',
   m4v: 'video/mp4',
   mov: 'video/quicktime',
+  m4a: 'audio/mp4',
 };
 
 /** Resolves the MIME type from the picker's value, falling back to the file extension. */
@@ -61,6 +66,9 @@ export const IMAGE_MAX_BYTES = 10 * MB;
 export const VIDEO_MAX_BYTES = 200 * MB;
 /** Story photos share the video ceiling. */
 export const STORY_IMAGE_MAX_BYTES = 200 * MB;
+export const VOICE_MAX_BYTES = 10 * MB;
+/** Longest voice message, like Instagram. */
+export const VOICE_MAX_MS = 60 * SECOND;
 
 const IMAGE: KindRule = { maxBytes: IMAGE_MAX_BYTES };
 const video = (limitMs: number | null): KindRule => ({
@@ -80,7 +88,11 @@ export const MEDIA_RULES: Record<
     image: { maxBytes: STORY_IMAGE_MAX_BYTES },
     video: video(VIDEO_MAX_MS),
   },
-  message: { image: IMAGE, video: video(null) },
+  message: {
+    image: IMAGE,
+    video: video(null),
+    audio: { maxBytes: VOICE_MAX_BYTES, maxDurationMs: VOICE_MAX_MS },
+  },
 };
 
 export function maxBytesFor(purpose: MediaPurpose, kind: MediaKind) {
