@@ -31,11 +31,15 @@ export type UploadTarget =
       part_size: number;
       part_count: number;
       expires_at: string;
-    };
+    }
+  /** Same `client_upload_id` as an upload that already finished: nothing to send. */
+  | { method: 'complete' };
 
 export interface UploadTicket {
   media: MediaAsset;
   upload: UploadTarget;
+  /** True when `client_upload_id` matched an earlier upload of the same file. */
+  resumed?: boolean;
 }
 
 export interface PartUrls {
@@ -56,6 +60,11 @@ export interface CreateUploadInput {
   width?: number;
   height?: number;
   duration_ms?: number;
+  /**
+   * Stable id chosen by the device for one file. Sending it again returns the
+   * same media (a fresh POST, the same multipart upload, or `complete`).
+   */
+  client_upload_id?: string;
 }
 
 export const mediaApi = {

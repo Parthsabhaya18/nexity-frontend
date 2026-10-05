@@ -476,7 +476,6 @@ export function EditProfileScreen({ navigation }: ScreenProps<'EditProfile'>) {
         visible={photoOpen}
         uri={previewUri}
         name={user.display_name}
-        username={user.username}
         onClose={() => setPhotoOpen(false)}
       />
       <ActionSheet

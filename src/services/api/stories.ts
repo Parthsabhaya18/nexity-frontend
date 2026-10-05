@@ -10,15 +10,14 @@ export interface StoryItem {
   width: number | null;
   height: number | null;
   duration_ms: number | null;
-  music_title: string;
   location_name?: string;
   location_lat?: number | null;
   location_lng?: number | null;
-  filter?: string;
   overlays?: StoryOverlay[];
   created_at: string;
   expires_at: string;
   seen: boolean;
+  liked_by_me?: boolean;
 }
 
 export interface StoryGroup {
@@ -30,11 +29,9 @@ export interface StoryGroup {
 export const storiesApi = {
   async create(input: {
     media_id: string;
-    music_title?: string;
     location_name?: string;
     location_lat?: number | null;
     location_lng?: number | null;
-    filter?: string;
     overlays?: StoryOverlay[];
   }) {
     const { data } = await apiClient.post<Omit<StoryItem, 'seen'>>(
@@ -60,6 +57,17 @@ export const storiesApi = {
       overlay_id: overlayId,
       body,
     });
+  },
+
+  /** Idempotent: repeating a request never flips the like the wrong way. */
+  async setLiked(id: string, liked: boolean) {
+    if (liked) await apiClient.put(`/stories/${id}/like`);
+    else await apiClient.delete(`/stories/${id}/like`);
+  },
+
+  /** A private reply to the story's owner. */
+  async message(id: string, body: string) {
+    await apiClient.post(`/stories/${id}/message`, { body });
   },
 
   async tray(signal?: AbortSignal) {

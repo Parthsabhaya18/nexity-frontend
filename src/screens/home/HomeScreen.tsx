@@ -1,11 +1,14 @@
 import { useScrollToTop } from '@react-navigation/native';
 import { Bell, Camera, MessageCircle } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, type FlatListInstance, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandLogo } from '@/components/BrandLogo';
-import { CommentsSheet } from '@/components/posts/CommentsSheet';
+import {
+  CommentsSheet,
+  type CommentTarget,
+} from '@/components/posts/CommentsSheet';
 import { PostCard } from '@/components/posts/PostCard';
 import { PostingBar } from '@/components/posts/PostingBar';
 import { StoriesTray } from '@/components/stories/StoriesTray';
@@ -20,6 +23,7 @@ import { useChats } from '@/features/chats/useChats';
 import { usePagedList } from '@/features/follows/usePagedList';
 import { useNotifications } from '@/features/notifications/useNotifications';
 import { onPostShared } from '@/features/posts/postComposer';
+import { useEngagementSync } from '@/features/posts/postEvents';
 import { useTabBarInset } from '@/navigation/BottomNav';
 import type { TabScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
@@ -35,11 +39,19 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
   const { unreadCount: unreadNotifications } = useNotifications();
   const { unreadCount: unreadChats } = useChats();
   const listRef = useRef<FlatListInstance>(null);
-  const [commentPost, setCommentPost] = useState<Post | null>(null);
-  const [story, setStory] = useState<StoryGroup | null>(null);
+  const [commentPost, setCommentPost] = useState<CommentTarget | null>(null);
+  const [storyIndex, setStoryIndex] = useState<number | null>(null);
   const [stories, setStories] = useState<StoryGroup[]>([]);
   const [visibleId, setVisibleId] = useState<string | null>(null);
   useScrollToTop(listRef);
+  // Same order as the tray: your story first, then everyone else.
+  const trayOrder = useMemo(
+    () => [
+      ...stories.filter(s => s.user.is_self),
+      ...stories.filter(s => !s.user.is_self),
+    ],
+    [stories],
+  );
   useStatusBar();
 
   const fetchPage = useCallback(
@@ -49,13 +61,22 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
   );
   const list = usePagedList<Post>(fetchPage);
   const { setItems } = list;
+  useEngagementSync<Post>('post', setItems);
 
   const loadStories = useCallback(() => {
     storiesApi
       .tray()
-      .then(setStories)
+      .then(groups => setStories(dropExpired(groups)))
       .catch(() => {});
   }, []);
+
+  // Stories vanish from the tray when their 24 hours end, without a refresh.
+  const viewing = storyIndex !== null;
+  useEffect(() => {
+    if (viewing) return;
+    const timer = setInterval(() => setStories(dropExpired), 60_000);
+    return () => clearInterval(timer);
+  }, [viewing]);
 
   useEffect(() => {
     loadStories();
@@ -64,9 +85,6 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
       loadStories();
     });
   }, [loadStories, setItems]);
-
-  const patch = (post: Post) =>
-    setItems(prev => prev.map(p => (p.id === post.id ? post : p)));
 
   return (
     <SafeAreaView
@@ -126,7 +144,7 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
         ListHeaderComponent={
           <StoriesTray
             groups={stories}
-            onOpen={setStory}
+            onOpen={group => setStoryIndex(trayOrder.indexOf(group))}
             onCreate={() => navigation.navigate('CreateStory')}
           />
         }
@@ -134,8 +152,15 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
           <PostCard
             post={item}
             active={item.id === visibleId}
-            onChange={patch}
-            onComment={() => setCommentPost(item)}
+            onComment={() =>
+              setCommentPost({
+                kind: 'post',
+                id: item.id,
+                commentsDisabled: item.comments_disabled,
+                isOwner: item.is_owner,
+                commentsCount: item.comments_count,
+              })
+            }
             onDeleted={() =>
               setItems(prev => prev.filter(p => p.id !== item.id))
             }
@@ -159,21 +184,33 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
         }
       />
       <CommentsSheet
-        post={commentPost}
+        target={commentPost}
         onClose={() => setCommentPost(null)}
-        onCount={count =>
-          commentPost && patch({ ...commentPost, comments_count: count })
-        }
       />
       <StoryViewer
-        group={story}
+        groups={trayOrder}
+        startIndex={storyIndex}
+        onChanged={loadStories}
         onClose={() => {
-          setStory(null);
+          setStoryIndex(null);
           loadStories();
         }}
       />
     </SafeAreaView>
   );
+}
+
+/** Keeps the same arrays when nothing expired, so the tray doesn't re-render. */
+function dropExpired(groups: StoryGroup[]) {
+  const now = Date.now();
+  let changed = false;
+  const live = groups.flatMap(group => {
+    const items = group.stories.filter(s => Date.parse(s.expires_at) > now);
+    if (items.length === group.stories.length) return [group];
+    changed = true;
+    return items.length ? [{ ...group, stories: items }] : [];
+  });
+  return changed ? live : groups;
 }
 
 const styles = StyleSheet.create({

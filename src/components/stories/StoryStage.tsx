@@ -36,7 +36,6 @@ const TOOLS = [
   'Quiz',
   'Countdown',
   'Link',
-  'Hashtag',
   'Tag',
 ] as const;
 
@@ -235,21 +234,7 @@ export function StoryStage({
           }),
         );
       });
-      return;
     }
-    ask('Hashtag', tag =>
-      add(
-        placed({
-          id: overlayId(),
-          type: 'hashtag',
-          x: 0,
-          y: 0,
-          scale: 1,
-          rotation: 0,
-          tag: tag.replace(/^#/, ''),
-        }),
-      ),
-    );
   };
 
   return (

@@ -3,7 +3,12 @@ import { useColorScheme } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 
-import { publishTheme, resolveTheme } from './index';
+import { type AppTheme, publishTheme, resolveTheme, ThemeOverrideContext } from './index';
+
+/** Renders `children` in `theme` instead of the app theme (component demos, captured themes). */
+export function ThemeScope({ theme, children }: { theme: AppTheme | null; children: ReactNode }) {
+  return <ThemeOverrideContext.Provider value={theme}>{children}</ThemeOverrideContext.Provider>;
+}
 
 /** Applies the signed-in user's Light / Dark / System choice, or their mood. */
 export function ThemeProvider({ children }: { children: ReactNode }) {

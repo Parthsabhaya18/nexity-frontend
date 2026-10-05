@@ -16,6 +16,7 @@ import {
   allowedKinds,
   CONTENT_TYPES,
   DURATION_TOLERANCE_MS,
+  formatBytes,
   formatDuration,
   MAX_ITEMS,
   maxDurationMs,
@@ -62,11 +63,13 @@ const VIDEO_LABEL: Record<MediaPurpose, string> = {
 
 export function tooLongMessage(purpose: MediaPurpose) {
   const max = maxDurationMs(purpose) ?? 0;
-  const hint =
-    purpose === 'post'
-      ? ' Share longer videos as a reel.'
-      : ' Choose a shorter video.';
-  return `${VIDEO_LABEL[purpose]} can be up to ${formatDuration(max)}.${hint}`;
+  return `${VIDEO_LABEL[purpose]} can be up to ${formatDuration(max)}. Choose a shorter video.`;
+}
+
+export function tooLargeMessage(kind: MediaKind, maxBytes: number) {
+  return `${kind === 'image' ? 'Photos' : 'Videos'} can be up to ${formatBytes(
+    maxBytes,
+  )}. This one is still larger after compressing. Choose a smaller file.`;
 }
 
 export function isTooLong(media: LocalMedia, purpose: MediaPurpose) {
@@ -80,8 +83,8 @@ export function isTooLong(media: LocalMedia, purpose: MediaPurpose) {
 }
 
 /**
- * Only the kind and Instagram's video length can refuse a file; size never
- * does, because `prepareMedia` compresses everything.
+ * Kind and video length are checked on pick. Size is checked by `prepareMedia`
+ * after compression, because most originals shrink well under the limit.
  */
 export function validateMedia(media: LocalMedia, purpose: MediaPurpose) {
   if (!MEDIA_RULES[purpose][media.kind]) {

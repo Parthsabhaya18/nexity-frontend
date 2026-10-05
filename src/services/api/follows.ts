@@ -28,6 +28,8 @@ export interface Profile {
   is_self: boolean;
   follow_status: FollowStatus;
   follows_you: boolean;
+  /** The viewer muted this account (hides their posts and stories from feeds). */
+  muted?: boolean;
   /** False for a private account the viewer doesn't follow. */
   can_view_content: boolean;
 }

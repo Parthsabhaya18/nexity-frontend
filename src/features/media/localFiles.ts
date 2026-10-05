@@ -49,6 +49,12 @@ function ensureChunkDir() {
   return chunkDirReady;
 }
 
+/** A path in the upload temp folder (emptied on the next launch). */
+export async function tempPath(name: string) {
+  await ensureChunkDir();
+  return `${CHUNK_DIR}/${name}`;
+}
+
 /** Copies bytes [start, end) of a file into its own temp file, natively (never through JS). */
 export async function sliceToTemp(
   uri: string,

@@ -1,4 +1,4 @@
-import { UserPlus, X } from 'lucide-react-native';
+import { Check, Search, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,43 +11,54 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { SearchField } from '@/components/ui/SearchField';
-import { Avatar } from '@/components/ui/Avatar';
+import { MAX_TAGGED } from '@/features/posts/caption';
 import { followsApi, type UserSummary } from '@/services/api/follows';
 import { spacing, useAppTheme } from '@/theme';
 import { useDebouncedValue } from '@/utils/useDebouncedValue';
 
 type Props = {
   visible: boolean;
+  /** People already tagged; they show as selected. */
+  selected: UserSummary[];
   onClose: () => void;
-  /** Inserts `@username` into the caption. The API saves that mention. */
-  onSelect: (username: string) => void;
+  /** Called with the final list when the user taps Done. */
+  onDone: (people: UserSummary[]) => void;
 };
 
-/** Search people and mention them. The name is written into the caption. */
-export function TagPeopleSheet({ visible, onClose, onSelect }: Props) {
+/** Search people and tick as many as needed (up to 20), then tap Done. */
+export function TagPeopleSheet({ visible, selected, onClose, onDone }: Props) {
   const { colors } = useAppTheme();
   const [query, setQuery] = useState('');
   const q = useDebouncedValue(query.trim(), 250);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [picked, setPicked] = useState<UserSummary[]>([]);
+  const [limitHit, setLimitHit] = useState(false);
 
   useEffect(() => {
-    if (!visible) setQuery('');
+    if (visible) {
+      setPicked(selected);
+      setQuery('');
+      setLimitHit(false);
+    }
+    // Only reset when the sheet opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   useEffect(() => {
-    if (!q) {
-      setUsers([]);
-      setLoading(false);
-      return;
-    }
+    if (!visible) return;
     const controller = new AbortController();
     setLoading(true);
-    followsApi
-      .searchUsers(q, controller.signal)
-      .then(setUsers)
+    const request = q
+      ? followsApi.searchUsers(q, controller.signal)
+      : followsApi.suggestUsers(controller.signal);
+    request
+      .then(list => {
+        if (!controller.signal.aborted) setUsers(list.filter(u => !u.is_self));
+      })
       .catch(() => {
         if (!controller.signal.aborted) setUsers([]);
       })
@@ -55,11 +66,20 @@ export function TagPeopleSheet({ visible, onClose, onSelect }: Props) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [q]);
+  }, [q, visible]);
 
-  const choose = (username: string) => {
-    onSelect(username);
-    onClose();
+  const toggle = (user: UserSummary) => {
+    setPicked(current => {
+      if (current.some(u => u.id === user.id)) {
+        setLimitHit(false);
+        return current.filter(u => u.id !== user.id);
+      }
+      if (current.length >= MAX_TAGGED) {
+        setLimitHit(true);
+        return current;
+      }
+      return [...current, user];
+    });
   };
 
   return (
@@ -73,60 +93,95 @@ export function TagPeopleSheet({ visible, onClose, onSelect }: Props) {
         style={[styles.safe, { backgroundColor: colors.background }]}
       >
         <View style={styles.header}>
+          <IconButton onPress={onClose} accessibilityLabel="Cancel">
+            <X size={24} color={colors.text} />
+          </IconButton>
           <Text
             style={[styles.title, { color: colors.text }]}
             accessibilityRole="header"
           >
             Tag people
           </Text>
-          <IconButton onPress={onClose} accessibilityLabel="Close">
-            <X size={24} color={colors.text} />
-          </IconButton>
+          <Pressable
+            onPress={() => {
+              onDone(picked);
+              onClose();
+            }}
+            hitSlop={8}
+            accessibilityRole="button"
+            style={styles.done}
+          >
+            <Text style={[styles.doneText, { color: colors.primary }]}>
+              Done{picked.length ? ` (${picked.length})` : ''}
+            </Text>
+          </Pressable>
         </View>
         <SearchField
           value={query}
           onChange={setQuery}
           placeholder="Search by name or username"
-          autoFocus
         />
+        {limitHit ? (
+          <Text style={[styles.limit, { color: colors.danger }]}>
+            You can tag up to {MAX_TAGGED} people.
+          </Text>
+        ) : null}
         <FlatList
           data={users}
           keyExtractor={user => user.id}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => choose(item.username)}
-              accessibilityRole="button"
-              accessibilityLabel={`Mention @${item.username}`}
-              style={({ pressed }) => [
-                styles.row,
-                pressed && { backgroundColor: colors.surfaceAlt },
-              ]}
-            >
-              <Avatar uri={item.avatar_url} name={item.display_name} size={44} />
-              <View style={styles.rowText}>
-                <Text
-                  style={[styles.name, { color: colors.text }]}
-                  numberOfLines={1}
+          renderItem={({ item }) => {
+            const on = picked.some(u => u.id === item.id);
+            return (
+              <Pressable
+                onPress={() => toggle(item)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: on }}
+                accessibilityLabel={`Tag ${item.username}`}
+                style={({ pressed }) => [
+                  styles.row,
+                  pressed && { backgroundColor: colors.surfaceAlt },
+                ]}
+              >
+                <Avatar uri={item.avatar_url} name={item.display_name} size={44} />
+                <View style={styles.rowText}>
+                  <Text
+                    style={[styles.name, { color: colors.text }]}
+                    numberOfLines={1}
+                  >
+                    {item.username}
+                  </Text>
+                  <Text
+                    style={[styles.sub, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {item.display_name}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.check,
+                    {
+                      borderColor: on ? colors.primary : colors.border,
+                      backgroundColor: on ? colors.primary : 'transparent',
+                    },
+                  ]}
                 >
-                  {item.display_name}
-                </Text>
-                <Text style={[styles.sub, { color: colors.textSecondary }]}>
-                  @{item.username}
-                </Text>
-              </View>
-              <UserPlus size={18} color={colors.primary} />
-            </Pressable>
-          )}
+                  {on ? <Check size={14} color={colors.onButton} /> : null}
+                </View>
+              </Pressable>
+            );
+          }}
           ListEmptyComponent={
             loading ? (
               <ActivityIndicator color={colors.primary} style={styles.loader} />
             ) : (
-              <Text style={[styles.empty, { color: colors.textSecondary }]}>
-                {q
-                  ? `No people found for "${q}".`
-                  : 'Search for someone to mention them in the description.'}
-              </Text>
+              <View style={styles.emptyWrap}>
+                <Search size={28} color={colors.textSecondary} />
+                <Text style={[styles.empty, { color: colors.textSecondary }]}>
+                  {q ? `No people found for "${q}".` : 'No suggestions yet.'}
+                </Text>
+              </View>
             )
           }
         />
@@ -140,11 +195,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: spacing.md,
-    paddingRight: 8,
+    paddingHorizontal: 8,
     minHeight: 54,
   },
-  title: { flex: 1, fontSize: 18, fontWeight: '800' },
+  title: { flex: 1, fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  done: { paddingHorizontal: 8, paddingVertical: 8, minWidth: 64, alignItems: 'flex-end' },
+  doneText: { fontSize: 16, fontWeight: '800' },
+  limit: { paddingHorizontal: spacing.md, paddingBottom: 4, fontSize: 13 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -155,12 +212,15 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, minWidth: 0 },
   name: { fontSize: 15, fontWeight: '700' },
   sub: { fontSize: 13, marginTop: 1 },
-  loader: { marginTop: spacing.xl },
-  empty: {
-    textAlign: 'center',
-    marginTop: spacing.xl,
-    marginHorizontal: spacing.lg,
-    fontSize: 14,
-    lineHeight: 20,
+  check: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  loader: { marginTop: spacing.xl },
+  emptyWrap: { alignItems: 'center', gap: 8, marginTop: spacing.xl },
+  empty: { textAlign: 'center', fontSize: 14 },
 });

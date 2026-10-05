@@ -1,6 +1,6 @@
 import { Ban } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text } from 'react-native';
+import { Alert, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { UserRow } from '@/components/follows/UserRow';

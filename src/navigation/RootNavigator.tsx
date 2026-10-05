@@ -18,6 +18,7 @@ import { VerifyEmailScreen } from '@/screens/auth/VerifyEmailScreen';
 import { ChatsScreen } from '@/screens/chats/ChatsScreen';
 import { ChatThreadScreen } from '@/screens/chats/ChatThreadScreen';
 import { NewMessageScreen } from '@/screens/chats/NewMessageScreen';
+import { ComponentGalleryScreen } from '@/screens/dev/ComponentGalleryScreen';
 import { CreatePostCropScreen } from '@/screens/create/CreatePostCropScreen';
 import { CreatePostDetailsScreen } from '@/screens/create/CreatePostDetailsScreen';
 import { CreateReelScreen } from '@/screens/create/CreateReelScreen';
@@ -29,8 +30,8 @@ import { FollowersScreen } from '@/screens/profile/FollowersScreen';
 import { FollowRequestsScreen } from '@/screens/profile/FollowRequestsScreen';
 import { ProfileScreen } from '@/screens/profile/ProfileScreen';
 import { UserProfileScreen } from '@/screens/profile/UserProfileScreen';
-import { HashtagScreen } from '@/screens/posts/HashtagScreen';
 import { PostDetailScreen } from '@/screens/posts/PostDetailScreen';
+import { PostViewerScreen } from '@/screens/posts/PostViewerScreen';
 import { SavedPostsScreen } from '@/screens/posts/SavedPostsScreen';
 import { AppearanceScreen } from '@/screens/settings/AppearanceScreen';
 import { BlockedAccountsScreen } from '@/screens/settings/BlockedAccountsScreen';
@@ -100,12 +101,18 @@ export function RootNavigator() {
             />
             <Stack.Screen name="Appearance" component={AppearanceScreen} />
             <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-            <Stack.Screen name="HashtagFeed" component={HashtagScreen} />
+            <Stack.Screen name="PostViewer" component={PostViewerScreen} />
             <Stack.Screen name="SavedPosts" component={SavedPostsScreen} />
             <Stack.Screen
               name="Notifications"
               component={NotificationsScreen}
             />
+            {__DEV__ ? (
+              <Stack.Screen
+                name="DevComponents"
+                component={ComponentGalleryScreen}
+              />
+            ) : null}
             <Stack.Screen name="Chats" component={ChatsScreen} />
             <Stack.Screen name="ChatThread" component={ChatThreadScreen} />
             <Stack.Screen

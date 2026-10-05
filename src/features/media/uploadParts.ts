@@ -27,7 +27,7 @@ const BACKOFF_MS = [1000, 2000, 4000, 8000, 15000, 30000];
 /** Refresh a part URL this long before it expires. */
 const URL_MARGIN_MS = 60 * 1000;
 
-function sleep(ms: number, signal?: AbortSignal) {
+export function sleep(ms: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     if (signal?.aborted) {
       reject(new UploadCancelledError());
@@ -43,6 +43,28 @@ function sleep(ms: number, signal?: AbortSignal) {
     }, ms);
     signal?.addEventListener('abort', onAbort);
   });
+}
+
+/** Single API calls and POST uploads: ~15 s of retries before the error reaches the user. */
+const CALL_BACKOFF_MS = [1000, 2000, 4000, 8000];
+
+/** Runs `task` again with exponential backoff while it fails with a retryable error. */
+export async function withRetry<T>(
+  task: () => Promise<T>,
+  signal?: AbortSignal,
+  backoff: readonly number[] = CALL_BACKOFF_MS,
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await task();
+    } catch (err) {
+      if (signal?.aborted || isUploadCancelled(err)) {
+        throw new UploadCancelledError();
+      }
+      if (!isRetryable(err) || attempt >= backoff.length) throw err;
+      await sleep(backoff[attempt], signal);
+    }
+  }
 }
 
 class PartHttpError extends Error {

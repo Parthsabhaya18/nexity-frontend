@@ -1,54 +1,33 @@
 import {
   activeToken,
   applySuggestion,
-  countTokens,
+  countMentions,
   parseCaption,
 } from '../src/features/posts/caption';
 import { aspectRatioOf } from '../src/features/posts/postDraft';
 
 describe('parseCaption', () => {
-  it('highlights hashtags and mentions, leaving the rest as text', () => {
-    expect(
-      parseCaption('Sunset #Travel with @bob.smith. me@mail.com #123'),
-    ).toEqual([
-      { type: 'text', text: 'Sunset ' },
-      { type: 'hashtag', text: '#Travel', value: 'travel' },
-      { type: 'text', text: ' with ' },
+  it('highlights mentions, leaving hashtags and the rest as text', () => {
+    expect(parseCaption('Sunset #Travel with @bob.smith. me@mail.com')).toEqual([
+      { type: 'text', text: 'Sunset #Travel with ' },
       { type: 'mention', text: '@bob.smith', value: 'bob.smith' },
-      { type: 'text', text: '. me@mail.com #123' },
+      { type: 'text', text: '. me@mail.com' },
     ]);
   });
 
-  it('keeps vowel signs in non-Latin hashtags', () => {
-    expect(parseCaption('#ગુજરાત')[0]).toMatchObject({
-      type: 'hashtag',
-      value: 'ગુજરાત',
-    });
-  });
-
-  it('counts unique tokens', () => {
-    expect(countTokens('#a #A #b @ann @ann @bob')).toEqual({
-      hashtags: 2,
-      mentions: 2,
-    });
+  it('counts unique mentions', () => {
+    expect(countMentions('#a @ann @Ann @bob')).toBe(2);
   });
 });
 
 describe('autocomplete', () => {
-  it('finds the token at the cursor', () => {
+  it('finds the mention at the cursor', () => {
     const text = 'Hello @bo and #tra';
-    expect(activeToken(text, 9)).toEqual({
-      trigger: '@',
-      query: 'bo',
-      start: 6,
-      end: 9,
-    });
-    expect(activeToken(text, text.length)).toMatchObject({
-      trigger: '#',
-      query: 'tra',
-    });
+    expect(activeToken(text, 9)).toEqual({ query: 'bo', start: 6, end: 9 });
+    expect(activeToken(text, text.length)).toBeNull();
     expect(activeToken('mail me@x', 9)).toBeNull();
     expect(activeToken('plain text', 5)).toBeNull();
+    expect(activeToken('Hi @', 4)).toEqual({ query: '', start: 3, end: 4 });
   });
 
   it('replaces the token with the suggestion', () => {
