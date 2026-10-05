@@ -29,6 +29,7 @@ type Props = {
 
 /** Space kept between the focused input and the top of the keyboard. */
 const KEYBOARD_GAP = 120;
+const BACK_BAR_HEIGHT = 48;
 
 export function AuthLayout({ children, onBack }: Props) {
   const { scheme, colors } = useAppTheme();
@@ -109,7 +110,7 @@ export function AuthLayout({ children, onBack }: Props) {
           scrollEventThrottle={16}
           contentContainerStyle={[
             styles.content,
-            !onBack && styles.contentNoBar,
+            onBack ? styles.contentWithBack : styles.contentNoBar,
             keyboardOpen && styles.contentKeyboard,
           ]}
           keyboardShouldPersistTaps="handled"
@@ -129,7 +130,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   flex: { flex: 1 },
   topBar: {
-    height: 48,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: 1,
+    height: BACK_BAR_HEIGHT,
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
   },
@@ -146,6 +151,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   contentNoBar: { paddingTop: spacing.xl, justifyContent: 'center' },
+  // Equal room above and below keeps the content centred exactly where it sits on
+  // screens without a back button, while clearing the floating arrow.
+  contentWithBack: {
+    paddingTop: BACK_BAR_HEIGHT,
+    paddingBottom: BACK_BAR_HEIGHT,
+    justifyContent: 'center',
+  },
   contentKeyboard: { paddingBottom: KEYBOARD_GAP },
   inner: { width: '100%', maxWidth: 440, alignSelf: 'center' },
 });

@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Keyboard,
@@ -36,11 +37,26 @@ export function LoginScreen({ navigation, route }: ScreenProps<'Login'>) {
     control,
     handleSubmit,
     watch,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: { identifier: route.params?.email ?? '', password: '' },
   });
+
+  // Fresh form each visit (e.g. back from Forgot password or Register); an email
+  // handed over by the reset flow is still prefilled.
+  const presetEmail = route.params?.email ?? '';
+  useFocusEffect(
+    useCallback(() => {
+      reset({ identifier: presetEmail, password: '' });
+      return () => {
+        reset({ identifier: '', password: '' });
+        failedAttempt.current = null;
+        setFormError(null);
+      };
+    }, [presetEmail, reset]),
+  );
 
   const [identifier, password] = watch(['identifier', 'password']);
   const canSubmit = identifier.trim().length > 0 && password.length > 0;

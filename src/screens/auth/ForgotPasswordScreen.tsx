@@ -4,6 +4,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { Keyboard, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
+import { BrandLogo } from '@/components/BrandLogo';
 import { AuthHeader } from '@/components/ui/AuthHeader';
 import { AuthLayout } from '@/components/ui/AuthLayout';
 import { Banner } from '@/components/ui/Banner';
@@ -15,12 +16,13 @@ import { useSubmitLock } from '@/features/auth/useSubmitLock';
 import type { ScreenProps } from '@/navigation/types';
 import { authApi } from '@/services/api/auth';
 import { ApiError } from '@/services/api/client';
-import { spacing } from '@/theme';
+import { spacing, useAppTheme } from '@/theme';
 
 export function ForgotPasswordScreen({
   navigation,
   route,
 }: ScreenProps<'ForgotPassword'>) {
+  const { scheme } = useAppTheme();
   const submit = useSubmitLock();
   const failedAttempt = useRef<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -69,7 +71,14 @@ export function ForgotPasswordScreen({
   return (
     <AuthLayout onBack={() => navigation.goBack()}>
       <AuthHeader
-        icon="🔑"
+        top={
+          <BrandLogo
+            variant="horizontal"
+            width={150}
+            scheme={scheme}
+            style={styles.logo}
+          />
+        }
         title="Forgot your password?"
         subtitle="Enter your email and we’ll send you a 6-digit code to reset it."
       />
@@ -98,7 +107,6 @@ export function ForgotPasswordScreen({
             autoComplete="email"
             returnKeyType="send"
             onSubmitEditing={() => onSubmit()}
-            autoFocus={!route.params?.email}
             editable={!isSubmitting}
           />
         )}
@@ -123,6 +131,7 @@ export function ForgotPasswordScreen({
 }
 
 const styles = StyleSheet.create({
+  logo: { marginBottom: spacing.xl },
   submit: { marginTop: spacing.sm },
   footer: { alignItems: 'center', marginTop: spacing.xl },
 });
