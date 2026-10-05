@@ -6,10 +6,17 @@ import { formatBytes, MEDIA_RULES, type MediaPurpose } from './mediaRules';
 import { type LocalMedia, MediaError } from './pickMedia';
 import { prepareMedia } from './prepareMedia';
 import {
+  forgetUpload,
+  newClientUploadId,
+  recordPrepared,
+  recordUpload,
+} from './uploadJournal';
+import {
   isRetryable,
   isUploadCancelled,
   UploadCancelledError,
   uploadParts,
+  withRetry,
 } from './uploadParts';
 
 export { isUploadCancelled, UploadCancelledError };
@@ -26,6 +33,11 @@ export type UploadPhase = 'processing' | 'uploading';
  * call `discardUploadSession` when the file is abandoned.
  */
 export interface UploadSession {
+  /**
+   * Sent as `client_upload_id`, and the key of the on-disk journal entry that
+   * lets the upload resume after the app restarts. Generated when missing.
+   */
+  clientUploadId?: string;
   /** Compressed copy made for this upload (may be the original). */
   prepared?: LocalMedia;
   /** Unfinished multipart upload that can be resumed. */
@@ -111,6 +123,8 @@ export async function discardUploadSession(
 ) {
   const mediaId = session.resumable?.mediaId;
   session.resumable = undefined;
+  if (session.clientUploadId)
+    forgetUpload(session.clientUploadId).catch(() => {});
   if (mediaId) mediaApi.remove(mediaId).catch(() => {});
   if (isTempCopy(session, original)) await deleteFile(session.prepared!.uri);
   session.prepared = undefined;
@@ -162,10 +176,12 @@ export async function uploadMedia(
   const transferShare = 1 - prepShare - VERIFY_SHARE;
   const onTransfer = (f: number) => onProgress(prepShare + f * transferShare);
 
+  const clientUploadId = (session.clientUploadId ??= newClientUploadId());
   let postMediaId: string | undefined;
   try {
     opts.onPhase?.('processing');
-    const media = await prepareOnce(
+    await recordUpload({ clientUploadId, purpose, original }).catch(() => {});
+    const prepared = await prepareOnce(
       original,
       purpose,
       session,
@@ -173,6 +189,13 @@ export async function uploadMedia(
       signal,
     );
     if (signal?.aborted) throw new UploadCancelledError();
+    const current = session.prepared!;
+    session.prepared = await recordPrepared(
+      clientUploadId,
+      current,
+      original,
+    ).catch(() => current);
+    const media = { ...prepared, uri: session.prepared.uri };
     const maxBytes = MEDIA_RULES[purpose][media.kind]?.maxBytes ?? 0;
     if (media.bytes > maxBytes) {
       throw new MediaError(
@@ -214,75 +237,109 @@ export async function uploadMedia(
     }
 
     let mediaId: string;
+    let finished: MediaAsset | undefined;
     if (resumed) {
       mediaId = session.resumable!.mediaId;
     } else {
-      const ticket = await mediaApi.createUpload(
-        {
-          purpose,
-          content_type: media.contentType,
-          bytes: media.bytes,
-          width: media.width,
-          height: media.height,
-          duration_ms: media.kind === 'video' ? media.durationMs : undefined,
-        },
+      // The same client_upload_id after a restart or a lost response returns
+      // the same media instead of reserving a second one.
+      const ticket = await withRetry(
+        () =>
+          mediaApi.createUpload(
+            {
+              purpose,
+              content_type: media.contentType,
+              bytes: media.bytes,
+              width: media.width,
+              height: media.height,
+              duration_ms:
+                media.kind === 'video' ? media.durationMs : undefined,
+              client_upload_id: clientUploadId,
+            },
+            signal,
+          ),
         signal,
       );
       mediaId = ticket.media.id;
       const target = ticket.upload;
 
-      if (target.method === 'multipart') {
+      if (target.method === 'complete') {
+        finished = ticket.media;
+      } else if (target.method === 'multipart') {
         session.resumable = {
           mediaId,
           partSize: target.part_size,
           partCount: target.part_count,
         };
-        await sendParts(false);
+        // A resumed upload may already hold parts from before a restart.
+        await sendParts(!!ticket.resumed);
       } else {
         postMediaId = mediaId;
-        const form = new FormData();
-        for (const [name, value] of Object.entries(target.fields)) {
-          form.append(name, value);
-        }
-        // S3 ignores every field after `file`, so it must be appended last.
-        form.append('file', {
-          uri: media.uri,
-          type: media.contentType,
-          name: media.fileName,
-        } as unknown as Blob);
-        await postToS3(target.url, form, maxBytes, onTransfer, signal);
+        await withRetry(() => {
+          const form = new FormData();
+          for (const [name, value] of Object.entries(target.fields)) {
+            form.append(name, value);
+          }
+          // S3 ignores every field after `file`, so it must be appended last.
+          form.append('file', {
+            uri: media.uri,
+            type: media.contentType,
+            name: media.fileName,
+          } as unknown as Blob);
+          return postToS3(target.url, form, maxBytes, onTransfer, signal);
+        }, signal);
       }
     }
 
     let asset: MediaAsset;
-    try {
-      asset = await mediaApi.complete(mediaId, signal);
-    } catch (err) {
-      // A part S3 lost or never acknowledged: send what's missing, once.
-      if (
-        !session.resumable ||
-        !(err instanceof ApiError) ||
-        err.code !== 'UPLOAD_INCOMPLETE'
-      ) {
-        throw err;
+    if (finished) {
+      asset = finished;
+    } else {
+      try {
+        asset = await withRetry(
+          () => mediaApi.complete(mediaId, signal),
+          signal,
+        );
+      } catch (err) {
+        // A part S3 lost or never acknowledged: send what's missing, once.
+        if (
+          !session.resumable ||
+          !(err instanceof ApiError) ||
+          err.code !== 'UPLOAD_INCOMPLETE'
+        ) {
+          throw err;
+        }
+        await sendParts(true);
+        asset = await withRetry(
+          () => mediaApi.complete(mediaId, signal),
+          signal,
+        );
       }
-      await sendParts(true);
-      asset = await mediaApi.complete(mediaId, signal);
     }
 
     session.resumable = undefined;
     postMediaId = undefined;
+    await forgetUpload(clientUploadId);
     if (isTempCopy(session, original)) await deleteFile(session.prepared!.uri);
     session.prepared = undefined;
     onProgress(1);
     return asset;
   } catch (err) {
-    if (postMediaId) mediaApi.remove(postMediaId).catch(() => {});
     const cancelled = signal?.aborted || isUploadCancelled(err);
-    // Keep a multipart upload only when a retry can pick it up.
-    if (session.resumable && (cancelled || !isRetryable(err))) {
-      mediaApi.remove(session.resumable.mediaId).catch(() => {});
-      session.resumable = undefined;
+    // Keep the reservation and the journal entry only when a retry (now or
+    // after a restart) can pick them up.
+    if (cancelled || !isRetryable(err)) {
+      if (postMediaId) mediaApi.remove(postMediaId).catch(() => {});
+      if (session.resumable) {
+        mediaApi.remove(session.resumable.mediaId).catch(() => {});
+        session.resumable = undefined;
+      }
+      await forgetUpload(clientUploadId).catch(() => {});
+      // The removal above is async; a new id keeps a retry off that media.
+      session.clientUploadId = undefined;
+      if (session.prepared && !(await fileExists(session.prepared.uri))) {
+        session.prepared = undefined;
+      }
     }
     if (cancelled) throw new UploadCancelledError();
     throw err;

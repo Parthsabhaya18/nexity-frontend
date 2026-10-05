@@ -1,49 +1,40 @@
-import { useSyncExternalStore } from 'react';
-
+import {
+  entityKeys,
+  followFromRelationship,
+  primeUsers,
+  queryClient,
+  relationshipFromFollow,
+  setRelation,
+  useRelation,
+} from '@/features/entities/entityCache';
 import type { FollowStatus } from '@/services/api/follows';
 
 /**
- * Latest known follow state per user id, so a follow on one screen shows on
- * every other screen at once. Fresh server data overwrites it via `prime`.
+ * Follow state per user id, kept in the shared entity cache so a follow on one
+ * screen shows on every other screen at once. Fresh server data overwrites it
+ * via `primeFollowStatuses`.
  */
-const statuses = new Map<string, FollowStatus>();
-const listeners = new Set<() => void>();
-
-const notify = () => listeners.forEach(l => l());
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
 export function setFollowStatus(userId: string, status: FollowStatus) {
-  if (statuses.get(userId) === status) return;
-  statuses.set(userId, status);
-  notify();
+  setRelation(userId, { relationship: relationshipFromFollow(status) });
 }
 
-/** Records statuses that just came from the server. */
+/** Records statuses (and privacy) that just came from the server. */
 export function primeFollowStatuses(
-  users: readonly { id: string; follow_status: FollowStatus }[],
+  users: readonly {
+    id: string;
+    follow_status: FollowStatus;
+    is_private?: boolean;
+    follows_you?: boolean;
+  }[],
 ) {
-  let changed = false;
-  for (const u of users) {
-    if (statuses.get(u.id) !== u.follow_status) {
-      statuses.set(u.id, u.follow_status);
-      changed = true;
-    }
-  }
-  if (changed) notify();
+  primeUsers(users);
 }
 
 export function clearFollowStatuses() {
-  statuses.clear();
-  notify();
+  queryClient.removeQueries({ queryKey: entityKeys.relations });
 }
 
 export function useFollowStatus(userId: string, fallback: FollowStatus) {
-  const known = useSyncExternalStore(subscribe, () => statuses.get(userId));
-  return known ?? fallback;
+  const known = useRelation(userId);
+  return known ? followFromRelationship(known.relationship) : fallback;
 }

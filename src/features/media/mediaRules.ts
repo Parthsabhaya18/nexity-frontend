@@ -44,7 +44,7 @@ const MB = 1024 * 1024;
 const GB = 1024 * MB;
 
 type KindRule = {
-  /** Safety ceiling checked after compression; real files never reach it. */
+  /** Largest file that may be uploaded, checked after on-device compression. */
   maxBytes: number;
   /** Longest video allowed, matching Instagram; `null` means no limit. */
   maxDurationMs?: number | null;
@@ -54,24 +54,38 @@ const SECOND = 1000;
 /** Device metadata rounds durations, so a 3:00 reel may report 3:00.4. */
 export const DURATION_TOLERANCE_MS = SECOND;
 
-const IMAGE: KindRule = { maxBytes: 50 * MB };
+/** Posts, reels and stories all stop at 2 minutes. */
+export const VIDEO_MAX_MS = 120 * SECOND;
+
+export const IMAGE_MAX_BYTES = 10 * MB;
+export const VIDEO_MAX_BYTES = 200 * MB;
+/** Story photos share the video ceiling. */
+export const STORY_IMAGE_MAX_BYTES = 200 * MB;
+
+const IMAGE: KindRule = { maxBytes: IMAGE_MAX_BYTES };
 const video = (limitMs: number | null): KindRule => ({
-  maxBytes: 4 * GB,
+  maxBytes: VIDEO_MAX_BYTES,
   maxDurationMs: limitMs,
 });
 
-/** Instagram's limits. Mirror of `backend/src/modules/media/media.rules.ts`. */
+/** Upload limits. Mirror of `backend/src/modules/media/media.rules.ts`. */
 export const MEDIA_RULES: Record<
   MediaPurpose,
   Partial<Record<MediaKind, KindRule>>
 > = {
-  avatar: { image: { maxBytes: 20 * MB } },
-  /** Carousel videos; anything longer is shared as a reel. */
-  post: { image: IMAGE, video: video(60 * SECOND) },
-  reel: { video: video(3 * 60 * SECOND) },
-  story: { image: IMAGE, video: video(60 * SECOND) },
+  avatar: { image: IMAGE },
+  post: { image: IMAGE, video: video(VIDEO_MAX_MS) },
+  reel: { video: video(VIDEO_MAX_MS) },
+  story: {
+    image: { maxBytes: STORY_IMAGE_MAX_BYTES },
+    video: video(VIDEO_MAX_MS),
+  },
   message: { image: IMAGE, video: video(null) },
 };
+
+export function maxBytesFor(purpose: MediaPurpose, kind: MediaKind) {
+  return MEDIA_RULES[purpose][kind]?.maxBytes ?? 0;
+}
 
 /** Most files that can be picked at once for each purpose. */
 export const MAX_ITEMS: Record<MediaPurpose, number> = {

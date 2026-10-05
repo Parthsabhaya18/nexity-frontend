@@ -1,155 +1,211 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { Clapperboard, Flag, Heart, MapPin, Music } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import {
+  Clapperboard,
+  Heart,
+  MapPin,
+  MessageCircle,
+  MoreVertical,
+  Pause,
+  Play,
+  Send,
+  Volume2,
+  VolumeX,
+  WifiOff,
+} from 'lucide-react-native';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
   FlatList,
+  Image,
   Pressable,
+  Share,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Video, { type VideoRef } from 'react-native-video';
 
-import { LookTint } from '@/components/media/LookStrip';
-import { PlayableMedia } from '@/components/posts/PlayableMedia';
+import {
+  CommentsSheet,
+  type CommentTarget,
+} from '@/components/posts/CommentsSheet';
 import { CaptionText } from '@/components/posts/CaptionText';
+import { PostOptionsSheet } from '@/components/posts/PostOptionsSheet';
+import { formatCount } from '@/components/profile/ProfileParts';
 import { ReportSheet } from '@/components/safety/ReportSheet';
+import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { usePagedList } from '@/features/follows/usePagedList';
+import { setLikeState } from '@/features/posts/likeSync';
+import { useEngagementSync } from '@/features/posts/postEvents';
 import { consumeFocusedReel } from '@/features/reels/reelFocus';
 import { useTabBarInset } from '@/navigation/BottomNav';
 import type { TabScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { type Reel, reelsApi } from '@/services/api/reels';
-import { darkScreen } from '@/theme';
+
+// Reels always play full-screen on black, like the camera.
+const WHITE = '#FFFFFF';
+const LIKE = '#FF3B5C';
+const DOUBLE_TAP_MS = 260;
 
 export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
-  const { height } = useWindowDimensions();
   const bottomInset = useTabBarInset();
-  const page = height;
-  const [visible, setVisible] = useState<string | null>(null);
+  const focused = useIsFocused();
+  const [page, setPage] = useState(0);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [muted, setMuted] = useState(false);
+  const [comments, setComments] = useState<CommentTarget | null>(null);
+  const [options, setOptions] = useState<Reel | null>(null);
   const [report, setReport] = useState<Reel | null>(null);
   const pendingId = useRef<string | null>(null);
+  const listRef = useRef<FlatList<Reel>>(null);
   useStatusBar('dark');
+
   const fetchPage = useCallback(
-    (cursor: string | null, signal: AbortSignal) =>
-      reelsApi.feed(cursor, signal),
+    (cursor: string | null, signal: AbortSignal) => reelsApi.feed(cursor, signal),
     [],
   );
   const list = usePagedList<Reel>(fetchPage);
+  const { items, setItems } = list;
+  useEngagementSync<Reel>('reel', setItems);
+
+  useEffect(() => {
+    if (!activeId && items[0]) setActiveId(items[0].id);
+    if (activeId && items.length && !items.some(r => r.id === activeId)) {
+      setActiveId(items[0]?.id ?? null);
+    }
+  }, [items, activeId]);
 
   useFocusEffect(
     useCallback(() => {
       const focus = consumeFocusedReel();
       if (!focus) return;
       if ('video_url' in focus) {
-        list.setItems(prev => [
-          focus,
-          ...prev.filter(item => item.id !== focus.id),
-        ]);
-        setVisible(focus.id);
+        setItems(prev => [focus, ...prev.filter(item => item.id !== focus.id)]);
+        setActiveId(focus.id);
+        listRef.current?.scrollToOffset({ offset: 0, animated: false });
         pendingId.current = null;
       } else {
         pendingId.current = focus.id;
       }
-    }, [list.setItems]),
+    }, [setItems]),
   );
 
   useEffect(() => {
     const id = pendingId.current;
-    if (!id || !list.items.some(item => item.id === id)) return;
+    if (!id || !items.some(item => item.id === id)) return;
     pendingId.current = null;
-    list.setItems(prev => {
+    setItems(prev => {
       const found = prev.find(item => item.id === id);
       if (!found) return prev;
       return [found, ...prev.filter(item => item.id !== id)];
     });
-    setVisible(id);
-  }, [list.items, list.setItems]);
+    setActiveId(id);
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [items, setItems]);
 
-  const like = async (reel: Reel) => {
-    const next = await reelsApi.like(reel.id).catch(() => null);
-    if (!next) return;
-    list.setItems(prev => prev.map(r => (r.id === reel.id ? next : r)));
-  };
+  const openComments = useCallback((reel: Reel) => {
+    setComments({
+      kind: 'reel',
+      id: reel.id,
+      commentsDisabled: reel.comments_disabled,
+      isOwner: reel.is_owner,
+      commentsCount: reel.comments_count,
+    });
+  }, []);
+
+  const openMenu = useCallback((reel: Reel) => {
+    if (reel.is_owner) setOptions(reel);
+    else setReport(reel);
+  }, []);
+
+  const toggleMute = useCallback(() => setMuted(m => !m), []);
+
+  const optionsReel = options ? items.find(r => r.id === options.id) ?? options : null;
 
   return (
-    <View style={[styles.safe, { backgroundColor: darkScreen.background }]}>
-      <FlatList
-        data={list.items}
-        keyExtractor={r => r.id}
-        pagingEnabled
-        onEndReached={list.loadMore}
-        onRefresh={list.refresh}
-        refreshing={list.refreshing}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 80 }}
-        onViewableItemsChanged={({ viewableItems }) =>
-          setVisible(viewableItems[0]?.item.id ?? null)
-        }
-        ListEmptyComponent={
-          <SafeAreaView style={{ height: page }}>
-            <View style={[styles.empty, { paddingBottom: bottomInset }]}>
-              <Clapperboard size={34} color={darkScreen.text} />
-              <Text style={styles.emptyTitle}>No reels yet</Text>
-              <Button
-                title="Create a reel"
-                onPress={() => navigation.navigate('CreateReel')}
-              />
+    <View style={styles.root} onLayout={e => setPage(e.nativeEvent.layout.height)}>
+      {page === 0 ? null : list.loading ? (
+        <ActivityIndicator color={WHITE} style={styles.center} />
+      ) : list.error && !items.length ? (
+        <View style={[styles.center, styles.state]}>
+          <WifiOff size={34} color={WHITE} />
+          <Text style={styles.stateTitle}>Couldn't load reels</Text>
+          <Text style={styles.stateText}>{list.error.message}</Text>
+          <Button title="Try again" variant="secondary" onPress={list.retry} />
+        </View>
+      ) : (
+        <FlatList
+          ref={listRef}
+          data={items}
+          keyExtractor={r => r.id}
+          pagingEnabled
+          snapToInterval={page}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          disableIntervalMomentum
+          showsVerticalScrollIndicator={false}
+          getItemLayout={(_, i) => ({ length: page, offset: page * i, index: i })}
+          windowSize={3}
+          initialNumToRender={1}
+          maxToRenderPerBatch={2}
+          removeClippedSubviews
+          onEndReached={list.loadMore}
+          onEndReachedThreshold={2}
+          onRefresh={list.refresh}
+          refreshing={list.refreshing}
+          onMomentumScrollEnd={e => {
+            const i = Math.round(e.nativeEvent.contentOffset.y / page);
+            const reel = items[i];
+            if (reel) setActiveId(reel.id);
+          }}
+          ListEmptyComponent={
+            <View style={[styles.state, { height: page, paddingBottom: bottomInset }]}>
+              <Clapperboard size={34} color={WHITE} />
+              <Text style={styles.stateTitle}>No reels yet</Text>
+              <Text style={styles.stateText}>
+                Reels from people you follow and around Nexity show up here.
+              </Text>
+              <Button title="Create a reel" onPress={() => navigation.navigate('CreateReel')} />
             </View>
-          </SafeAreaView>
-        }
-        renderItem={({ item }) => (
-          <View style={{ height: page }}>
-            <PlayableMedia
-              uri={item.video_url}
-              kind="video"
-              active={item.id === visible}
-              trimStartMs={item.trim_start_ms}
-              trimEndMs={item.trim_end_ms}
-              forceMuted={!!item.audio_muted}
-              style={styles.fill}
+          }
+          renderItem={({ item }) => (
+            <ReelItem
+              reel={item}
+              height={page}
+              bottomInset={bottomInset}
+              active={focused && item.id === activeId && !comments && !options && !report}
+              muted={muted}
+              onToggleMute={toggleMute}
+              onComments={openComments}
+              onMenu={openMenu}
+              onProfile={() =>
+                item.author.is_self
+                  ? navigation.navigate('Profile')
+                  : navigation.navigate('UserProfile', { username: item.author.username })
+              }
             />
-            <LookTint id={item.filter} />
-            <View style={[styles.overlay, { bottom: bottomInset + 16 }]}>
-              <Text style={styles.user}>@{item.author.username}</Text>
-              {item.location_name ? (
-                <View style={styles.loc}>
-                  <MapPin size={14} color="#FFFFFF" />
-                  <Text style={styles.locText}>{item.location_name}</Text>
-                </View>
-              ) : null}
-              {item.music_title ? (
-                <View style={styles.loc}>
-                  <Music size={14} color="#FFFFFF" />
-                  <Text style={styles.locText}>{item.music_title}</Text>
-                </View>
-              ) : null}
-              {item.caption ? (
-                <CaptionText caption={item.caption} color="#FFFFFF" />
-              ) : null}
-            </View>
-            <Pressable
-              onPress={() => setReport(item)}
-              style={[styles.report, { bottom: bottomInset + 96 }]}
-              accessibilityLabel="Report reel"
-            >
-              <Flag size={26} color="#FFFFFF" />
-            </Pressable>
-            <Pressable
-              onPress={() => like(item)}
-              style={[styles.like, { bottom: bottomInset + 24 }]}
-              accessibilityLabel="Like reel"
-            >
-              <Heart
-                size={30}
-                color={item.liked_by_me ? '#F0386B' : '#FFFFFF'}
-                fill={item.liked_by_me ? '#F0386B' : 'transparent'}
-              />
-              <Text style={styles.likeCount}>{item.likes_count}</Text>
-            </Pressable>
-          </View>
-        )}
+          )}
+        />
+      )}
+
+      <CommentsSheet target={comments} onClose={() => setComments(null)} />
+      <PostOptionsSheet
+        target={
+          optionsReel
+            ? {
+                kind: 'reel',
+                id: optionsReel.id,
+                caption: optionsReel.caption,
+                hide_like_count: optionsReel.hide_like_count,
+                comments_disabled: optionsReel.comments_disabled,
+              }
+            : null
+        }
+        onClose={() => setOptions(null)}
       />
       {report ? (
         <ReportSheet
@@ -159,27 +215,308 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
           blockUserId={report.author.is_self ? undefined : report.author.id}
           username={report.author.username}
           onClose={() => setReport(null)}
-          onBlocked={() => {
-            list.setItems(prev =>
-              prev.filter(item => item.author.id !== report.author.id),
-            );
-          }}
+          onBlocked={() =>
+            setItems(prev => prev.filter(item => item.author.id !== report.author.id))
+          }
         />
       ) : null}
     </View>
   );
 }
 
+type ItemProps = {
+  reel: Reel;
+  height: number;
+  bottomInset: number;
+  active: boolean;
+  muted: boolean;
+  onToggleMute: () => void;
+  onComments: (reel: Reel) => void;
+  onMenu: (reel: Reel) => void;
+  onProfile: () => void;
+};
+
+const ReelItem = memo(function ReelPage({
+  reel,
+  height,
+  bottomInset,
+  active,
+  muted,
+  onToggleMute,
+  onComments,
+  onMenu,
+  onProfile,
+}: ItemProps) {
+  const video = useRef<VideoRef>(null);
+  const [userPaused, setUserPaused] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [buffering, setBuffering] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const lastTap = useRef(0);
+  const tapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const burst = useRef(new Animated.Value(0)).current;
+  const pop = useRef(new Animated.Value(1)).current;
+  const startSec = (reel.trim_start_ms ?? 0) / 1000;
+
+  // Coming back to a reel starts it playing again.
+  useEffect(() => {
+    if (!active) setUserPaused(false);
+  }, [active]);
+  useEffect(() => () => clearTimeout(tapTimer.current), []);
+
+  const like = (want: boolean) => {
+    setLikeState('reel', reel.id, reel, want);
+    if (want) {
+      pop.setValue(0.6);
+      Animated.spring(pop, { toValue: 1, friction: 3, tension: 180, useNativeDriver: true }).start();
+    }
+  };
+
+  const onTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < DOUBLE_TAP_MS) {
+      clearTimeout(tapTimer.current);
+      lastTap.current = 0;
+      burst.setValue(0);
+      Animated.timing(burst, {
+        toValue: 1,
+        duration: 700,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+      if (!reel.liked_by_me) like(true);
+      return;
+    }
+    lastTap.current = now;
+    tapTimer.current = setTimeout(() => setUserPaused(p => !p), DOUBLE_TAP_MS);
+  };
+
+  const playing = active && !userPaused;
+  const silent = muted || !!reel.audio_muted;
+
+  return (
+    <View style={[styles.page, { height }]}>
+      {failed ? (
+        <View style={[styles.center, styles.state]}>
+          <WifiOff size={30} color={WHITE} />
+          <Text style={styles.stateText}>This video couldn't be played.</Text>
+          <Button
+            title="Try again"
+            variant="secondary"
+            onPress={() => {
+              setFailed(false);
+              setReady(false);
+            }}
+          />
+        </View>
+      ) : (
+        <Video
+          ref={video}
+          source={{ uri: reel.video_url }}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+          paused={!playing}
+          muted={silent || !active}
+          repeat={reel.trim_end_ms == null}
+          onReadyForDisplay={() => setReady(true)}
+          onBuffer={e => setBuffering(e.isBuffering)}
+          onLoad={() => {
+            if (reel.trim_start_ms) video.current?.seek(startSec);
+          }}
+          onProgress={e => {
+            if (reel.trim_end_ms != null && e.currentTime * 1000 >= reel.trim_end_ms - 40) {
+              video.current?.seek(startSec);
+            }
+          }}
+          onEnd={() => video.current?.seek(startSec)}
+          onError={() => setFailed(true)}
+        />
+      )}
+      {!ready && reel.cover_url && !failed ? (
+        <Image source={{ uri: reel.cover_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      ) : null}
+
+      <Pressable
+        style={StyleSheet.absoluteFill}
+        onPress={onTap}
+        accessibilityRole="button"
+        accessibilityLabel={playing ? 'Pause reel' : 'Play reel'}
+        accessibilityHint="Double tap quickly to like"
+      />
+
+      {(buffering || !ready) && active && !failed ? (
+        <ActivityIndicator color={WHITE} style={styles.center} pointerEvents="none" />
+      ) : null}
+
+      {!playing && active && ready ? (
+        <View style={styles.playWrap} pointerEvents="none">
+          <View style={styles.playBadge}>
+            <Play size={34} color={WHITE} fill={WHITE} />
+          </View>
+        </View>
+      ) : null}
+
+      <View style={styles.playWrap} pointerEvents="none">
+        <Animated.View
+          style={{
+            opacity: burst.interpolate({ inputRange: [0, 0.15, 0.7, 1], outputRange: [0, 1, 1, 0] }),
+            transform: [
+              {
+                scale: burst.interpolate({
+                  inputRange: [0, 0.2, 0.4, 1],
+                  outputRange: [0.3, 1.25, 1, 1.05],
+                }),
+              },
+            ],
+          }}
+        >
+          <Heart size={110} color={WHITE} fill={WHITE} />
+        </Animated.View>
+      </View>
+
+      <View style={[styles.side, { bottom: bottomInset + 20 }]}>
+        <Pressable
+          onPress={() => like(!reel.liked_by_me)}
+          accessibilityRole="button"
+          accessibilityLabel={reel.liked_by_me ? 'Unlike' : 'Like'}
+          accessibilityState={{ selected: reel.liked_by_me }}
+          style={styles.action}
+        >
+          <Animated.View style={{ transform: [{ scale: pop }] }}>
+            <Heart
+              size={30}
+              color={reel.liked_by_me ? LIKE : WHITE}
+              fill={reel.liked_by_me ? LIKE : 'transparent'}
+            />
+          </Animated.View>
+          {reel.likes_count !== null ? (
+            <Text style={styles.count}>{formatCount(reel.likes_count)}</Text>
+          ) : null}
+        </Pressable>
+        {reel.comments_disabled ? null : (
+          <Pressable
+            onPress={() => onComments(reel)}
+            accessibilityRole="button"
+            accessibilityLabel="Comments"
+            style={styles.action}
+          >
+            <MessageCircle size={29} color={WHITE} />
+            <Text style={styles.count}>{formatCount(reel.comments_count)}</Text>
+          </Pressable>
+        )}
+        <Pressable
+          onPress={() =>
+            Share.share({ message: `https://nexity.com/reels/${reel.id}` }).catch(() => {})
+          }
+          accessibilityRole="button"
+          accessibilityLabel="Share"
+          style={styles.action}
+        >
+          <Send size={27} color={WHITE} />
+        </Pressable>
+        {reel.audio_muted ? null : (
+          <Pressable
+            onPress={onToggleMute}
+            accessibilityRole="button"
+            accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
+            style={styles.action}
+          >
+            {muted ? <VolumeX size={26} color={WHITE} /> : <Volume2 size={26} color={WHITE} />}
+          </Pressable>
+        )}
+        <Pressable
+          onPress={() => setUserPaused(p => !p)}
+          accessibilityRole="button"
+          accessibilityLabel={playing ? 'Pause' : 'Play'}
+          style={styles.action}
+        >
+          {playing ? (
+            <Pause size={26} color={WHITE} fill={WHITE} />
+          ) : (
+            <Play size={26} color={WHITE} fill={WHITE} />
+          )}
+        </Pressable>
+        <Pressable
+          onPress={() => onMenu(reel)}
+          accessibilityRole="button"
+          accessibilityLabel="Reel options"
+          style={styles.action}
+        >
+          <MoreVertical size={26} color={WHITE} />
+        </Pressable>
+      </View>
+
+      <View style={[styles.info, { bottom: bottomInset + 20 }]} pointerEvents="box-none">
+        <Pressable
+          onPress={onProfile}
+          style={styles.author}
+          accessibilityRole="button"
+          accessibilityLabel={`${reel.author.username}'s profile`}
+        >
+          <Avatar uri={reel.author.avatar_url} name={reel.author.display_name} size={34} />
+          <Text style={styles.user} numberOfLines={1}>
+            {reel.author.username}
+          </Text>
+        </Pressable>
+        {reel.caption ? (
+          <Pressable onPress={() => setExpanded(e => !e)} accessibilityRole="button">
+            <CaptionText
+              caption={reel.caption}
+              color={WHITE}
+              numberOfLines={expanded ? undefined : 2}
+            />
+          </Pressable>
+        ) : null}
+        {reel.location_name ? (
+          <View style={styles.loc}>
+            <MapPin size={14} color={WHITE} />
+            <Text style={styles.locText} numberOfLines={1}>
+              {reel.location_name}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+});
+
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  fill: { flex: 1 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  emptyTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  overlay: { position: 'absolute', left: 12, right: 70 },
-  user: { color: '#FFFFFF', fontWeight: '800', marginBottom: 4 },
-  loc: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
-  locText: { color: '#FFFFFF', fontSize: 13 },
-  report: { position: 'absolute', right: 14, alignItems: 'center' },
-  like: { position: 'absolute', right: 12, alignItems: 'center' },
-  likeCount: { color: '#FFFFFF', fontSize: 12, marginTop: 4 },
+  root: { flex: 1, backgroundColor: '#000000' },
+  page: { backgroundColor: '#000000' },
+  center: { position: 'absolute', alignSelf: 'center', top: '46%' },
+  state: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 },
+  stateTitle: { color: WHITE, fontSize: 18, fontWeight: '800' },
+  stateText: { color: 'rgba(255,255,255,0.75)', fontSize: 14, textAlign: 'center' },
+  playWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+  playBadge: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 4,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  side: { position: 'absolute', right: 8, alignItems: 'center', gap: 6 },
+  action: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  count: {
+    color: WHITE,
+    fontSize: 12.5,
+    fontWeight: '700',
+    marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowRadius: 3,
+  },
+  info: { position: 'absolute', left: 12, right: 76, gap: 8 },
+  author: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
+  user: {
+    color: WHITE,
+    fontWeight: '800',
+    fontSize: 15,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowRadius: 3,
+  },
+  loc: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  locText: { color: WHITE, fontSize: 13 },
 });

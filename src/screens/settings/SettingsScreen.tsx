@@ -1,5 +1,11 @@
 import { useNavigation } from '@react-navigation/native';
-import { Ban, ChevronRight, LogOut, Palette } from 'lucide-react-native';
+import {
+  Ban,
+  ChevronRight,
+  LayoutGrid,
+  LogOut,
+  Palette,
+} from 'lucide-react-native';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -119,6 +125,30 @@ export function SettingsScreen() {
           </Text>
           <ChevronRight size={18} color={colors.textSecondary} />
         </Pressable>
+
+        {__DEV__ ? (
+          <>
+            <Text style={[styles.section, { color: colors.textSecondary }]}>
+              Developer
+            </Text>
+            <Pressable
+              onPress={() => navigation.navigate('DevComponents')}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.card,
+                styles.logout,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                pressed && styles.pressed,
+              ]}
+            >
+              <LayoutGrid size={20} color={colors.text} />
+              <Text style={[styles.logoutText, { color: colors.text, flex: 1 }]}>
+                Component gallery
+              </Text>
+              <ChevronRight size={18} color={colors.textSecondary} />
+            </Pressable>
+          </>
+        ) : null}
 
         <Text style={[styles.section, { color: colors.textSecondary }]}>
           Account

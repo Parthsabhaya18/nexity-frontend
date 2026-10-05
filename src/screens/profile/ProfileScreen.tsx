@@ -264,6 +264,7 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
         {tab === 'posts' ? (
           <PostGrid
             fetchPage={fetchPosts}
+            from={{ source: 'user', userId: user.id }}
             empty={
               <EmptyState
                 icon={<Camera size={34} color={colors.primary} />}
@@ -282,6 +283,7 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
         ) : tab === 'saved' ? (
           <PostGrid
             fetchPage={fetchSaved}
+            from={{ source: 'saved' }}
             empty={
               <EmptyState
                 icon={<Bookmark size={34} color={colors.primary} />}
@@ -314,7 +316,6 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
         visible={photoOpen}
         uri={user.avatar_url}
         name={user.display_name}
-        username={user.username}
         onClose={() => setPhotoOpen(false)}
       />
     </SafeAreaView>

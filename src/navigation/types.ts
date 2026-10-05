@@ -31,7 +31,12 @@ export type RootStackParamList = {
   CreateStory: undefined;
   CreateReel: undefined;
   PostDetail: { postId: string };
-  HashtagFeed: { tag: string };
+  /** Swipe between the posts of a profile or the saved list; ids only. */
+  PostViewer: {
+    postId: string;
+    source: 'user' | 'saved';
+    userId?: string;
+  };
   SavedPosts: undefined;
   Appearance: undefined;
   Profile: undefined;
@@ -50,6 +55,8 @@ export type RootStackParamList = {
   Chats: undefined;
   ChatThread: { conversationId: string };
   NewMessage: undefined;
+  /** Dev builds only: shared component gallery. */
+  DevComponents: undefined;
 };
 
 export type ScreenProps<T extends keyof RootStackParamList> =

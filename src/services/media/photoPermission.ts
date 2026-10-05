@@ -15,7 +15,8 @@ export type PhotoAccess = 'granted' | 'limited' | 'denied' | 'blocked' | 'unavai
 
 const androidVersion = Platform.OS === 'android' ? Number(Platform.Version) : 0;
 
-function fromResult(result: string): PhotoAccess {
+/** Maps a react-native-permissions result to the app's access states. */
+export function fromResult(result: string): PhotoAccess {
   switch (result) {
     case RESULTS.GRANTED:
       return 'granted';

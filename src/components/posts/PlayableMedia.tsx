@@ -1,3 +1,4 @@
+import { Volume2, VolumeX } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import {
   Image,
@@ -23,9 +24,13 @@ type Props = {
   forceMuted?: boolean;
   /** Softens a photo. Ignored for video. */
   blurRadius?: number;
+  resizeMode?: 'cover' | 'contain';
 };
 
-/** Photo, or a looping video that stays muted until tapped. */
+/**
+ * Photo, or a looping video that starts muted. Taps on the picture bubble up
+ * to the parent (double-tap to like); the speaker button toggles the sound.
+ */
 export function PlayableMedia({
   uri,
   kind,
@@ -36,6 +41,7 @@ export function PlayableMedia({
   trimEndMs,
   forceMuted = false,
   blurRadius = 0,
+  resizeMode = 'cover',
 }: Props) {
   const [muted, setMuted] = useState(true);
   const video = useRef<VideoRef>(null);
@@ -46,32 +52,19 @@ export function PlayableMedia({
       <Image
         source={{ uri }}
         style={[styles.fill, style]}
-        resizeMode="cover"
+        resizeMode={resizeMode}
         blurRadius={blurRadius}
         accessibilityLabel={accessibilityLabel}
       />
     );
   }
   return (
-    <Pressable
-      onPress={() => {
-        if (!forceMuted) setMuted(m => !m);
-      }}
-      accessibilityRole="button"
-      accessibilityLabel={
-        forceMuted
-          ? 'Original audio is off'
-          : muted
-          ? 'Unmute video'
-          : 'Mute video'
-      }
-      style={[styles.fill, style]}
-    >
+    <View style={[styles.fill, style]}>
       <Video
         ref={video}
         source={{ uri }}
         style={StyleSheet.absoluteFill}
-        resizeMode="cover"
+        resizeMode={resizeMode}
         paused={!active}
         repeat={trimEndMs == null}
         muted={silent || !active}
@@ -86,20 +79,36 @@ export function PlayableMedia({
         }}
         onEnd={() => video.current?.seek(startSec)}
       />
-      {silent ? <View style={styles.mute} /> : null}
-    </Pressable>
+      {forceMuted ? null : (
+        <Pressable
+          onPress={() => setMuted(m => !m)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={muted ? 'Unmute video' : 'Mute video'}
+          style={styles.sound}
+        >
+          {muted ? (
+            <VolumeX size={16} color="#FFFFFF" />
+          ) : (
+            <Volume2 size={16} color="#FFFFFF" />
+          )}
+        </Pressable>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   fill: { width: '100%', height: '100%' },
-  mute: {
+  sound: {
     position: 'absolute',
     right: 12,
     bottom: 12,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
 });

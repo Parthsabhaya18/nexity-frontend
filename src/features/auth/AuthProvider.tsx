@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 
-import { clearFollowStatuses } from '@/features/follows/followStore';
+import { clearEntityCache } from '@/features/entities/entityCache';
 import { discardShare } from '@/features/posts/postComposer';
 import { resetDraft } from '@/features/posts/postDraft';
 import { clearSavedDraft } from '@/features/posts/savedDraft';
@@ -92,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     const refreshToken = tokenStore.getRefreshToken();
     await tokenStore.clear();
-    clearFollowStatuses();
+    clearEntityCache();
     discardShare();
     resetDraft();
     clearSavedDraft().catch(() => {});

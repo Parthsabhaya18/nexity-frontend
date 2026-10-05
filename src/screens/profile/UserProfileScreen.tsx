@@ -12,7 +12,6 @@ import {
   Lock,
   MoreHorizontal,
   Share2,
-  UserMinus,
   UserX,
   WifiOff,
 } from 'lucide-react-native';
@@ -48,11 +47,11 @@ import { ReelGrid } from '@/components/reels/ReelGrid';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
 import { chat } from '@/features/chats/chatController';
+import { relationshipFromFollow } from '@/features/entities/entityCache';
 import {
   primeFollowStatuses,
   useFollowStatus,
 } from '@/features/follows/followStore';
-import { useFollowAction } from '@/features/follows/useFollowAction';
 import { profileLink } from '@/features/profile/schemas';
 import { ApiError } from '@/services/api/client';
 import { followsApi, type Profile } from '@/services/api/follows';
@@ -207,10 +206,8 @@ function ProfileBody({ profile }: { profile: Profile }) {
       postsApi.byUser(profile?.id ?? '', cursor, signal),
     [profile?.id],
   );
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [opening, setOpening] = useState(false);
   const status = useFollowStatus(profile.id, profile.follow_status);
-  const { unfollow } = useFollowAction(profile, profile.follow_status);
 
   // The server counts are from the last fetch; reflect a follow made since.
   const delta =
@@ -309,17 +306,15 @@ function ProfileBody({ profile }: { profile: Profile }) {
         <View style={styles.actions}>
           <FollowButton
             user={profile}
-            status={profile.follow_status}
-            followsYou={profile.follows_you}
-            size="lg"
-            onFollowingPress={() => setSheetOpen(true)}
-          />
-          <Button
-            title="Message"
-            variant="secondary"
-            loading={opening}
-            onPress={message}
-            style={styles.message}
+            relation={{
+              relationship: relationshipFromFollow(profile.follow_status),
+              follows_you: profile.follows_you,
+              is_private: profile.is_private,
+              muted: profile.muted ?? false,
+            }}
+            variant="full"
+            onMessage={message}
+            messageLoading={opening}
           />
         </View>
       </View>
@@ -343,6 +338,7 @@ function ProfileBody({ profile }: { profile: Profile }) {
           {tab === 'posts' ? (
             <PostGrid
               fetchPage={fetchPosts}
+              from={{ source: 'user', userId: profile.id }}
               empty={
                 <EmptyState
                   icon={<Camera size={34} color={colors.primary} />}
@@ -388,22 +384,7 @@ function ProfileBody({ profile }: { profile: Profile }) {
         visible={photoOpen}
         uri={profile.avatar_url}
         name={profile.display_name}
-        username={profile.username}
         onClose={() => setPhotoOpen(false)}
-      />
-
-      <ActionSheet
-        visible={sheetOpen}
-        title={profile.username}
-        onClose={() => setSheetOpen(false)}
-        options={[
-          {
-            label: 'Unfollow',
-            icon: <UserMinus size={22} color={colors.danger} />,
-            destructive: true,
-            onPress: unfollow,
-          },
-        ]}
       />
     </>
   );
@@ -504,7 +485,6 @@ const styles = StyleSheet.create({
   bio: { fontSize: 14.5, lineHeight: 21, marginTop: 4 },
   followsYou: { fontSize: 13, fontWeight: '600', marginTop: 6 },
   actions: { flexDirection: 'row', gap: spacing.sm, marginBottom: 14 },
-  message: { flex: 1, height: 38, minHeight: 38, paddingVertical: 0 },
   pressed: { opacity: 0.7 },
   private: {
     alignItems: 'center',

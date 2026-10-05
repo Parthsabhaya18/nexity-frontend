@@ -23,6 +23,7 @@ export function SavedPostsScreen() {
       <AppBar title="Saved" back />
       <PostGrid
         fetchPage={fetchPage}
+        from={{ source: 'saved' }}
         empty={
           <EmptyState
             icon={<Bookmark size={34} color={colors.primary} />}
