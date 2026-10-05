@@ -504,7 +504,13 @@ const styles = StyleSheet.create({
   bio: { fontSize: 14.5, lineHeight: 21, marginTop: 4 },
   followsYou: { fontSize: 13, fontWeight: '600', marginTop: 6 },
   actions: { flexDirection: 'row', gap: spacing.sm, marginBottom: 14 },
-  message: { flex: 1, height: 38, minHeight: 38, paddingVertical: 0 },
+  message: {
+    flex: 1,
+    height: 38,
+    minHeight: 38,
+    paddingVertical: 0,
+    borderRadius: radius.sm,
+  },
   pressed: { opacity: 0.7 },
   private: {
     alignItems: 'center',

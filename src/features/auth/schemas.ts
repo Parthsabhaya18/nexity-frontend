@@ -76,7 +76,7 @@ export const registerSchema = z.object({
     ),
   email: emailField,
   password: passwordField,
-  gender: z.enum(['woman', 'man', 'non_binary', 'prefer_not_to_say'], {
+  gender: z.enum(['man', 'woman', 'other'], {
     errorMap: () => ({ message: 'Please choose an option.' }),
   }),
   dob: z

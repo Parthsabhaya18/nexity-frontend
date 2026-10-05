@@ -1,6 +1,11 @@
 import { apiClient } from './client';
 
-export type Gender = 'woman' | 'man' | 'non_binary' | 'prefer_not_to_say';
+export type Gender =
+  | 'woman'
+  | 'man'
+  | 'other'
+  | 'non_binary'
+  | 'prefer_not_to_say';
 
 export interface Me {
   id: string;
