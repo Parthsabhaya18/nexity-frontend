@@ -23,7 +23,6 @@ import {
   useState,
 } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -36,6 +35,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActionSheet } from '@/components/chat/ActionSheet';
+import { ChatThreadSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import {
   ChatComposer,
   type ComposerEdit,
@@ -89,6 +89,8 @@ import { voicePlayback } from '@/features/chats/voicePlayback';
 import { captureWithCamera, type LocalMedia } from '@/features/media/pickMedia';
 import { saveToGallery } from '@/features/media/saveToGallery';
 import { uploadErrorMessage } from '@/features/media/uploadMedia';
+import { focusReelId } from '@/features/reels/reelFocus';
+import type { SharedRef } from '@/services/api/chat';
 import {
   loadReactionPrefs,
   reactionPrefs,
@@ -222,6 +224,22 @@ export function ChatThreadScreen({
   const peer = convo?.peer ?? null;
   const me = useChatStore(s =>
     s.conversations[conversationId]?.participants.find(p => p.id === s.meId),
+  );
+
+  const openShared = useCallback(
+    (shared: SharedRef) => {
+      if (shared.kind === 'profile') {
+        if (!shared.author) return;
+        if (shared.id === meId) navigation.navigate('Profile');
+        else navigation.navigate('UserProfile', { username: shared.author.username });
+      } else if (shared.kind === 'post') {
+        navigation.navigate('PostDetail', { postId: shared.id });
+      } else {
+        focusReelId(shared.id);
+        navigation.popTo('Main', { screen: 'Reels' });
+      }
+    },
+    [navigation, meId],
   );
 
   const openMedia = useCallback(
@@ -536,6 +554,7 @@ export function ChatThreadScreen({
         onPressReactions={openDetails}
         onPressAvatar={openProfile}
         onOpenMedia={openMedia}
+        onOpenShared={openShared}
         onNotice={showToast}
       />
     );
@@ -620,9 +639,7 @@ export function ChatThreadScreen({
             />
           </View>
         ) : !thread?.loaded ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
+          <ChatThreadSkeleton />
         ) : (
           <View style={styles.flex} {...revealHandlers}>
             <FlatList
@@ -686,10 +703,7 @@ export function ChatThreadScreen({
               }
               ListFooterComponent={
                 thread.loadingOlder ? (
-                  <ActivityIndicator
-                    color={colors.primary}
-                    style={styles.older}
-                  />
+                  <ChatThreadSkeleton older />
                 ) : !thread.hasMore && peer ? (
                   <View style={styles.intro}>
                     <Avatar
@@ -917,7 +931,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   receiptText: { fontSize: 12 },
-  older: { marginVertical: spacing.md },
   intro: {
     alignItems: 'center',
     gap: 6,

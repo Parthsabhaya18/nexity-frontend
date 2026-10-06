@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
+import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { AppBar } from '@/components/ui/AppBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -171,7 +172,7 @@ export function NewMessageScreen({ navigation }: ScreenProps<'NewMessage'>) {
         )}
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+            <UserListSkeleton avatar={44} rowStyle={[styles.row, styles.skeletonRow]} />
           ) : error ? (
             <EmptyState
               icon={<CloudOff size={34} color={colors.primary} />}
@@ -234,5 +235,5 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, minWidth: 0 },
   username: { fontSize: 15, fontWeight: '700' },
   name: { fontSize: 13, marginTop: 1 },
-  loader: { marginTop: 48 },
+  skeletonRow: { minHeight: 60 },
 });

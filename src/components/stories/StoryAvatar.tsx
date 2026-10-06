@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { StoryViewer } from '@/components/stories/StoryViewer';
 import { Avatar } from '@/components/ui/Avatar';
 import { dropExpired, msUntilNextExpiry } from '@/features/stories/expiry';
-import { onStoryShared } from '@/features/stories/storyEvents';
+import { onStoryShared, useOwnStoriesSeen } from '@/features/stories/storyEvents';
 import { type StoryGroup, storiesApi } from '@/services/api/stories';
 import { useAppTheme } from '@/theme';
 
@@ -40,6 +40,7 @@ export function StoryAvatar({
   const { colors } = useAppTheme();
   const [group, setGroup] = useState<StoryGroup | null>(null);
   const [viewing, setViewing] = useState(false);
+  const ownStoriesSeen = useOwnStoriesSeen();
 
   const load = useCallback(() => {
     storiesApi
@@ -72,7 +73,8 @@ export function StoryAvatar({
     return () => clearTimeout(timer);
   }, [group, viewing]);
 
-  const unseen = !!group && (self || !group.seen);
+  const unseen =
+    !!group && !group.seen && !(group.user.is_self && ownStoriesSeen(group.stories));
   const ringColor = group ? (unseen ? colors.primary : colors.border) : 'transparent';
 
   return (

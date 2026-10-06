@@ -2,7 +2,6 @@ import { useNavigation } from '@react-navigation/native';
 import { UserPlus } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   RefreshControl,
@@ -12,6 +11,7 @@ import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { FollowButton } from '@/components/follows/FollowButton';
 import { UserRow } from '@/components/follows/UserRow';
+import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { AppBar } from '@/components/ui/AppBar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -138,7 +138,7 @@ export function FollowRequestsScreen() {
         }}
         ListEmptyComponent={
           list.loading ? (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+            <UserListSkeleton button />
           ) : list.error ? (
             <EmptyState
               icon={<UserPlus size={34} color={colors.primary} />}
@@ -163,7 +163,7 @@ export function FollowRequestsScreen() {
         }
         ListFooterComponent={
           list.loadingMore ? (
-            <ActivityIndicator color={colors.primary} style={styles.footer} />
+            <UserListSkeleton rows={2} button />
           ) : undefined
         }
       />
@@ -174,8 +174,6 @@ export function FollowRequestsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { flexGrow: 1, paddingVertical: spacing.sm },
-  loader: { marginTop: spacing.xl },
-  footer: { marginVertical: spacing.md },
   retry: { minWidth: 180 },
   action: { minHeight: 34, borderRadius: radius.sm, paddingHorizontal: 14 },
 });

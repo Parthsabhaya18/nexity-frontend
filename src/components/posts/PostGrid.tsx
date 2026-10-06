@@ -1,8 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
-import { Layers, Play } from 'lucide-react-native';
+import { Clapperboard, Layers, Play } from 'lucide-react-native';
 import { type ReactNode, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   Pressable,
   StyleSheet,
@@ -13,7 +12,9 @@ import {
 import { Button } from '@/components/ui/Button';
 import { usePagedList } from '@/features/follows/usePagedList';
 import { onPostShared } from '@/features/posts/postComposer';
-import { useEngagementSync } from '@/features/posts/postEvents';
+import { ReelCover } from '@/components/reels/ReelGrid';
+import { PostGridSkeleton } from '@/components/skeleton/ScreenSkeletons';
+import { useSavedEngagementSync } from '@/features/posts/postEvents';
 import type { Page, Post } from '@/services/api/posts';
 import { spacing, useAppTheme } from '@/theme';
 
@@ -45,7 +46,7 @@ export function PostGrid({
   // Rounded down: three tiles that add up to even a fraction over the row wrap to two columns.
   const size = Math.floor((gridWidth - GAP * 2) / 3);
   const list = usePagedList(fetchPage);
-  useEngagementSync<Post>('post', list.setItems);
+  useSavedEngagementSync(list.setItems);
 
   // A post shared from the create flow shows up on the author's own grid.
   const { setItems } = list;
@@ -60,9 +61,7 @@ export function PostGrid({
     [authorId, setItems],
   );
 
-  if (list.loading) {
-    return <ActivityIndicator color={colors.primary} style={styles.loader} />;
-  }
+  if (list.loading) return <PostGridSkeleton size={size} />;
   if (!list.items.length) return <>{empty}</>;
 
   return (
@@ -72,7 +71,7 @@ export function PostGrid({
           const cover = item.media[0];
           return (
             <Pressable
-              key={item.id}
+              key={item.reel ? `reel:${item.id}` : item.id}
               onPress={() =>
                 navigation.navigate('PostViewer', {
                   postId: item.id,
@@ -86,12 +85,20 @@ export function PostGrid({
                 backgroundColor: colors.surfaceAlt,
               }}
               accessibilityRole="button"
-              accessibilityLabel="Open post"
+              accessibilityLabel={item.reel ? 'Open reel' : 'Open post'}
             >
-              {cover ? (
+              {item.reel ? (
+                <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                  <ReelCover reel={item.reel} />
+                </View>
+              ) : cover ? (
                 <Image source={{ uri: cover.url }} style={styles.fill} />
               ) : null}
-              {item.media.length > 1 ? (
+              {item.reel ? (
+                <View style={styles.badge}>
+                  <Clapperboard size={16} color="#FFFFFF" />
+                </View>
+              ) : item.media.length > 1 ? (
                 <View style={styles.badge}>
                   <Layers size={16} color="#FFFFFF" />
                 </View>
@@ -104,12 +111,15 @@ export function PostGrid({
           );
         })}
       </View>
-      {list.hasMore ? (
+      {list.loadingMore ? (
+        <View style={styles.moreSkeleton}>
+          <PostGridSkeleton size={size} count={3} />
+        </View>
+      ) : list.hasMore ? (
         <Button
-          title={list.loadingMore ? 'Loading…' : 'Load more'}
+          title="Load more"
           variant="secondary"
           onPress={list.loadMore}
-          disabled={list.loadingMore}
           style={styles.more}
         />
       ) : null}
@@ -121,6 +131,6 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
   fill: { width: '100%', height: '100%' },
   badge: { position: 'absolute', top: 6, right: 6 },
-  loader: { marginTop: spacing.lg },
+  moreSkeleton: { marginTop: GAP },
   more: { margin: spacing.md },
 });

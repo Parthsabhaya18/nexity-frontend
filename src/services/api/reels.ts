@@ -25,6 +25,7 @@ export interface Reel {
   hide_like_count: boolean;
   comments_disabled: boolean;
   liked_by_me: boolean;
+  saved_by_me?: boolean;
   is_owner: boolean;
   created_at: string;
 }
@@ -67,6 +68,11 @@ export const reelsApi = {
       params: cursor ? { cursor } : {},
       signal,
     });
+    return data;
+  },
+
+  async save(id: string) {
+    const { data } = await apiClient.post<{ saved: boolean; reel: Reel }>(`/reels/${id}/save`);
     return data;
   },
 

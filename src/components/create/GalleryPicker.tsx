@@ -2,7 +2,6 @@ import { CameraRoll } from '@react-native-camera-roll/camera-roll';
 import { Check, ImageOff, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -15,6 +14,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SkeletonDarkTone } from '@/components/skeleton/Skeleton';
+import { MediaGridSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { Button } from '@/components/ui/Button';
 import {
   DURATION_TOLERANCE_MS,
@@ -205,7 +206,9 @@ export function GalleryPicker({
         </View>
 
         {loading && !items.length ? (
-          <ActivityIndicator color={WHITE} style={styles.center} />
+          <SkeletonDarkTone>
+            <MediaGridSkeleton columns={COLUMNS} size={size} gap={GAP} count={COLUMNS * 8} />
+          </SkeletonDarkTone>
         ) : denied || error || !items.length ? (
           <View style={styles.center}>
             <ImageOff size={34} color={WHITE} />

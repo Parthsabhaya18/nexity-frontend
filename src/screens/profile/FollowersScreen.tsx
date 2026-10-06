@@ -1,7 +1,6 @@
 import { Lock, Users } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   RefreshControl,
@@ -11,6 +10,7 @@ import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { FollowButton } from '@/components/follows/FollowButton';
 import { UserRow } from '@/components/follows/UserRow';
+import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { TabBar, TabButton } from '@/components/profile/ProfileParts';
 import { AppBar } from '@/components/ui/AppBar';
 import { Button } from '@/components/ui/Button';
@@ -169,7 +169,7 @@ function ConnectionsList({
       )}
       ListEmptyComponent={
         list.loading ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
+          <UserListSkeleton button />
         ) : privateError ? (
           <EmptyState
             icon={<Lock size={34} color={colors.primary} />}
@@ -206,7 +206,7 @@ function ConnectionsList({
       }
       ListFooterComponent={
         list.loadingMore ? (
-          <ActivityIndicator color={colors.primary} style={styles.footer} />
+          <UserListSkeleton rows={2} button />
         ) : undefined
       }
     />
@@ -216,8 +216,6 @@ function ConnectionsList({
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { flexGrow: 1, paddingBottom: spacing.lg },
-  loader: { marginTop: spacing.xl },
-  footer: { marginVertical: spacing.md },
   retry: { minWidth: 180 },
   remove: { minHeight: 34, borderRadius: radius.sm, paddingHorizontal: 14 },
 });

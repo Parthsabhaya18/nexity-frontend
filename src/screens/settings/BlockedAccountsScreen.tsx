@@ -4,6 +4,7 @@ import { Alert, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { UserRow } from '@/components/follows/UserRow';
+import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { AppBar } from '@/components/ui/AppBar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -62,7 +63,9 @@ export function BlockedAccountsScreen() {
               title="No blocked accounts"
               text="People you block can't find your profile, posts or stories."
             />
-          ) : undefined
+          ) : (
+            <UserListSkeleton button />
+          )
         }
         renderItem={({ item }) => (
           <UserRow

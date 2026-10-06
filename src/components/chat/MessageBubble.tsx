@@ -18,12 +18,14 @@ import type {
   MessageMedia,
   ReactionGroup,
   ReplyPreview,
+  SharedRef,
   StoryRef,
 } from '@/services/api/chat';
 import { useAppTheme } from '@/theme';
 import { clockTime } from '@/utils/time';
 
 import { AlbumStack, QuoteThumb, VisualMedia, VoiceBody } from './MediaBubble';
+import { SharedCard } from './SharedCard';
 
 export const MESSAGE_AVATAR_SIZE = 28;
 /** Side padding of the message list; the time column extends over it. */
@@ -68,6 +70,8 @@ type Props = {
   onPressAvatar?: () => void;
   /** Tap on a sent photo or video. */
   onOpenMedia?: (message: ChatMessage) => void;
+  /** Tap on a shared post or reel card. */
+  onOpenShared?: (shared: SharedRef) => void;
   /** Short message for the user (e.g. a voice note couldn't play). */
   onNotice?: (text: string) => void;
 };
@@ -76,6 +80,9 @@ const isVisual = (m: ChatMessage) =>
   !m.is_deleted &&
   (((m.type === 'image' || m.type === 'video') && Boolean(m.media)) ||
     (m.type === 'album' && Boolean(m.media_items?.length)));
+
+const isShare = (m: Pick<ChatMessage, 'type'>) =>
+  m.type === 'share_post' || m.type === 'share_reel' || m.type === 'share_profile';
 
 /** Album items are videos when they have a length; photos never do. */
 export const isVideoItem = (m: MessageMedia) => m.duration_ms != null;
@@ -102,6 +109,9 @@ export function messageSnippet(
     return items.length ? `${items.length} ${albumNoun(items)}` : 'Photos';
   }
   if (m.type === 'voice') return 'Voice message';
+  if (m.type === 'share_post') return 'Post';
+  if (m.type === 'share_reel') return 'Reel';
+  if (m.type === 'share_profile') return 'Profile';
   return m.body;
 }
 
@@ -254,6 +264,7 @@ export const MessageBubble = memo(function Bubble({
   onPressReactions,
   onPressAvatar,
   onOpenMedia,
+  onOpenShared,
   onNotice,
 }: Props) {
   const { colors } = useAppTheme();
@@ -261,6 +272,10 @@ export const MessageBubble = memo(function Bubble({
   const openable =
     isVisual(message) && message.status !== 'sending' && Boolean(onOpenMedia);
   const deleted = message.is_deleted;
+  const sharedTarget =
+    !deleted && isShare(message) && message.shared?.available && onOpenShared
+      ? message.shared
+      : null;
   const canReply = message.status === 'sent' && !deleted;
   const bubbleRef = useRef<ComponentRef<typeof View>>(null);
   const scale = useHeartbeat(highlight);
@@ -412,7 +427,13 @@ export const MessageBubble = memo(function Bubble({
           ) : null}
           <View style={styles.press} {...handlers}>
             <Pressable
-              onPress={openable ? () => onOpenMedia?.(message) : undefined}
+              onPress={
+                openable
+                  ? () => onOpenMedia?.(message)
+                  : sharedTarget
+                  ? () => onOpenShared?.(sharedTarget)
+                  : undefined
+              }
               onLongPress={() => onLongPress(message, measure)}
               delayLongPress={300}
               disabled={deleted}
@@ -587,6 +608,9 @@ export function BubbleBody({
         accessibilityLabel="Sticker"
       />
     );
+  }
+  if (!deleted && message.shared && isShare(message)) {
+    return <SharedCard shared={message.shared} failed={failed} />;
   }
   if (deleted) {
     return (

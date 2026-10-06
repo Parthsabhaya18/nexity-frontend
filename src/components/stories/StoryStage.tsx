@@ -143,6 +143,8 @@ type Props = {
   onAddLocation?: () => void;
   /** True while typing, drawing or dragging, so the screen can hide its own buttons. */
   onFocusChange?: (focused: boolean) => void;
+  /** Drawn above the "tap to add text" area but under the stickers (e.g. a shared post to move). */
+  underlay?: ReactNode;
 };
 
 type TextDraft = {
@@ -184,6 +186,7 @@ export function StoryStage({
   onReply,
   onAddLocation,
   onFocusChange,
+  underlay,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [size, setSize] = useState<Size>({ w: 1, h: 1 });
@@ -365,6 +368,7 @@ export function StoryStage({
             accessibilityLabel="Tap to add text"
           />
         ) : null}
+        {underlay}
         <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
           {overlays.map(item =>
             item.type === 'draw' ? (

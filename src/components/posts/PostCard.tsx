@@ -15,7 +15,6 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
-  Share,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -25,11 +24,13 @@ import {
 import { FilterFrame } from '@/components/create/FilterFrame';
 import { formatCount } from '@/components/profile/ProfileParts';
 import { ReportSheet } from '@/components/safety/ReportSheet';
+import { ShareSheet } from '@/components/share/ShareSheet';
 import { Avatar } from '@/components/ui/Avatar';
 import { setLikeState } from '@/features/posts/likeSync';
 import { emitPostEvent } from '@/features/posts/postEvents';
 import { ApiError } from '@/services/api/client';
 import { type Post, postsApi } from '@/services/api/posts';
+import { reelsApi } from '@/services/api/reels';
 import { spacing, useAppTheme } from '@/theme';
 import { timeAgo } from '@/utils/time';
 
@@ -55,15 +56,17 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
   const [reporting, setReporting] = useState(false);
   const [options, setOptions] = useState(false);
   const [showTags, setShowTags] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const saving = useRef(false);
   const lastTap = useRef(0);
   const burst = useRef(new Animated.Value(0)).current;
   const pop = useRef(new Animated.Value(1)).current;
   const scrollX = useRef(new Animated.Value(0)).current;
+  const kind = post.reel ? 'reel' : 'post';
 
   const like = useCallback(
     (liked: boolean) => {
-      setLikeState('post', post.id, post, liked);
+      setLikeState(kind, post.id, post, liked);
       if (liked) {
         pop.setValue(0.7);
         Animated.spring(pop, {
@@ -74,7 +77,7 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
         }).start();
       }
     },
-    [post, pop],
+    [kind, post, pop],
   );
 
   const playBurst = () => {
@@ -116,22 +119,23 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
     const next = !post.saved_by_me;
     emitPostEvent({
       type: 'patch',
-      kind: 'post',
+      kind,
       id: post.id,
       patch: { saved_by_me: next },
     });
     try {
-      const result = await postsApi.save(post.id);
+      const result =
+        kind === 'reel' ? await reelsApi.save(post.id) : await postsApi.save(post.id);
       emitPostEvent({
         type: 'patch',
-        kind: 'post',
+        kind,
         id: post.id,
         patch: { saved_by_me: result.saved },
       });
     } catch (err) {
       emitPostEvent({
         type: 'patch',
-        kind: 'post',
+        kind,
         id: post.id,
         patch: { saved_by_me: !next },
       });
@@ -236,6 +240,9 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
                   uri={item.url}
                   kind={item.kind}
                   active={!!active && i === index}
+                  trimStartMs={post.reel?.trim_start_ms}
+                  trimEndMs={post.reel?.trim_end_ms}
+                  forceMuted={post.reel?.audio_muted}
                   blurRadius={Math.round((post.adjustments?.blur ?? 0) / 8)}
                   style={{ width, height }}
                   accessibilityLabel={item.alt_text || `Photo ${i + 1}`}
@@ -340,11 +347,7 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
           </Pressable>
         )}
         <Pressable
-          onPress={() =>
-            Share.share({
-              message: `https://nexity.com/posts/${post.id}`,
-            }).catch(() => {})
-          }
+          onPress={() => setSharing(true)}
           accessibilityRole="button"
           accessibilityLabel="Share"
           hitSlop={6}
@@ -397,7 +400,7 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
         target={
           options
             ? {
-                kind: 'post',
+                kind,
                 id: post.id,
                 caption: post.caption,
                 hide_like_count: post.hide_like_count,
@@ -410,12 +413,32 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
       />
       <ReportSheet
         visible={reporting}
-        targetType="post"
+        targetType={kind}
         targetId={post.id}
         blockUserId={post.is_owner ? undefined : post.author.id}
         username={post.author.username}
         onClose={() => setReporting(false)}
         onBlocked={onDeleted}
+      />
+      <ShareSheet
+        target={
+          sharing
+            ? {
+                kind,
+                id: post.id,
+                media_index: index,
+                preview: {
+                  url: (post.media[index] ?? post.media[0])?.url ?? '',
+                  video: (post.media[index] ?? post.media[0])?.kind === 'video',
+                  username: post.author.username,
+                  avatar_url: post.author.avatar_url ?? null,
+                  caption: post.caption ?? '',
+                  aspect_ratio: post.aspect_ratio,
+                },
+              }
+            : null
+        }
+        onClose={() => setSharing(false)}
       />
     </View>
   );

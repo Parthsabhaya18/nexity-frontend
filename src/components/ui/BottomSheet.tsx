@@ -22,6 +22,8 @@ type Props = {
   avoidKeyboard?: boolean;
   /** Extra styles for the sheet surface, e.g. a fixed height. */
   style?: ViewStyle;
+  /** Hide the grab handle when the content draws its own (e.g. to make it draggable). */
+  hideHandle?: boolean;
 };
 
 /**
@@ -34,6 +36,7 @@ export function BottomSheet({
   children,
   avoidKeyboard,
   style,
+  hideHandle,
 }: Props) {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -107,7 +110,9 @@ export function BottomSheet({
             style,
           ]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          {hideHandle ? null : (
+            <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          )}
           {children}
         </Animated.View>
       </Wrapper>

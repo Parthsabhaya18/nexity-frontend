@@ -65,6 +65,24 @@ export function useEngagementSync<T extends { id: string }>(
   );
 }
 
+/** Like `useEngagementSync`, for lists that mix posts and reels (reels carry `reel`). */
+export function useSavedEngagementSync(setItems: Dispatch<SetStateAction<Post[]>>) {
+  useEffect(
+    () =>
+      onPostEvent(event => {
+        if (event.type === 'create') return;
+        const matches = (p: Post) =>
+          p.id === event.id && (p.reel ? 'reel' : 'post') === event.kind;
+        setItems(prev =>
+          event.type === 'remove'
+            ? prev.filter(p => !matches(p))
+            : prev.map(p => (matches(p) ? { ...p, ...event.patch } : p)),
+        );
+      }),
+    [setItems],
+  );
+}
+
 /** Applies a patch to the matching item of a list. */
 export function applyPatch<T extends { id: string }>(
   items: T[],

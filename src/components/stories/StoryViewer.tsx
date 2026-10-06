@@ -21,6 +21,7 @@ import {
   Modal,
   PanResponder,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -36,7 +37,9 @@ import { ReportSheet } from '@/components/safety/ReportSheet';
 import { StoryStage } from '@/components/stories/StoryStage';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import type { StoryOverlay } from '@/features/stories/overlay';
+import { markOwnStorySeen } from '@/features/stories/storyEvents';
 import { ApiError } from '@/services/api/client';
 import {
   type StoryGroup,
@@ -46,12 +49,20 @@ import {
 import { useAppTheme } from '@/theme';
 import { timeAgo } from '@/utils/time';
 
+import { DEFAULT_SHARED_LAYOUT, SharedStoryFrame } from './SharedStoryFrame';
+
 const IMAGE_MS = 5000;
 const SWIPE_CLOSE = 120;
 const SWIPE_UP = 70;
 const SWIPE_GROUP = 70;
 // Stories are always shown full-screen on black, so the chrome is white.
 const WHITE = '#FFFFFF';
+
+/** Video length as m:ss, like the reel badge Instagram shows on a shared reel. */
+const clipTime = (seconds: number) => {
+  const s = Math.round(seconds);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
 
 type Props = {
   groups: StoryGroup[];
@@ -87,6 +98,7 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
   const [viewers, setViewers] = useState<StoryViewerRow[] | null>(null);
   const [appActive, setAppActive] = useState(true);
   const [loaded, setLoaded] = useState(false);
+  const [clipLeft, setClipLeft] = useState(0);
   const [text, setText] = useState('');
   const [answerTo, setAnswerTo] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -109,7 +121,8 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
   useEffect(() => {
     if (startIndex === null) return;
     setG(startIndex);
-    const first = groups[startIndex]?.stories.findIndex(s => !s.seen) ?? 0;
+    const opened = groups[startIndex];
+    const first = opened?.user.is_self ? 0 : opened?.stories.findIndex(s => !s.seen) ?? 0;
     setI(Math.max(0, first));
     setRemoved(new Set());
     drag.setValue(0);
@@ -165,8 +178,10 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
     setText('');
     setAnswerTo(null);
     videoDuration.current = 0;
+    setClipLeft(0);
     setOverlays(item?.overlays ?? []);
-    if (item && !item.seen && !mine) storiesApi.view(item.id).catch(() => {});
+    if (item && !item.seen) storiesApi.view(item.id).catch(() => {});
+    if (item && mine) markOwnStorySeen(item.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id]);
 
@@ -323,11 +338,48 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
     else navigation.navigate('UserProfile', { username: group.user.username });
   };
 
+  const sharedPost = item?.shared?.kind === 'post' ? item.shared : null;
+  const media =
+    item.kind === 'video' ? (
+      <Video
+        key={item.id}
+        source={{ uri: item.url }}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+        paused={paused && loaded}
+        onLoad={e => {
+          videoDuration.current = e.duration;
+          setClipLeft(Math.ceil(e.duration));
+          setLoaded(true);
+        }}
+        onProgress={e => {
+          if (videoDuration.current > 0) {
+            progress.setValue(Math.min(1, e.currentTime / videoDuration.current));
+            setClipLeft(Math.max(0, Math.ceil(videoDuration.current - e.currentTime)));
+          }
+        }}
+        onEnd={next}
+        onError={() => setLoaded(true)}
+      />
+    ) : (
+      <Image
+        key={item.id}
+        source={{ uri: item.url }}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
+      />
+    );
+
   return (
     <Modal visible animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <StatusBar barStyle="light-content" />
+      <View style={[styles.backdrop, { paddingTop: insets.top }]}>
       <Animated.View
         style={[
           styles.fill,
+          styles.card,
           {
             transform: [{ translateY: drag }],
             opacity: drag.interpolate({
@@ -339,34 +391,26 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
         ]}
         {...pan.panHandlers}
       >
-        {item.kind === 'video' ? (
-          <Video
-            key={item.id}
-            source={{ uri: item.url }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-            paused={paused && loaded}
-            onLoad={e => {
-              videoDuration.current = e.duration;
-              setLoaded(true);
-            }}
-            onProgress={e => {
-              if (videoDuration.current > 0) {
-                progress.setValue(Math.min(1, e.currentTime / videoDuration.current));
-              }
-            }}
-            onEnd={next}
-            onError={() => setLoaded(true)}
-          />
-        ) : (
+        {sharedPost && item.kind === 'image' ? (
           <Image
-            key={item.id}
             source={{ uri: item.url }}
             style={StyleSheet.absoluteFill}
             resizeMode="cover"
-            onLoad={() => setLoaded(true)}
-            onError={() => setLoaded(true)}
+            blurRadius={30}
           />
+        ) : null}
+        {sharedPost ? <View style={styles.sharedDim} /> : null}
+        {item.shared ? (
+          <SharedStoryFrame
+            shared={item.shared}
+            layout={item.shared.layout ?? DEFAULT_SHARED_LAYOUT}
+          >
+            {media}
+          </SharedStoryFrame>
+        ) : (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            {media}
+          </View>
         )}
         {!loaded ? <ActivityIndicator color={WHITE} style={styles.loader} /> : null}
 
@@ -405,7 +449,7 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
           }}
         />
 
-        <View style={[styles.top, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
+        <View style={[styles.top, styles.topPad]} pointerEvents="box-none">
           <View style={styles.bars}>
             {stories.map((s, n) => (
               <View key={s.id} style={styles.barTrack}>
@@ -463,6 +507,16 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
               <X color={WHITE} size={26} />
             </Pressable>
           </View>
+          {item.shared?.kind === 'reel' ? (
+            <View style={styles.reelBy}>
+              <Text style={styles.reelByName} numberOfLines={1}>
+                {item.shared.username}
+              </Text>
+              {loaded && videoDuration.current > 0 ? (
+                <Text style={styles.reelByTime}>{clipTime(clipLeft)}</Text>
+              ) : null}
+            </View>
+          ) : null}
           {item.location_name ? (
             <Text style={styles.location} numberOfLines={1}>
               {item.location_name}
@@ -571,6 +625,7 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
           </View>
         </KeyboardAvoidingView>
       </Animated.View>
+      </View>
 
       <BottomSheet visible={viewersOpen} onClose={() => setViewersOpen(false)} style={styles.viewers}>
         <View style={styles.sheetHead}>
@@ -580,7 +635,7 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
           </Text>
         </View>
         {viewers === null ? (
-          <ActivityIndicator color={colors.primary} style={styles.sheetLoader} />
+          <UserListSkeleton rows={5} />
         ) : (
           <FlatList
             data={viewers}
@@ -628,7 +683,12 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
 
 const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: '#000000' },
+  /** Black strip behind the phone's status bar; the story starts below it. */
+  backdrop: { flex: 1, backgroundColor: '#000000' },
+  card: { borderTopLeftRadius: 14, borderTopRightRadius: 14, overflow: 'hidden' },
+  topPad: { paddingTop: 10 },
   loader: { position: 'absolute', alignSelf: 'center', top: '48%' },
+  sharedDim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.25)' },
   taps: { ...StyleSheet.absoluteFill, top: 110, bottom: 90, flexDirection: 'row' },
   tapLeft: { flex: 1 },
   tapRight: { flex: 2 },
@@ -643,6 +703,16 @@ const styles = StyleSheet.create({
   },
   barFill: { height: 2.5, backgroundColor: WHITE },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  reelBy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 6,
+    paddingLeft: 2,
+  },
+  reelByName: { color: WHITE, fontWeight: '600', fontSize: 13.5, flexShrink: 1 },
+  reelByTime: { color: WHITE, fontWeight: '600', fontSize: 13 },
   who: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   name: { color: WHITE, fontWeight: '700', fontSize: 14, flexShrink: 1 },
   time: { color: 'rgba(255,255,255,0.75)', fontSize: 13 },
@@ -692,6 +762,5 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   sheetTitle: { fontWeight: '800', fontSize: 16 },
-  sheetLoader: { marginTop: 24 },
   sheetEmpty: { textAlign: 'center', marginTop: 24 },
 });

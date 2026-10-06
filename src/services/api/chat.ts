@@ -17,7 +17,10 @@ export type MessageType =
   | 'gif'
   | 'sticker'
   | 'voice'
-  | 'system';
+  | 'system'
+  | 'share_post'
+  | 'share_reel'
+  | 'share_profile';
 
 export interface MessageMedia {
   provider: 'giphy' | 'upload';
@@ -57,6 +60,24 @@ export interface StoryRef {
   url: string | null;
 }
 
+/** Card of a shared post or reel; `available` is false once it was deleted. */
+export interface SharedRef {
+  kind: 'post' | 'reel' | 'profile';
+  id: string;
+  available: boolean;
+  author: { id: string; username: string; avatar_url: string | null } | null;
+  caption: string;
+  image_url: string | null;
+  video_url: string | null;
+  aspect_ratio: number;
+  /** Shared accounts: name and latest posts (empty when the account is private). */
+  profile?: {
+    display_name: string;
+    is_private: boolean;
+    grid: { url: string; video: boolean }[];
+  };
+}
+
 /** Reactions grouped by emoji; each person has at most one reaction per message. */
 export interface ReactionGroup {
   emoji: string;
@@ -85,6 +106,8 @@ export interface MessageDto {
   reply_to: ReplyPreview | null;
   /** Sent from a story's reply box; `url` is null once the story is gone. */
   story?: StoryRef | null;
+  /** The post or reel of a `share_post` / `share_reel` message. */
+  shared?: SharedRef | null;
   client_message_id: string;
   reactions?: ReactionGroup[];
   edited_at?: string | null;

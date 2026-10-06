@@ -33,9 +33,11 @@ export type AppNotification = {
 type NotificationsState = {
   items: readonly AppNotification[];
   unreadCount: number;
+  /** The first fetch has finished, whether or not it worked. */
+  loaded: boolean;
 };
 
-const EMPTY: NotificationsState = { items: [], unreadCount: 0 };
+const EMPTY: NotificationsState = { items: [], unreadCount: 0, loaded: false };
 let state: NotificationsState = EMPTY;
 const listeners = new Set<() => void>();
 
@@ -50,6 +52,7 @@ export async function refreshNotifications() {
     notificationsApi.unread(),
   ]);
   emit({
+    loaded: true,
     unreadCount: unread.notifications,
     items: page.items.map(item => ({
       id: item.id,
@@ -67,6 +70,7 @@ export async function refreshNotifications() {
 export async function markNotificationsRead() {
   await notificationsApi.readAll();
   emit({
+    ...state,
     unreadCount: 0,
     items: state.items.map(item => ({ ...item, read: true })),
   });
@@ -81,7 +85,9 @@ export function useNotifications(): NotificationsState {
     () => state,
   );
   useEffect(() => {
-    refreshNotifications().catch(() => {});
+    refreshNotifications().catch(() => {
+      if (!state.loaded) emit({ ...state, loaded: true });
+    });
   }, []);
   return snap;
 }

@@ -1,6 +1,6 @@
 import { ImageOff } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import {
@@ -8,6 +8,7 @@ import {
   type CommentTarget,
 } from '@/components/posts/CommentsSheet';
 import { PostCard } from '@/components/posts/PostCard';
+import { FeedSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { AppBar } from '@/components/ui/AppBar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -79,7 +80,7 @@ export function PostDetailScreen({
           action={<Button title="Try again" variant="secondary" onPress={load} />}
         />
       ) : !post ? (
-        <ActivityIndicator color={colors.primary} style={styles.loader} />
+        <FeedSkeleton count={1} />
       ) : (
         <ScrollView>
           <PostCard post={post} active onComment={() => setComments(true)} />
@@ -92,5 +93,4 @@ export function PostDetailScreen({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  loader: { marginTop: 32 },
 });

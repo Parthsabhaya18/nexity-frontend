@@ -61,6 +61,12 @@ export function previewText(last: LastMessage, mine: boolean) {
       ? 'Sent a sticker'
       : last.type === 'voice'
       ? 'Sent a voice message'
+      : last.type === 'share_post'
+      ? 'Sent a post'
+      : last.type === 'share_reel'
+      ? 'Sent a reel'
+      : last.type === 'share_profile'
+      ? 'Sent a profile'
       : last.body;
   return mine ? `You: ${text}` : text;
 }

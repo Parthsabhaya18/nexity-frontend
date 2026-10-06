@@ -1,5 +1,6 @@
 import {
   consumeFocusedReel,
+  consumeFocusedUser,
   focusReel,
   focusReelId,
   keepPinnedFirst,
@@ -49,5 +50,16 @@ describe('focus queue', () => {
     focusReel({ id: 'old', video_url: 'u' } as Reel);
     focusReelId('new');
     expect(consumeFocusedReel()).toEqual({ id: 'new' });
+  });
+
+  it("remembers whose profile a reel was opened from, once, and only for that reel", () => {
+    focusReel({ id: 'x', video_url: 'u' } as Reel, 'user-1');
+    expect(consumeFocusedUser()).toBe('user-1');
+    expect(consumeFocusedUser()).toBeNull();
+    focusReel({ id: 'y', video_url: 'u' } as Reel, 'user-1');
+    focusReelId('z');
+    expect(consumeFocusedUser()).toBeNull();
+    focusReel({ id: 'w', video_url: 'u' } as Reel);
+    expect(consumeFocusedUser()).toBeNull();
   });
 });

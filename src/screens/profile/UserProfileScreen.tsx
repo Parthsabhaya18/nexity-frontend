@@ -17,11 +17,9 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   RefreshControl,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -38,6 +36,8 @@ import {
   WebsiteLink,
 } from '@/components/profile/ProfileParts';
 import { ReportSheet } from '@/components/safety/ReportSheet';
+import { ShareSheet } from '@/components/share/ShareSheet';
+import { ProfileSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { ActionSheet } from '@/components/ui/ActionSheet';
 import { StoryAvatar } from '@/components/stories/StoryAvatar';
 import { AppBar } from '@/components/ui/AppBar';
@@ -145,7 +145,7 @@ export function UserProfileScreen({
       >
         {header}
         {load.state === 'loading' ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
+          <ProfileSkeleton />
         ) : load.state === 'notFound' ? (
           <EmptyState
             icon={<UserX size={34} color={colors.primary} />}
@@ -395,12 +395,9 @@ function MoreMenu({ profile }: { profile: Profile }) {
   const navigation = useNavigation();
   const [open, setOpen] = useState(false);
   const [reporting, setReporting] = useState(false);
-  const share = () =>
-    Share.share({
-      message: `See @${profile.username} on Nexity: ${profileLink(
-        profile.username,
-      )}`,
-    }).catch(() => {});
+  const [sharing, setSharing] = useState(false);
+  // Waits for the options sheet to finish closing; two modals can't animate at once on iOS.
+  const share = () => setTimeout(() => setSharing(true), 250);
 
   const block = () => {
     Alert.alert(
@@ -467,13 +464,20 @@ function MoreMenu({ profile }: { profile: Profile }) {
         onClose={() => setReporting(false)}
         onBlocked={() => navigation.goBack()}
       />
+      <ShareSheet
+        target={
+          sharing
+            ? { kind: 'profile', id: profile.id, link: profileLink(profile.username) }
+            : null
+        }
+        onClose={() => setSharing(false)}
+      />
     </>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  loader: { marginTop: spacing.xl * 2 },
   retry: { minWidth: 180 },
   scroll: { paddingBottom: spacing.lg },
   head: { paddingHorizontal: spacing.md, paddingTop: 6, paddingBottom: 4 },

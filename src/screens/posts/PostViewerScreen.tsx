@@ -1,7 +1,6 @@
-﻿import { ImageOff } from 'lucide-react-native';
+import { ImageOff } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   StyleSheet,
   type ListViewToken,
@@ -13,10 +12,11 @@ import {
   type CommentTarget,
 } from '@/components/posts/CommentsSheet';
 import { PostCard } from '@/components/posts/PostCard';
+import { FeedSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { AppBar } from '@/components/ui/AppBar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { useEngagementSync } from '@/features/posts/postEvents';
+import { useSavedEngagementSync } from '@/features/posts/postEvents';
 import type { ScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { ApiError } from '@/services/api/client';
@@ -52,7 +52,7 @@ export function PostViewerScreen({
     },
   );
   useStatusBar();
-  useEngagementSync<Post>('post', setItems);
+  useSavedEngagementSync(setItems);
 
   const fetchPage = useCallback(
     (c: string | null) =>
@@ -137,12 +137,12 @@ export function PostViewerScreen({
           action={<Button title="Try again" variant="secondary" onPress={load} />}
         />
       ) : startIndex === null ? (
-        <ActivityIndicator color={colors.primary} style={styles.loader} />
+        <FeedSkeleton count={1} />
       ) : (
         <FlatList
           ref={list}
           data={items}
-          keyExtractor={p => p.id}
+          keyExtractor={p => (p.reel ? `reel:${p.id}` : p.id)}
           initialNumToRender={startIndex + 2}
           onContentSizeChange={jumpToStart}
           onScrollToIndexFailed={({ index: i, averageItemLength }) => {
@@ -165,7 +165,7 @@ export function PostViewerScreen({
               active={i === index}
               onComment={() =>
                 setComments({
-                  kind: 'post',
+                  kind: item.reel ? 'reel' : 'post',
                   id: item.id,
                   commentsDisabled: item.comments_disabled,
                   isOwner: item.is_owner,
@@ -197,5 +197,4 @@ export function PostViewerScreen({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  loader: { marginTop: 32 },
 });

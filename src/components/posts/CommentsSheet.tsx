@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { ReportSheet } from '@/components/safety/ReportSheet';
+import { CommentListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
@@ -205,7 +206,7 @@ export function CommentsSheet({ target, onClose }: Props) {
     >
       <Text style={[styles.title, { color: colors.text }]}>Comments</Text>
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loader} />
+        <CommentListSkeleton />
       ) : loadError ? (
         <View style={styles.center}>
           <Text style={[styles.empty, { color: colors.textSecondary }]}>
@@ -229,9 +230,7 @@ export function CommentsSheet({ target, onClose }: Props) {
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
           ListFooterComponent={
-            loadingMore ? (
-              <ActivityIndicator color={colors.primary} style={styles.loader} />
-            ) : undefined
+            loadingMore ? <CommentListSkeleton rows={2} inset={false} /> : undefined
           }
           ListEmptyComponent={
             <Text style={[styles.empty, { color: colors.textSecondary }]}>
@@ -416,7 +415,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: 8,
   },
-  loader: { marginTop: spacing.lg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   retry: { minWidth: 160 },
   list: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, flexGrow: 1 },

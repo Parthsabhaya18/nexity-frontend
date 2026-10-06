@@ -10,7 +10,6 @@ import {
   useState,
 } from 'react';
 import {
-  ActivityIndicator,
   Image,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -23,6 +22,7 @@ import {
   View,
 } from 'react-native';
 
+import { MediaGridSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { type GifItem, type GifKind, chatApi } from '@/services/api/chat';
 import { ApiError } from '@/services/api/client';
@@ -194,7 +194,14 @@ export function GifSheet({ visible, onClose, onPick }: Props) {
             />
           </View>
         ) : !state.items.length && (state.loading || !visible) ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
+          <View style={styles.grid}>
+            <MediaGridSkeleton
+              columns={kind === 'sticker' ? STICKER_COLUMNS : 2}
+              size={kind === 'sticker' ? stickerCell : gifColumn}
+              gap={GAP}
+              rounded={10}
+            />
+          </View>
         ) : !state.items.length ? (
           <View style={styles.center}>
             <EmptyState
@@ -240,7 +247,15 @@ export function GifSheet({ visible, onClose, onPick }: Props) {
               </View>
             )}
             {state.loading ? (
-              <ActivityIndicator color={colors.primary} style={styles.more} />
+              <View style={styles.more}>
+                <MediaGridSkeleton
+                  columns={kind === 'sticker' ? STICKER_COLUMNS : 2}
+                  count={kind === 'sticker' ? STICKER_COLUMNS : 2}
+                  size={kind === 'sticker' ? stickerCell : gifColumn}
+                  gap={GAP}
+                  rounded={10}
+                />
+              </View>
             ) : null}
             <Text style={[styles.attribution, { color: colors.textSecondary }]}>
               Powered by GIPHY
@@ -404,14 +419,13 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
   body: { flex: 1 },
   center: { flex: 1, justifyContent: 'center' },
-  loader: { marginTop: 48 },
   grid: { paddingHorizontal: PADDING, paddingBottom: 12 },
   columns: { flexDirection: 'row', gap: GAP },
   stickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
   stickerImage: { width: '100%', height: '100%' },
   tile: { borderRadius: 10, overflow: 'hidden' },
   pressed: { opacity: 0.6 },
-  more: { marginVertical: 14 },
+  more: { marginTop: GAP, marginBottom: 14 },
   attribution: {
     fontSize: 11,
     fontWeight: '700',

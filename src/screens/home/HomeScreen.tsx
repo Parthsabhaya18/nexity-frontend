@@ -11,6 +11,7 @@ import {
 } from '@/components/posts/CommentsSheet';
 import { PostCard } from '@/components/posts/PostCard';
 import { PostingBar } from '@/components/posts/PostingBar';
+import { FeedSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { StoriesTray } from '@/components/stories/StoriesTray';
 import { StoryViewer } from '@/components/stories/StoryViewer';
 import { AppBar } from '@/components/ui/AppBar';
@@ -173,8 +174,13 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
             }
           />
         )}
+        ListFooterComponent={
+          list.loadingMore ? <FeedSkeleton count={1} /> : undefined
+        }
         ListEmptyComponent={
-          list.loading ? undefined : (
+          list.loading ? (
+            <FeedSkeleton />
+          ) : (
             <EmptyState
               icon={<Camera size={34} color={colors.primary} />}
               title="Your feed is empty"

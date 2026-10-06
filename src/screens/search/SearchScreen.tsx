@@ -6,7 +6,6 @@ import {
 import { Clock, SearchX, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   type FlatListInstance,
   Pressable,
@@ -18,6 +17,7 @@ import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { FollowButton } from '@/components/follows/FollowButton';
 import { UserRow } from '@/components/follows/UserRow';
+import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SearchField } from '@/components/ui/SearchField';
@@ -165,7 +165,7 @@ export function SearchScreen() {
         )}
         ListEmptyComponent={
           loading || typing ? (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+            <UserListSkeleton button />
           ) : error ? (
             <EmptyState
               icon={<SearchX size={34} color={colors.primary} />}
@@ -213,6 +213,5 @@ const styles = StyleSheet.create({
   heading: { fontSize: 16, fontWeight: '800' },
   clear: { fontSize: 14, fontWeight: '700' },
   remove: { padding: 6 },
-  loader: { marginTop: spacing.xl },
   retry: { minWidth: 180 },
 });
