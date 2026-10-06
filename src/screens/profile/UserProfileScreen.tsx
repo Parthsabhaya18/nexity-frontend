@@ -32,6 +32,7 @@ import { FollowButton } from '@/components/follows/FollowButton';
 import { AvatarPreview } from '@/components/profile/AvatarPreview';
 import {
   Stat,
+  SwipeTabs,
   TabBar,
   TabButton,
   WebsiteLink,
@@ -59,6 +60,8 @@ import { safetyApi } from '@/services/api/safety';
 import type { ScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { radius, spacing, useAppTheme } from '@/theme';
+
+const USER_TABS = ['posts', 'reels'] as const;
 
 type Load =
   | { state: 'loading' }
@@ -198,7 +201,7 @@ export function UserProfileScreen({
 function ProfileBody({ profile }: { profile: Profile }) {
   const { colors } = useAppTheme();
   const navigation = useNavigation();
-  const [tab, setTab] = useState<'posts' | 'reels'>('posts');
+  const [tab, setTab] = useState<(typeof USER_TABS)[number]>('posts');
   const [photoOpen, setPhotoOpen] = useState(false);
   const fetchPosts = useCallback(
     (cursor: string | null, signal: AbortSignal) =>
@@ -330,6 +333,7 @@ function ProfileBody({ profile }: { profile: Profile }) {
               Icon={Clapperboard}
             />
           </TabBar>
+          <SwipeTabs tabs={USER_TABS} value={tab} onChange={setTab}>
           {tab === 'posts' ? (
             <PostGrid
               fetchPage={fetchPosts}
@@ -353,6 +357,7 @@ function ProfileBody({ profile }: { profile: Profile }) {
               }
             />
           )}
+          </SwipeTabs>
         </>
       ) : (
         <View

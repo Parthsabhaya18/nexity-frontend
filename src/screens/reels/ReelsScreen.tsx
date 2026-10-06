@@ -52,42 +52,52 @@ const LIKE = '#FF3B5C';
 const DOUBLE_TAP_MS = 260;
 const CONTROLS_MS = 1500;
 
+/** The feed never ends and repeats reels in later rounds, so each copy gets its own key. */
+type FeedReel = Reel & { feed_key: string };
+
 export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
   const bottomInset = useTabBarInset();
   const focused = useIsFocused();
   const [page, setPage] = useState(0);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
   const [comments, setComments] = useState<CommentTarget | null>(null);
   const [options, setOptions] = useState<Reel | null>(null);
   const [report, setReport] = useState<Reel | null>(null);
-  const pinned = useRef<Reel | null>(null);
-  const listRef = useRef<FlatList<Reel>>(null);
+  const pinned = useRef<FeedReel | null>(null);
+  const listRef = useRef<FlatList<FeedReel>>(null);
+  const copies = useRef(0);
   useStatusBar('dark');
 
-  const fetchPage = useCallback(
-    (cursor: string | null, signal: AbortSignal) => reelsApi.feed(cursor, signal),
+  const keyed = useCallback(
+    (reel: Reel): FeedReel => ({ ...reel, feed_key: `${reel.id}:${copies.current++}` }),
     [],
   );
-  const list = usePagedList<Reel>(fetchPage);
+  const fetchPage = useCallback(
+    (cursor: string | null, signal: AbortSignal) =>
+      reelsApi.feed(cursor, signal).then(res => ({ ...res, items: res.items.map(keyed) })),
+    [keyed],
+  );
+  const list = usePagedList<FeedReel>(fetchPage);
   const { items, setItems } = list;
-  useEngagementSync<Reel>('reel', setItems);
+  useEngagementSync<FeedReel>('reel', setItems);
 
   useEffect(() => {
-    if (!activeId && items[0]) setActiveId(items[0].id);
-    if (activeId && items.length && !items.some(r => r.id === activeId)) {
-      setActiveId(items[0]?.id ?? null);
+    if (!activeKey && items[0]) setActiveKey(items[0].feed_key);
+    if (activeKey && items.length && !items.some(r => r.feed_key === activeKey)) {
+      setActiveKey(items[0]?.feed_key ?? null);
     }
-  }, [items, activeId]);
+  }, [items, activeKey]);
 
   useFocusEffect(
     useCallback(() => {
       const focus = consumeFocusedReel();
       if (!focus) return;
       const open = (reel: Reel) => {
-        pinned.current = reel;
-        setItems(prev => [reel, ...prev.filter(item => item.id !== reel.id)]);
-        setActiveId(reel.id);
+        const item = keyed(reel);
+        pinned.current = item;
+        setItems(prev => [item, ...prev.filter(r => r.id !== reel.id)]);
+        setActiveKey(item.feed_key);
         listRef.current?.scrollToOffset({ offset: 0, animated: false });
       };
       if ('video_url' in focus) {
@@ -101,19 +111,20 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
         .then(open)
         .catch(() => {});
       return () => controller.abort();
-    }, [setItems]),
+    }, [keyed, setItems]),
   );
 
   // A reel opened from a profile stays first even when the (random) feed page
-  // arrives afterwards and replaces the list, and is never shown twice.
+  // arrives afterwards and replaces the list. Later rounds may repeat it.
   useEffect(() => {
     const pin = pinned.current;
     if (!pin || list.loading) return;
+    pinned.current = null;
     const next = keepPinnedFirst(items, pin);
     if (!next) return;
     setItems(next);
     if (items[0]?.id !== pin.id) {
-      setActiveId(pin.id);
+      setActiveKey(next[0]!.feed_key);
       listRef.current?.scrollToOffset({ offset: 0, animated: false });
     }
   }, [items, list.loading, setItems]);
@@ -157,7 +168,7 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
         <FlatList
           ref={listRef}
           data={items}
-          keyExtractor={r => r.id}
+          keyExtractor={r => r.feed_key}
           pagingEnabled
           snapToInterval={page}
           snapToAlignment="start"
@@ -176,7 +187,7 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
           onMomentumScrollEnd={e => {
             const i = Math.round(e.nativeEvent.contentOffset.y / page);
             const reel = items[i];
-            if (reel) setActiveId(reel.id);
+            if (reel) setActiveKey(reel.feed_key);
           }}
           ListEmptyComponent={
             <View style={[styles.state, { height: page, paddingBottom: bottomInset }]}>
@@ -193,7 +204,7 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
               reel={item}
               height={page}
               bottomInset={bottomInset}
-              active={focused && item.id === activeId && !comments && !options && !report}
+              active={focused && item.feed_key === activeKey && !comments && !options && !report}
               muted={muted}
               onToggleMute={toggleMute}
               onComments={openComments}

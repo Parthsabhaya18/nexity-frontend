@@ -1,4 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Clapperboard } from 'lucide-react-native';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
@@ -12,6 +13,7 @@ import {
 import Video, { type VideoRef } from 'react-native-video';
 
 import { focusReel } from '@/features/reels/reelFocus';
+import type { RootStackParamList } from '@/navigation/types';
 import type { Reel } from '@/services/api/reels';
 import { reelsApi } from '@/services/api/reels';
 import { useAppTheme } from '@/theme';
@@ -53,7 +55,7 @@ export function ReelGrid({
   empty: ReactNode;
 }) {
   const { colors } = useAppTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { width } = useWindowDimensions();
   const [gridWidth, setGridWidth] = useState(width);
   // Rounded down: three tiles that add up to even a fraction over the row wrap to two columns.
@@ -87,7 +89,8 @@ export function ReelGrid({
           key={reel.id}
           onPress={() => {
             focusReel(reel);
-            navigation.navigate('Main', { screen: 'Reels' });
+            // Profiles sit above the tabs in the stack; go back down to them instead of pushing.
+            navigation.popTo('Main', { screen: 'Reels' });
           }}
           accessibilityRole="button"
           accessibilityLabel="Play reel"
@@ -100,8 +103,10 @@ export function ReelGrid({
             },
           ]}
         >
-          <ReelCover reel={reel} />
-          <View style={styles.shade}>
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <ReelCover reel={reel} />
+          </View>
+          <View style={styles.shade} pointerEvents="none">
             <Clapperboard size={18} color="#FFFFFF" />
             <Text style={styles.likes}>{reel.likes_count}</Text>
           </View>

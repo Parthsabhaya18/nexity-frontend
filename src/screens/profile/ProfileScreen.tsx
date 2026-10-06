@@ -25,6 +25,7 @@ import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { AvatarPreview } from '@/components/profile/AvatarPreview';
 import {
   Stat,
+  SwipeTabs,
   TabBar,
   TabButton,
   WebsiteLink,
@@ -43,7 +44,8 @@ import type { ScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { radius, spacing, useAppTheme } from '@/theme';
 
-type ProfileTab = 'posts' | 'reels' | 'saved';
+const PROFILE_TABS = ['posts', 'reels', 'saved'] as const;
+type ProfileTab = (typeof PROFILE_TABS)[number];
 
 export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
   const { user, refreshUser } = useAuth();
@@ -258,6 +260,7 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
           />
         </TabBar>
 
+        <SwipeTabs tabs={PROFILE_TABS} value={tab} onChange={setTab}>
         {tab === 'posts' ? (
           <PostGrid
             fetchPage={fetchPosts}
@@ -308,6 +311,7 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
             }
           />
         )}
+        </SwipeTabs>
       </ScrollView>
       <AvatarPreview
         visible={photoOpen}
