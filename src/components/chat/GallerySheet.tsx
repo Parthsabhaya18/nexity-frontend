@@ -17,7 +17,6 @@ import {
 } from 'lucide-react-native';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   AppState,
   BackHandler,
@@ -35,6 +34,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
+import { MediaGridSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { cameraRollMedia } from '@/features/media/cameraRollMedia';
 import type { LocalMedia } from '@/features/media/pickMedia';
@@ -420,7 +420,7 @@ export function GallerySheet({
 
   let body;
   if (access === 'checking') {
-    body = <ActivityIndicator color={colors.primary} style={styles.loader} />;
+    body = <MediaGridSkeleton columns={COLUMNS} size={tile} gap={GAP} count={COLUMNS * 6} />;
   } else if (!canRead) {
     const blocked = access === 'blocked' || access === 'unavailable';
     body = (
@@ -465,7 +465,15 @@ export function GallerySheet({
               text="Albums on this device will show up here."
             />
           ) : (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+            <MediaGridSkeleton
+              columns={COLUMNS}
+              size={albumTile}
+              gap={ALBUM_GAP}
+              rowGap={16}
+              count={COLUMNS * 3}
+              rounded={radius.sm}
+              captions
+            />
           )
         }
         renderItem={({ item }) => (
@@ -539,7 +547,7 @@ export function GallerySheet({
         }
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+            <MediaGridSkeleton columns={COLUMNS} size={tile} gap={GAP} count={COLUMNS * 6} />
           ) : (
             <EmptyState
               icon={<ImageOff size={34} color={colors.primary} />}
@@ -550,7 +558,9 @@ export function GallerySheet({
         }
         ListFooterComponent={
           loading && items.length ? (
-            <ActivityIndicator color={colors.primary} style={styles.more} />
+            <View style={styles.more}>
+              <MediaGridSkeleton columns={COLUMNS} size={tile} gap={GAP} count={COLUMNS} />
+            </View>
           ) : undefined
         }
         renderItem={({ item }) => (
@@ -807,8 +817,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 16, fontWeight: '800', flexShrink: 1 },
   center: { flex: 1, justifyContent: 'center' },
-  loader: { marginTop: 48 },
-  more: { marginVertical: 16 },
+  more: { marginBottom: 16 },
   cta: { minWidth: 200 },
   pressed: { opacity: 0.7 },
   menu: {

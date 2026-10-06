@@ -29,6 +29,18 @@ export type RootStackParamList = {
   CreatePostCrop: undefined;
   CreatePostDetails: undefined;
   CreateStory: undefined;
+  /** Preview of a post or reel before adding it to your story. */
+  ShareStory: {
+    kind: 'post' | 'reel';
+    id: string;
+    media_index: number;
+    url: string;
+    video: boolean;
+    username: string;
+    avatar_url: string | null;
+    caption: string;
+    aspect_ratio: number;
+  };
   CreateReel: undefined;
   PostDetail: { postId: string };
   /** Swipe between the posts of a profile or the saved list; ids only. */

@@ -23,7 +23,7 @@ export function useTabBarInset() {
 }
 
 /** Tabs whose screen is full-bleed black, so the nav switches to its dark look. */
-const DARK_TABS: ReadonlySet<keyof MainTabParamList> = new Set(['Reels']);
+const DARK_TABS: ReadonlySet<keyof MainTabParamList> = new Set();
 
 const LABELS: Record<keyof MainTabParamList, string> = {
   Home: 'Home',

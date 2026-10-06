@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useOwnStoriesSeen } from '@/features/stories/storyEvents';
 import type { StoryGroup } from '@/services/api/stories';
 import { spacing, useAppTheme } from '@/theme';
 
@@ -16,8 +17,14 @@ type Props = {
 export function StoriesTray({ groups, onOpen, onCreate }: Props) {
   const { colors } = useAppTheme();
   const { user } = useAuth();
+  const ownStoriesSeen = useOwnStoriesSeen();
   const mine = groups.find(g => g.user.is_self);
   const others = groups.filter(g => !g.user.is_self);
+  const mineRing = !mine
+    ? 'transparent'
+    : mine.seen || ownStoriesSeen(mine.stories)
+    ? colors.border
+    : colors.primary;
 
   return (
     <ScrollView
@@ -34,7 +41,7 @@ export function StoriesTray({ groups, onOpen, onCreate }: Props) {
         <View
           style={[
             styles.ring,
-            { borderColor: mine ? colors.primary : 'transparent' },
+            { borderColor: mineRing },
           ]}
         >
           <Avatar

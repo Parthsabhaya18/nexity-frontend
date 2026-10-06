@@ -1,5 +1,6 @@
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import {
+  Bookmark,
   Clapperboard,
   Heart,
   MapPin,
@@ -15,16 +16,17 @@ import {
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Easing,
   FlatList,
   Image,
   Pressable,
-  Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Video, { type VideoRef } from 'react-native-video';
 
 import {
@@ -35,15 +37,22 @@ import { CaptionText } from '@/components/posts/CaptionText';
 import { PostOptionsSheet } from '@/components/posts/PostOptionsSheet';
 import { formatCount } from '@/components/profile/ProfileParts';
 import { ReportSheet } from '@/components/safety/ReportSheet';
+import { ShareSheet } from '@/components/share/ShareSheet';
+import { ReelSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { usePagedList } from '@/features/follows/usePagedList';
 import { setLikeState } from '@/features/posts/likeSync';
-import { useEngagementSync } from '@/features/posts/postEvents';
-import { consumeFocusedReel, keepPinnedFirst } from '@/features/reels/reelFocus';
+import { emitPostEvent, useEngagementSync } from '@/features/posts/postEvents';
+import {
+  consumeFocusedReel,
+  consumeFocusedUser,
+  keepPinnedFirst,
+} from '@/features/reels/reelFocus';
 import { useTabBarInset } from '@/navigation/BottomNav';
 import type { TabScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
+import { ApiError } from '@/services/api/client';
 import { type Reel, reelsApi } from '@/services/api/reels';
 
 // Reels always play full-screen on black, like the camera.
@@ -57,6 +66,7 @@ type FeedReel = Reel & { feed_key: string };
 
 export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
   const bottomInset = useTabBarInset();
+  const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const [page, setPage] = useState(0);
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -64,9 +74,13 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
   const [comments, setComments] = useState<CommentTarget | null>(null);
   const [options, setOptions] = useState<Reel | null>(null);
   const [report, setReport] = useState<Reel | null>(null);
+  const [sharing, setSharing] = useState<Reel | null>(null);
   const pinned = useRef<FeedReel | null>(null);
   const listRef = useRef<FlatList<FeedReel>>(null);
   const copies = useRef(0);
+  /** Set while showing one person's reels (opened from their profile) instead of the feed. */
+  const profileUser = useRef<string | null>(null);
+  const [start, setStart] = useState<Reel | null>(null);
   useStatusBar('dark');
 
   const keyed = useCallback(
@@ -75,11 +89,16 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
   );
   const fetchPage = useCallback(
     (cursor: string | null, signal: AbortSignal) =>
-      reelsApi.feed(cursor, signal).then(res => ({ ...res, items: res.items.map(keyed) })),
+      (profileUser.current
+        ? reelsApi.byUser(profileUser.current, cursor, signal)
+        : reelsApi.feed(cursor, signal)
+      ).then(res => ({ ...res, items: res.items.map(keyed) })),
     [keyed],
   );
   const list = usePagedList<FeedReel>(fetchPage);
   const { items, setItems } = list;
+  const retry = useRef(list.retry);
+  retry.current = list.retry;
   useEngagementSync<FeedReel>('reel', setItems);
 
   useEffect(() => {
@@ -92,7 +111,20 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
   useFocusEffect(
     useCallback(() => {
       const focus = consumeFocusedReel();
+      const fromUser = consumeFocusedUser();
       if (!focus) return;
+      if (fromUser && 'video_url' in focus) {
+        pinned.current = null;
+        profileUser.current = fromUser;
+        setStart(focus);
+        retry.current();
+        return;
+      }
+      if (profileUser.current) {
+        profileUser.current = null;
+        setStart(null);
+        retry.current();
+      }
       const open = (reel: Reel) => {
         const item = keyed(reel);
         pinned.current = item;
@@ -129,6 +161,38 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
     }
   }, [items, list.loading, setItems]);
 
+  // Opened from a profile: once that person's reels load, start on the tapped one.
+  useEffect(() => {
+    if (!start || list.loading) return;
+    setStart(null);
+    const at = items.findIndex(r => r.id === start.id);
+    if (at < 0) {
+      const item = keyed(start);
+      setItems(prev => [item, ...prev]);
+      setActiveKey(item.feed_key);
+      requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: 0, animated: false }));
+      return;
+    }
+    setActiveKey(items[at]!.feed_key);
+    requestAnimationFrame(() =>
+      listRef.current?.scrollToOffset({ offset: page * at, animated: false }),
+    );
+  }, [start, items, list.loading, page, keyed, setItems]);
+
+  // Tapping the Reels tab leaves a profile's reels and goes back to the feed.
+  useEffect(
+    () =>
+      navigation.addListener('tabPress', () => {
+        if (!profileUser.current) return;
+        profileUser.current = null;
+        pinned.current = null;
+        setStart(null);
+        retry.current();
+        listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      }),
+    [navigation],
+  );
+
   const refresh = useCallback(() => {
     pinned.current = null;
     list.refresh();
@@ -154,9 +218,10 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
   const optionsReel = options ? items.find(r => r.id === options.id) ?? options : null;
 
   return (
+    <View style={[styles.root, { paddingTop: insets.top }]}>
     <View style={styles.root} onLayout={e => setPage(e.nativeEvent.layout.height)}>
       {page === 0 ? null : list.loading ? (
-        <ActivityIndicator color={WHITE} style={styles.center} />
+        <ReelSkeleton bottomInset={bottomInset} />
       ) : list.error && !items.length ? (
         <View style={[styles.center, styles.state]}>
           <WifiOff size={34} color={WHITE} />
@@ -204,11 +269,19 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
               reel={item}
               height={page}
               bottomInset={bottomInset}
-              active={focused && item.feed_key === activeKey && !comments && !options && !report}
+              active={
+                focused &&
+                item.feed_key === activeKey &&
+                !comments &&
+                !options &&
+                !report &&
+                !sharing
+              }
               muted={muted}
               onToggleMute={toggleMute}
               onComments={openComments}
               onMenu={openMenu}
+              onShare={setSharing}
               onProfile={() =>
                 item.author.is_self
                   ? navigation.navigate('Profile')
@@ -234,6 +307,25 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
         }
         onClose={() => setOptions(null)}
       />
+      <ShareSheet
+        target={
+          sharing
+            ? {
+                kind: 'reel',
+                id: sharing.id,
+                preview: {
+                  url: sharing.video_url,
+                  video: true,
+                  username: sharing.author.username,
+                  avatar_url: sharing.author.avatar_url ?? null,
+                  caption: sharing.caption ?? '',
+                  aspect_ratio: 9 / 16,
+                },
+              }
+            : null
+        }
+        onClose={() => setSharing(null)}
+      />
       {report ? (
         <ReportSheet
           visible
@@ -248,6 +340,7 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
         />
       ) : null}
     </View>
+    </View>
   );
 }
 
@@ -260,6 +353,7 @@ type ItemProps = {
   onToggleMute: () => void;
   onComments: (reel: Reel) => void;
   onMenu: (reel: Reel) => void;
+  onShare: (reel: Reel) => void;
   onProfile: () => void;
 };
 
@@ -272,6 +366,7 @@ const ReelItem = memo(function ReelPage({
   onToggleMute,
   onComments,
   onMenu,
+  onShare,
   onProfile,
 }: ItemProps) {
   const video = useRef<VideoRef>(null);
@@ -286,6 +381,7 @@ const ReelItem = memo(function ReelPage({
   const controlsTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const burst = useRef(new Animated.Value(0)).current;
   const pop = useRef(new Animated.Value(1)).current;
+  const saving = useRef(false);
   const startSec = (reel.trim_start_ms ?? 0) / 1000;
 
   // Coming back to a reel starts it playing again.
@@ -320,6 +416,27 @@ const ReelItem = memo(function ReelPage({
     if (want) {
       pop.setValue(0.6);
       Animated.spring(pop, { toValue: 1, friction: 3, tension: 180, useNativeDriver: true }).start();
+    }
+  };
+
+  const toggleSave = async () => {
+    if (saving.current) return;
+    saving.current = true;
+    const next = !reel.saved_by_me;
+    emitPostEvent({ type: 'patch', kind: 'reel', id: reel.id, patch: { saved_by_me: next } });
+    try {
+      const result = await reelsApi.save(reel.id);
+      emitPostEvent({
+        type: 'patch',
+        kind: 'reel',
+        id: reel.id,
+        patch: { saved_by_me: result.saved },
+      });
+    } catch (err) {
+      emitPostEvent({ type: 'patch', kind: 'reel', id: reel.id, patch: { saved_by_me: !next } });
+      Alert.alert("Couldn't save", err instanceof ApiError ? err.message : 'Please try again.');
+    } finally {
+      saving.current = false;
     }
   };
 
@@ -411,7 +528,7 @@ const ReelItem = memo(function ReelPage({
               accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
               style={styles.soundBadge}
             >
-              {muted ? <VolumeX size={24} color={WHITE} /> : <Volume2 size={24} color={WHITE} />}
+              {muted ? <VolumeX size={18} color={WHITE} /> : <Volume2 size={18} color={WHITE} />}
             </Pressable>
           )}
           <Pressable
@@ -421,9 +538,9 @@ const ReelItem = memo(function ReelPage({
             style={[styles.playBadge, playing && styles.pauseBadge]}
           >
             {playing ? (
-              <Pause size={32} color={WHITE} fill={WHITE} />
+              <Pause size={22} color={WHITE} fill={WHITE} />
             ) : (
-              <Play size={34} color={WHITE} fill={WHITE} />
+              <Play size={24} color={WHITE} fill={WHITE} />
             )}
           </Pressable>
         </View>
@@ -478,14 +595,24 @@ const ReelItem = memo(function ReelPage({
           </Pressable>
         )}
         <Pressable
-          onPress={() =>
-            Share.share({ message: `https://nexity.com/reels/${reel.id}` }).catch(() => {})
-          }
+          onPress={() => onShare(reel)}
           accessibilityRole="button"
           accessibilityLabel="Share"
           style={styles.action}
         >
           <Send size={27} color={WHITE} />
+        </Pressable>
+        <Pressable
+          onPress={toggleSave}
+          accessibilityRole="button"
+          accessibilityLabel={reel.saved_by_me ? 'Remove from saved' : 'Save'}
+          style={styles.action}
+        >
+          <Bookmark
+            size={27}
+            color={WHITE}
+            fill={reel.saved_by_me ? WHITE : 'transparent'}
+          />
         </Pressable>
         <Pressable
           onPress={() => onMenu(reel)}
@@ -540,19 +667,19 @@ const styles = StyleSheet.create({
   stateText: { color: 'rgba(255,255,255,0.75)', fontSize: 14, textAlign: 'center' },
   playWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   playBadge: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingLeft: 4,
+    paddingLeft: 3,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   pauseBadge: { paddingLeft: 0 },
   soundBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,

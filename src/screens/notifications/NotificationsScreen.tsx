@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
+import { NotificationListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { AppBar } from '@/components/ui/AppBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { Chip } from '@/components/ui/Chip';
@@ -65,7 +66,7 @@ function matchesFilter(type: NotificationType, filter: Filter) {
 
 export function NotificationsScreen() {
   const { colors } = useAppTheme();
-  const { items } = useNotifications();
+  const { items, loaded } = useNotifications();
   const navigation = useNavigation();
   const { user, refreshUser } = useAuth();
   const requestCount = user?.follow_requests_count ?? 0;
@@ -179,6 +180,9 @@ export function NotificationsScreen() {
         )}
         renderItem={({ item }) => <NotificationRow item={item} />}
         ListEmptyComponent={
+          !loaded ? (
+            <NotificationListSkeleton />
+          ) : (
           <EmptyState
             icon={<Bell size={34} color={colors.primary} />}
             title={
@@ -188,6 +192,7 @@ export function NotificationsScreen() {
             }
             text="When something happens, you'll see it here."
           />
+          )
         }
       />
     </SafeAreaView>

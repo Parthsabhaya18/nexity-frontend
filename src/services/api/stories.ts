@@ -18,6 +18,27 @@ export interface StoryItem {
   expires_at: string;
   seen: boolean;
   liked_by_me?: boolean;
+  /** Set when the story is a post or reel added from its share sheet. */
+  shared?: StoryShared | null;
+}
+
+/** Where a shared post/reel sits on the story: centre (0–1 of the screen), zoom, and look. */
+export interface SharedLayout {
+  x: number;
+  y: number;
+  scale: number;
+  /** `card` shows the full post (author, photo, caption); `media` only the photo. */
+  style: 'media' | 'card';
+}
+
+export interface StoryShared {
+  kind: 'post' | 'reel';
+  id: string;
+  username: string;
+  avatar_url?: string | null;
+  caption?: string;
+  aspect_ratio: number;
+  layout?: SharedLayout;
 }
 
 export type StoryViewerRow = UserSummary & { liked: boolean };
@@ -40,6 +61,21 @@ export const storiesApi = {
       '/stories',
       input,
     );
+    return data;
+  },
+
+  /** Adds a post or reel to your story. */
+  async share(input: {
+    kind: 'post' | 'reel';
+    id: string;
+    media_index?: number;
+    layout?: SharedLayout;
+    location_name?: string;
+    location_lat?: number | null;
+    location_lng?: number | null;
+    overlays?: StoryOverlay[];
+  }) {
+    const { data } = await apiClient.post<Omit<StoryItem, 'seen'>>('/stories/share', input);
     return data;
   },
 

@@ -24,6 +24,7 @@ import { CreatePostDetailsScreen } from '@/screens/create/CreatePostDetailsScree
 import { CreateReelScreen } from '@/screens/create/CreateReelScreen';
 import { CreateScreen } from '@/screens/create/CreateScreen';
 import { CreateStoryScreen } from '@/screens/create/CreateStoryScreen';
+import { ShareStoryScreen } from '@/screens/create/ShareStoryScreen';
 import { NotificationsScreen } from '@/screens/notifications/NotificationsScreen';
 import { EditProfileScreen } from '@/screens/profile/EditProfileScreen';
 import { FollowersScreen } from '@/screens/profile/FollowersScreen';
@@ -141,6 +142,7 @@ export function RootNavigator() {
                 component={CreatePostCropScreen}
               />
               <Stack.Screen name="CreateStory" component={CreateStoryScreen} />
+              <Stack.Screen name="ShareStory" component={ShareStoryScreen} />
               <Stack.Screen name="CreateReel" component={CreateReelScreen} />
               <Stack.Screen
                 name="CreatePostDetails"

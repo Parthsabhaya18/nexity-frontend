@@ -1,7 +1,6 @@
 import { MapPin, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Modal,
   Pressable,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { IconButton } from '@/components/ui/IconButton';
 import { SearchField } from '@/components/ui/SearchField';
 import {
@@ -151,13 +151,15 @@ export function LocationSheet({ visible, onClose, onSelect }: Props) {
           )}
           ListFooterComponent={
             loading ? (
-              <ActivityIndicator color={colors.primary} style={styles.loader} />
+              <UserListSkeleton rows={rows.length ? 2 : 6} avatar={44} rowStyle={styles.row} />
             ) : undefined
           }
           ListEmptyComponent={
-            <Text style={[styles.empty, { color: colors.textSecondary }]}>
-              No places match that.
-            </Text>
+            loading ? undefined : (
+              <Text style={[styles.empty, { color: colors.textSecondary }]}>
+                No places match that.
+              </Text>
+            )
           }
         />
       </SafeAreaView>
@@ -201,6 +203,5 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, minWidth: 0 },
   name: { fontSize: 15, fontWeight: '600' },
   sub: { fontSize: 13, marginTop: 1 },
-  loader: { marginVertical: spacing.md },
   empty: { textAlign: 'center', marginTop: spacing.xl, fontSize: 14 },
 });

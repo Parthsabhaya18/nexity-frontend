@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Video, { type VideoRef } from 'react-native-video';
 
+import { PostGridSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { focusReel } from '@/features/reels/reelFocus';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Reel } from '@/services/api/reels';
@@ -20,7 +21,7 @@ import { useAppTheme } from '@/theme';
 
 const GAP = 2;
 
-function ReelCover({ reel }: { reel: Reel }) {
+export function ReelCover({ reel }: { reel: Reel }) {
   const video = useRef<VideoRef>(null);
   if (reel.cover_url) {
     return (
@@ -77,7 +78,7 @@ export function ReelGrid({
     };
   }, [userId]);
 
-  if (!items) return null;
+  if (!items) return <PostGridSkeleton size={size} count={6} tileHeight={size * 1.35} />;
   if (!items.length) return <>{empty}</>;
   return (
     <View
@@ -88,7 +89,7 @@ export function ReelGrid({
         <Pressable
           key={reel.id}
           onPress={() => {
-            focusReel(reel);
+            focusReel(reel, userId);
             // Profiles sit above the tabs in the stack; go back down to them instead of pushing.
             navigation.popTo('Main', { screen: 'Reels' });
           }}

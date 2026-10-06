@@ -11,7 +11,6 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Pressable,
@@ -26,6 +25,7 @@ import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { ActionSheet, type SheetAction } from '@/components/chat/ActionSheet';
 import { useToast } from '@/components/chat/Toast';
 import { useNow } from '@/components/chat/useNow';
+import { ChatListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { AppBar } from '@/components/ui/AppBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -193,7 +193,7 @@ export function ChatsScreen({ navigation }: ScreenProps<'Chats'>) {
         )}
         ListEmptyComponent={
           status === 'idle' || status === 'loading' ? (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+            <ChatListSkeleton />
           ) : status === 'error' ? (
             <EmptyState
               icon={<CloudOff size={34} color={colors.primary} />}
@@ -403,5 +403,4 @@ const styles = StyleSheet.create({
   mutedIcon: { marginLeft: 6 },
   unreadDot: { width: 9, height: 9, borderRadius: 4.5, marginRight: 4 },
   cta: { minWidth: 200 },
-  loader: { marginTop: 48 },
 });

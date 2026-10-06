@@ -2,6 +2,7 @@ import type { Adjustments } from '@/features/create/adjustments';
 
 import { apiClient } from './client';
 import type { UserSummary } from './follows';
+import type { Reel } from './reels';
 
 export interface PostMedia {
   id: string;
@@ -56,6 +57,49 @@ export interface Post {
   is_owner: boolean;
   created_at: string;
   updated_at: string;
+  /** Set when this is a reel shown in the saved list, which mixes posts and reels. */
+  reel?: Reel;
+}
+
+type SavedEntry = { kind: 'post'; post: Post } | { kind: 'reel'; reel: Reel };
+
+/** Saved reels always show in a tall frame, cropped to fill, whatever shape the video is. */
+const REEL_FRAME = 3 / 5;
+
+/** A saved reel in the shape of a one-video post, so it opens like the posts around it. */
+export function reelAsPost(reel: Reel): Post {
+  return {
+    id: reel.id,
+    author: reel.author,
+    media: [
+      {
+        id: reel.id,
+        kind: 'video',
+        url: reel.video_url,
+        width: reel.width,
+        height: reel.height,
+        alt_text: '',
+        duration_ms: reel.duration_ms,
+      },
+    ],
+    caption: reel.caption,
+    mentions: reel.mentions,
+    tagged_users: [],
+    location_name: reel.location_name,
+    location_lat: reel.location_lat,
+    location_lng: reel.location_lng,
+    aspect_ratio: REEL_FRAME,
+    likes_count: reel.likes_count,
+    comments_count: reel.comments_count,
+    liked_by_me: reel.liked_by_me,
+    saved_by_me: reel.saved_by_me ?? true,
+    hide_like_count: reel.hide_like_count,
+    comments_disabled: reel.comments_disabled,
+    is_owner: reel.is_owner,
+    created_at: reel.created_at,
+    updated_at: reel.created_at,
+    reel,
+  };
 }
 
 export interface CreatePostInput {
@@ -116,12 +160,16 @@ export const postsApi = {
     return data;
   },
 
-  async saved(cursor?: string | null, signal?: AbortSignal) {
-    const { data } = await apiClient.get<Page<Post>>('/users/me/saved-posts', {
+  /** Saved posts and reels together, newest save first. */
+  async saved(cursor?: string | null, signal?: AbortSignal): Promise<Page<Post>> {
+    const { data } = await apiClient.get<Page<SavedEntry>>('/users/me/saved', {
       params: cursor ? { cursor } : {},
       signal,
     });
-    return data;
+    return {
+      items: data.items.map(e => (e.kind === 'post' ? e.post : reelAsPost(e.reel))),
+      next_cursor: data.next_cursor,
+    };
   },
 
   /** Idempotent: repeating a request never flips the like the wrong way. */

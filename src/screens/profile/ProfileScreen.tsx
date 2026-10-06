@@ -15,7 +15,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -23,6 +22,7 @@ import {
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { AvatarPreview } from '@/components/profile/AvatarPreview';
+import { ShareSheet } from '@/components/share/ShareSheet';
 import {
   Stat,
   SwipeTabs,
@@ -53,6 +53,7 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
   const [tab, setTab] = useState<ProfileTab>('posts');
   const [refreshing, setRefreshing] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
   useStatusBar();
   const fetchSaved = useCallback(
     (cursor: string | null, signal: AbortSignal) =>
@@ -95,12 +96,7 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
     }
   };
 
-  const shareProfile = () =>
-    Share.share({
-      message: `Follow @${user.username} on Nexity: ${profileLink(
-        user.username,
-      )}`,
-    }).catch(() => {});
+  const shareProfile = () => setSharing(true);
 
   return (
     <SafeAreaView
@@ -318,6 +314,12 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
         uri={user.avatar_url}
         name={user.display_name}
         onClose={() => setPhotoOpen(false)}
+      />
+      <ShareSheet
+        target={
+          sharing ? { kind: 'profile', id: user.id, link: profileLink(user.username) } : null
+        }
+        onClose={() => setSharing(false)}
       />
     </SafeAreaView>
   );

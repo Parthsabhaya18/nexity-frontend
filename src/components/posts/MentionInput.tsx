@@ -1,6 +1,5 @@
 import { type ComponentRef, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -10,6 +9,7 @@ import {
   type TextStyle,
 } from 'react-native';
 
+import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { Avatar } from '@/components/ui/Avatar';
 import {
   activeToken,
@@ -101,11 +101,12 @@ export function MentionInput({
             { backgroundColor: colors.surface, borderColor: colors.border },
           ]}
         >
-          {mentions.users === null ? (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+          {mentions.users === null ||
+          (mentions.users.length === 0 && mentions.loading) ? (
+            <UserListSkeleton rows={3} avatar={34} rowStyle={styles.skeletonRow} />
           ) : mentions.users.length === 0 ? (
             <Text style={[styles.none, { color: colors.textSecondary }]}>
-              {mentions.loading ? 'Searching…' : 'No one found'}
+              No one found
             </Text>
           ) : (
             mentions.users.map(u => (
@@ -153,7 +154,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     overflow: 'hidden',
   },
-  loader: { paddingVertical: 14 },
   none: { paddingVertical: 14, textAlign: 'center', fontSize: 14 },
   row: {
     flexDirection: 'row',
@@ -163,6 +163,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   names: { flex: 1, minWidth: 0 },
+  skeletonRow: { gap: 10, paddingHorizontal: 12, minHeight: 50 },
   username: { fontSize: 14, fontWeight: '700' },
   name: { fontSize: 13 },
 });

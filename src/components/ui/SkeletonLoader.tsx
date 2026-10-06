@@ -1,4 +1,11 @@
-import { useEffect, useId, useState } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useId,
+  useState,
+} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -15,7 +22,8 @@ import { radius as radii, useAppTheme } from '@/theme';
 type Props = {
   variant?: 'rect' | 'circle' | 'line';
   width?: DimensionValue;
-  height?: number;
+  /** Percentages work for `rect` only. */
+  height?: DimensionValue;
   /** Diameter for `circle`. */
   size?: number;
   radius?: number;
@@ -28,6 +36,20 @@ type Props = {
 const LINE_HEIGHT = 12;
 const LINE_GAP = 8;
 const SWEEP_MS = 1300;
+
+type Tone = { base: string; highlight: string } | null;
+
+const DARK_TONE: Tone = {
+  base: 'rgba(255, 255, 255, 0.12)',
+  highlight: 'rgba(255, 255, 255, 0.24)',
+};
+
+const ToneContext = createContext<Tone>(null);
+
+/** Skeletons inside sit on a black screen (Reels, camera roll) whatever the theme. */
+export function SkeletonDarkTone({ children }: { children: ReactNode }) {
+  return <ToneContext.Provider value={DARK_TONE}>{children}</ToneContext.Provider>;
+}
 
 /** One clock for every skeleton on screen, so they shimmer in step. */
 const clock = new Animated.Value(0);
@@ -60,17 +82,36 @@ function useShimmerClock(enabled: boolean) {
   }, [enabled]);
 }
 
+/** One reduce-motion subscription shared by every skeleton. */
+let reduceMotion = false;
+const reduceListeners = new Set<(reduce: boolean) => void>();
+let reduceSub: { remove: () => void } | null = null;
+
+function setReduceMotion(reduce: boolean) {
+  reduceMotion = reduce;
+  reduceListeners.forEach(listener => listener(reduce));
+}
+
 function useReduceMotion() {
-  const [reduce, setReduce] = useState(false);
+  const [reduce, setReduce] = useState(reduceMotion);
   useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then(setReduce)
-      .catch(() => {});
-    const sub = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      setReduce,
-    );
-    return () => sub.remove();
+    reduceListeners.add(setReduce);
+    if (!reduceSub) {
+      AccessibilityInfo.isReduceMotionEnabled()
+        .then(setReduceMotion)
+        .catch(() => {});
+      reduceSub = AccessibilityInfo.addEventListener(
+        'reduceMotionChanged',
+        setReduceMotion,
+      );
+    }
+    return () => {
+      reduceListeners.delete(setReduce);
+      if (!reduceListeners.size && reduceSub) {
+        reduceSub.remove();
+        reduceSub = null;
+      }
+    };
   }, []);
   return reduce;
 }
@@ -83,12 +124,15 @@ function Bone({
   style,
 }: {
   width: DimensionValue;
-  height: number;
+  height: DimensionValue;
   radius: number;
   shimmer: boolean;
   style?: ViewStyle;
 }) {
   const { colors } = useAppTheme();
+  const tone = useContext(ToneContext);
+  const base = tone?.base ?? colors.skeleton;
+  const highlight = tone?.highlight ?? colors.skeletonHighlight;
   const [measured, setMeasured] = useState(0);
   const id = `s${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const translateX = clock.interpolate({
@@ -103,7 +147,7 @@ function Bone({
       accessibilityElementsHidden
       style={[
         styles.bone,
-        { width, height, borderRadius: radius, backgroundColor: colors.skeleton },
+        { width, height, borderRadius: radius, backgroundColor: base },
         style,
       ]}
     >
@@ -116,17 +160,17 @@ function Bone({
               <LinearGradient id={id} x1="0" y1="0" x2="1" y2="0">
                 <Stop
                   offset="0"
-                  stopColor={colors.skeletonHighlight}
+                  stopColor={highlight}
                   stopOpacity={0}
                 />
                 <Stop
                   offset="0.5"
-                  stopColor={colors.skeletonHighlight}
+                  stopColor={highlight}
                   stopOpacity={0.9}
                 />
                 <Stop
                   offset="1"
-                  stopColor={colors.skeletonHighlight}
+                  stopColor={highlight}
                   stopOpacity={0}
                 />
               </LinearGradient>
@@ -154,8 +198,8 @@ export function SkeletonLoader({
   shimmer = true,
   style,
 }: Props) {
-  const reduceMotion = useReduceMotion();
-  const animate = shimmer && !reduceMotion;
+  const reduce = useReduceMotion();
+  const animate = shimmer && !reduce;
   useShimmerClock(animate);
 
   if (variant === 'circle') {
@@ -171,6 +215,7 @@ export function SkeletonLoader({
   }
 
   if (variant === 'line') {
+    const lineHeight = typeof height === 'number' ? height : LINE_HEIGHT;
     return (
       <View
         importantForAccessibility="no-hide-descendants"
@@ -181,8 +226,8 @@ export function SkeletonLoader({
           <Bone
             key={i}
             width={lines > 1 && i === lines - 1 ? '60%' : '100%'}
-            height={height ?? LINE_HEIGHT}
-            radius={radius ?? (height ?? LINE_HEIGHT) / 2}
+            height={lineHeight}
+            radius={radius ?? lineHeight / 2}
             shimmer={animate}
           />
         ))}

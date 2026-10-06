@@ -1,7 +1,6 @@
 import { Check, Search, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Modal,
   Pressable,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { SearchField } from '@/components/ui/SearchField';
@@ -174,7 +174,7 @@ export function TagPeopleSheet({ visible, selected, onClose, onDone }: Props) {
           }}
           ListEmptyComponent={
             loading ? (
-              <ActivityIndicator color={colors.primary} style={styles.loader} />
+              <UserListSkeleton avatar={44} rowStyle={styles.row} />
             ) : (
               <View style={styles.emptyWrap}>
                 <Search size={28} color={colors.textSecondary} />
@@ -220,7 +220,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  loader: { marginTop: spacing.xl },
   emptyWrap: { alignItems: 'center', gap: 8, marginTop: spacing.xl },
   empty: { textAlign: 'center', fontSize: 14 },
 });
