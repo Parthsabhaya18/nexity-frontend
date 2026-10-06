@@ -25,12 +25,13 @@ import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { AvatarPreview } from '@/components/profile/AvatarPreview';
 import {
   Stat,
+  SwipeTabs,
   TabBar,
   TabButton,
   WebsiteLink,
 } from '@/components/profile/ProfileParts';
+import { StoryAvatar } from '@/components/stories/StoryAvatar';
 import { AppBar } from '@/components/ui/AppBar';
-import { Avatar } from '@/components/ui/Avatar';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { PostGrid } from '@/components/posts/PostGrid';
 import { ReelGrid } from '@/components/reels/ReelGrid';
@@ -43,7 +44,8 @@ import type { ScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { radius, spacing, useAppTheme } from '@/theme';
 
-type ProfileTab = 'posts' | 'reels' | 'saved';
+const PROFILE_TABS = ['posts', 'reels', 'saved'] as const;
+type ProfileTab = (typeof PROFILE_TABS)[number];
 
 export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
   const { user, refreshUser } = useAuth();
@@ -150,18 +152,15 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
       >
         <View style={styles.head}>
           <View style={styles.top}>
-            <Pressable
-              onPress={() => setPhotoOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="View profile photo"
-              style={({ pressed }) => pressed && styles.pressed}
-            >
-              <Avatar
-                uri={user.avatar_url}
-                name={user.display_name}
-                size={88}
-              />
-            </Pressable>
+            <StoryAvatar
+              self
+              userId={user.id}
+              username={user.username}
+              avatarUrl={user.avatar_url}
+              name={user.display_name}
+              size={84}
+              onShowPhoto={() => setPhotoOpen(true)}
+            />
             <View style={styles.stats}>
               <Stat value={user.posts_count ?? 0} label="Posts" />
               <Stat
@@ -261,6 +260,7 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
           />
         </TabBar>
 
+        <SwipeTabs tabs={PROFILE_TABS} value={tab} onChange={setTab}>
         {tab === 'posts' ? (
           <PostGrid
             fetchPage={fetchPosts}
@@ -311,6 +311,7 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
             }
           />
         )}
+        </SwipeTabs>
       </ScrollView>
       <AvatarPreview
         visible={photoOpen}

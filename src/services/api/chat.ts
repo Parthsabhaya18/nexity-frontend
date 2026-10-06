@@ -50,6 +50,13 @@ export interface ReplyPreview {
   media?: QuotedMedia | null;
 }
 
+export interface StoryRef {
+  id: string;
+  author_id: string | null;
+  kind: 'image' | 'video' | null;
+  url: string | null;
+}
+
 /** Reactions grouped by emoji; each person has at most one reaction per message. */
 export interface ReactionGroup {
   emoji: string;
@@ -76,6 +83,8 @@ export interface MessageDto {
   /** Which album item the reply is about. */
   reply_to_index?: number | null;
   reply_to: ReplyPreview | null;
+  /** Sent from a story's reply box; `url` is null once the story is gone. */
+  story?: StoryRef | null;
   client_message_id: string;
   reactions?: ReactionGroup[];
   edited_at?: string | null;

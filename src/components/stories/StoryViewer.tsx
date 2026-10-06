@@ -1,5 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import {
+  ChevronUp,
   Eye,
   Heart,
   MoreHorizontal,
@@ -23,6 +24,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type TextInputInstance,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -36,13 +38,17 @@ import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import type { StoryOverlay } from '@/features/stories/overlay';
 import { ApiError } from '@/services/api/client';
-import type { UserSummary } from '@/services/api/follows';
-import { type StoryGroup, storiesApi } from '@/services/api/stories';
+import {
+  type StoryGroup,
+  type StoryViewerRow,
+  storiesApi,
+} from '@/services/api/stories';
 import { useAppTheme } from '@/theme';
 import { timeAgo } from '@/utils/time';
 
 const IMAGE_MS = 5000;
 const SWIPE_CLOSE = 120;
+const SWIPE_UP = 70;
 const SWIPE_GROUP = 70;
 // Stories are always shown full-screen on black, so the chrome is white.
 const WHITE = '#FFFFFF';
@@ -78,7 +84,7 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
   const [typing, setTyping] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [viewersOpen, setViewersOpen] = useState(false);
-  const [viewers, setViewers] = useState<UserSummary[] | null>(null);
+  const [viewers, setViewers] = useState<StoryViewerRow[] | null>(null);
   const [appActive, setAppActive] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [text, setText] = useState('');
@@ -198,8 +204,14 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
       },
       onPanResponderRelease: (_, s) => {
         setHeld(false);
-        if (s.dy > SWIPE_CLOSE && Math.abs(s.dy) > Math.abs(s.dx)) {
+        const flick = s.dy > 40 && s.vy > 0.6;
+        if ((s.dy > SWIPE_CLOSE || flick) && Math.abs(s.dy) > Math.abs(s.dx)) {
           onCloseRef.current();
+          return;
+        }
+        if (s.dy < -SWIPE_UP && Math.abs(s.dy) > Math.abs(s.dx)) {
+          drag.setValue(0);
+          swipeUpRef.current();
           return;
         }
         Animated.spring(drag, { toValue: 0, useNativeDriver: true }).start();
@@ -220,6 +232,22 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
   nextGroupRef.current = nextGroup;
   const prevGroupRef = useRef(prevGroup);
   prevGroupRef.current = prevGroup;
+  const inputRef = useRef<TextInputInstance>(null);
+  const swipeUpRef = useRef(() => {});
+
+  // Your own story: load who viewed it, for the count at the bottom.
+  useEffect(() => {
+    if (!open || !mine || !item) return;
+    let live = true;
+    setViewers(null);
+    storiesApi
+      .viewers(item.id)
+      .then(list => live && setViewers(list))
+      .catch(() => live && setViewers([]));
+    return () => {
+      live = false;
+    };
+  }, [open, mine, item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open || !group || !item) return null;
 
@@ -244,7 +272,6 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
       setText('');
       setAnswerTo(null);
       setTyping(false);
-      Alert.alert(answerTo ? 'Answer sent' : 'Message sent');
     } catch (err) {
       Alert.alert("Couldn't send", errorText(err));
     } finally {
@@ -253,13 +280,15 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
   };
 
   const openViewers = () => {
-    setViewers(null);
     setViewersOpen(true);
     storiesApi
       .viewers(item.id)
       .then(setViewers)
-      .catch(() => setViewers([]));
+      .catch(() => setViewers(v => v ?? []));
   };
+
+  // Swipe up: your own story shows its viewers; someone else's opens the reply box.
+  swipeUpRef.current = mine ? openViewers : () => inputRef.current?.focus();
 
   const remove = () => {
     setHeld(true);
@@ -452,25 +481,46 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
                 <Pressable
                   onPress={openViewers}
                   accessibilityRole="button"
-                  accessibilityLabel="See who viewed your story"
-                  style={styles.ownerBtn}
+                  accessibilityLabel={`${viewers?.length ?? 0} viewers. Swipe up or tap to see who viewed your story`}
+                  hitSlop={8}
+                  style={styles.activity}
                 >
-                  <Eye size={20} color={WHITE} />
-                  <Text style={styles.ownerText}>Viewers</Text>
+                  <ChevronUp size={18} color={WHITE} style={styles.swipeHint} />
+                  <View style={styles.activityRow}>
+                    {viewers && viewers.length ? (
+                      <View style={styles.faces}>
+                        {viewers.slice(0, 3).map((u, n) => (
+                          <View
+                            key={u.id}
+                            style={[styles.face, n > 0 && styles.faceOverlap]}
+                          >
+                            <Avatar uri={u.avatar_url} name={u.display_name} size={22} />
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <Eye size={20} color={WHITE} />
+                    )}
+                    <Text style={styles.ownerText}>
+                      {viewers === null ? '' : viewers.length}
+                    </Text>
+                  </View>
                 </Pressable>
+                <View style={styles.flex} />
                 <Pressable
                   onPress={remove}
                   accessibilityRole="button"
                   accessibilityLabel="Delete story"
-                  style={styles.ownerBtn}
+                  hitSlop={8}
+                  style={styles.roundBtn}
                 >
-                  <Trash2 size={20} color={WHITE} />
-                  <Text style={styles.ownerText}>Delete</Text>
+                  <Trash2 size={22} color={WHITE} />
                 </Pressable>
               </>
             ) : (
               <>
                 <TextInput
+                  ref={inputRef}
                   value={text}
                   onChangeText={setText}
                   onFocus={() => setTyping(true)}
@@ -523,7 +573,12 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
       </Animated.View>
 
       <BottomSheet visible={viewersOpen} onClose={() => setViewersOpen(false)} style={styles.viewers}>
-        <Text style={[styles.sheetTitle, { color: colors.text }]}>Viewers</Text>
+        <View style={styles.sheetHead}>
+          <Eye size={18} color={colors.text} />
+          <Text style={[styles.sheetTitle, { color: colors.text }]}>
+            {viewers ? viewers.length : ''}
+          </Text>
+        </View>
         {viewers === null ? (
           <ActivityIndicator color={colors.primary} style={styles.sheetLoader} />
         ) : (
@@ -538,6 +593,16 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
                   onClose();
                   navigation.navigate('UserProfile', { username: u.username });
                 }}
+                trailing={
+                  u.liked ? (
+                    <Heart
+                      size={20}
+                      color={colors.like}
+                      fill={colors.like}
+                      accessibilityLabel="Liked your story"
+                    />
+                  ) : null
+                }
               />
             )}
             ListEmptyComponent={
@@ -602,18 +667,31 @@ const styles = StyleSheet.create({
     fontSize: 15,
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
-  ownerBtn: {
-    flexDirection: 'row',
+  flex: { flex: 1 },
+  activity: { alignItems: 'center', paddingHorizontal: 6 },
+  swipeHint: { marginBottom: -2 },
+  activityRow: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 32 },
+  faces: { flexDirection: 'row' },
+  face: { borderWidth: 1.5, borderColor: '#000000', borderRadius: 13 },
+  faceOverlap: { marginLeft: -8 },
+  roundBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
-    gap: 8,
-    height: 40,
-    paddingHorizontal: 14,
-    borderRadius: 20,
+    justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   ownerText: { color: WHITE, fontWeight: '700' },
   viewers: { height: '60%' },
-  sheetTitle: { textAlign: 'center', fontWeight: '800', fontSize: 16, paddingBottom: 8 },
+  sheetHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingBottom: 8,
+  },
+  sheetTitle: { fontWeight: '800', fontSize: 16 },
   sheetLoader: { marginTop: 24 },
   sheetEmpty: { textAlign: 'center', marginTop: 24 },
 });

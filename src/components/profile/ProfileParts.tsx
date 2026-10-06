@@ -1,7 +1,9 @@
 import { Link2, type LucideIcon } from 'lucide-react-native';
+import { useRef } from 'react';
 import {
   Alert,
   Linking,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -9,6 +11,7 @@ import {
 } from 'react-native';
 
 import { displayWebsite } from '@/features/profile/schemas';
+import { isTabSwipe, swipedTab } from '@/features/profile/tabSwipe';
 import { useAppTheme } from '@/theme';
 
 export function formatCount(n: number) {
@@ -85,6 +88,38 @@ export function TabBar({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Tab content that also switches tabs on a left / right swipe (Instagram profile). */
+export function SwipeTabs<T extends string>({
+  tabs,
+  value,
+  onChange,
+  children,
+}: {
+  tabs: readonly T[];
+  value: T;
+  onChange: (tab: T) => void;
+  children: React.ReactNode;
+}) {
+  const latest = useRef({ tabs, value, onChange });
+  latest.current = { tabs, value, onChange };
+  const responder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_, g) => isTabSwipe(g.dx, g.dy),
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderRelease: (_, g) => {
+        const now = latest.current;
+        const next = swipedTab(now.tabs, now.value, g.dx, g.vx);
+        if (next) now.onChange(next);
+      },
+    }),
+  ).current;
+  return (
+    <View style={styles.swipeArea} {...responder.panHandlers}>
+      {children}
+    </View>
+  );
+}
+
 export function WebsiteLink({ url }: { url: string }) {
   const { colors } = useAppTheme();
   const open = () =>
@@ -123,6 +158,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
   },
   tabLabel: { fontSize: 14, fontWeight: '700' },
+  // Room to swipe even when a tab is empty or still loading.
+  swipeArea: { minHeight: 320 },
   website: {
     flexDirection: 'row',
     alignItems: 'center',

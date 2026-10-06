@@ -67,7 +67,10 @@ export function MentionInput({
         value={value}
         onChangeText={text => {
           onChange(text);
-          setCursor(c => Math.min(text.length, Math.max(c, 0)));
+          // Typing at the end keeps the caret at the end even before the selection event arrives.
+          setCursor(c =>
+            c >= value.length ? text.length : Math.min(text.length, Math.max(c, 0)),
+          );
         }}
         onSelectionChange={e => setCursor(e.nativeEvent.selection.end)}
         selection={forced}
@@ -78,7 +81,13 @@ export function MentionInput({
         maxLength={maxLength}
         textAlignVertical="top"
         accessibilityLabel={accessibilityLabel}
-        style={[styles.input, { color: colors.text }, inputStyle]}
+        style={[
+          styles.input,
+          { color: colors.text },
+          inputStyle,
+          // Shrink to the text so the suggestions sit right under the line being typed.
+          mentions.active && styles.inputFit,
+        ]}
       />
       {value.length > maxLength * 0.9 ? (
         <Text style={[styles.count, { color: colors.textSecondary }]}>
@@ -136,9 +145,10 @@ export function MentionInput({
 
 const styles = StyleSheet.create({
   input: { fontSize: 16, minHeight: 72, padding: 0 },
+  inputFit: { minHeight: 0 },
   count: { fontSize: 12, textAlign: 'right', marginTop: 4 },
   list: {
-    marginTop: 8,
+    marginTop: 4,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.md,
     overflow: 'hidden',

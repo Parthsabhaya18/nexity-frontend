@@ -1,5 +1,5 @@
 import { usePreventRemove } from '@react-navigation/native';
-import { ChevronRight, MapPin, X } from 'lucide-react-native';
+import { ChevronRight, X } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +14,6 @@ import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { CaptureView } from '@/components/create/CaptureView';
 import { LocationSheet } from '@/components/posts/LocationSheet';
 import { PlayableMedia } from '@/components/posts/PlayableMedia';
-import { TagPeopleSheet } from '@/components/posts/TagPeopleSheet';
 import { StoryStage } from '@/components/stories/StoryStage';
 import { type LocalMedia, MediaError } from '@/features/media/pickMedia';
 import {
@@ -23,6 +22,7 @@ import {
   uploadMedia,
 } from '@/features/media/uploadMedia';
 import { overlayId, placed, type StoryOverlay } from '@/features/stories/overlay';
+import { emitStoryShared } from '@/features/stories/storyEvents';
 import type { ScreenProps } from '@/navigation/types';
 import { ApiError } from '@/services/api/client';
 import { storiesApi } from '@/services/api/stories';
@@ -40,7 +40,7 @@ export function CreateStoryScreen({ navigation }: ScreenProps<'CreateStory'>) {
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLng, setLocationLng] = useState<number | null>(null);
   const [places, setPlaces] = useState(false);
-  const [peopleOpen, setPeopleOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const controller = useRef<AbortController | null>(null);
   const busy = progress !== null;
@@ -83,16 +83,18 @@ export function CreateStoryScreen({ navigation }: ScreenProps<'CreateStory'>) {
         signal: c.signal,
         onProgress: f => setProgress(Math.min(0.95, f * 0.95)),
       });
+      const hasLocation = overlays.some(item => item.type === 'location');
       await storiesApi.create({
         media_id: asset.id,
-        location_name: location,
-        location_lat: locationLat,
-        location_lng: locationLng,
+        location_name: hasLocation ? location : '',
+        location_lat: hasLocation ? locationLat : null,
+        location_lng: hasLocation ? locationLng : null,
         overlays: overlays.map(item =>
           item.type === 'poll' ? { ...item, votes: undefined } : item,
         ),
       });
       setProgress(1);
+      emitStoryShared();
       // Leaving is allowed now that the story is live.
       setMedia(null);
       setTimeout(() => navigation.goBack(), 0);
@@ -101,9 +103,11 @@ export function CreateStoryScreen({ navigation }: ScreenProps<'CreateStory'>) {
       if (c.signal.aborted || isUploadCancelled(err)) return;
       Alert.alert(
         "Couldn't share story",
-        err instanceof ApiError || err instanceof MediaError
-          ? err.message
-          : uploadErrorMessage(err),
+        err instanceof ApiError && err.code === 'VALIDATION_ERROR'
+          ? 'Some of the text, drawing or location on this story could not be saved. Please update the app or try removing the last thing you added.'
+          : err instanceof ApiError || err instanceof MediaError
+            ? err.message
+            : uploadErrorMessage(err),
       );
     }
   };
@@ -133,9 +137,11 @@ export function CreateStoryScreen({ navigation }: ScreenProps<'CreateStory'>) {
         overlays={overlays}
         editable={!busy}
         onChange={setOverlays}
-        onTagPeople={() => setPeopleOpen(true)}
+        onAddLocation={() => setPlaces(true)}
+        onFocusChange={setFocused}
       />
 
+      {focused ? null : (
       <SafeAreaView style={styles.chrome} edges={['top', 'bottom']} pointerEvents="box-none">
         <View style={styles.header} pointerEvents="box-none">
           <Pressable
@@ -159,32 +165,6 @@ export function CreateStoryScreen({ navigation }: ScreenProps<'CreateStory'>) {
 
         <View style={styles.bottom} pointerEvents="box-none">
           <Pressable
-            onPress={() => setPlaces(true)}
-            disabled={busy}
-            accessibilityRole="button"
-            accessibilityLabel={location ? `Location ${location}. Change` : 'Add location'}
-            style={styles.pill}
-          >
-            <MapPin size={16} color={WHITE} />
-            <Text style={styles.pillText} numberOfLines={1}>
-              {location || 'Location'}
-            </Text>
-            {location ? (
-              <Pressable
-                onPress={() => {
-                  setLocation('');
-                  setLocationLat(null);
-                  setLocationLng(null);
-                }}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="Remove location"
-              >
-                <X size={14} color={WHITE} />
-              </Pressable>
-            ) : null}
-          </Pressable>
-          <Pressable
             onPress={share}
             disabled={busy}
             accessibilityRole="button"
@@ -207,6 +187,7 @@ export function CreateStoryScreen({ navigation }: ScreenProps<'CreateStory'>) {
           </Pressable>
         </View>
       </SafeAreaView>
+      )}
 
       <LocationSheet
         visible={places}
@@ -215,30 +196,31 @@ export function CreateStoryScreen({ navigation }: ScreenProps<'CreateStory'>) {
           setLocation(place.name);
           setLocationLat(place.latitude);
           setLocationLng(place.longitude);
-        }}
-      />
-      <TagPeopleSheet
-        visible={peopleOpen}
-        selected={[]}
-        onClose={() => setPeopleOpen(false)}
-        onDone={people => {
-          const already = new Set(
-            overlays.flatMap(o => (o.type === 'mention' ? [o.username] : [])),
-          );
-          const added = people
-            .filter(u => !already.has(u.username))
-            .map(u =>
-              placed({
-                id: overlayId(),
-                type: 'mention',
-                x: 0,
-                y: 0,
-                scale: 1,
-                rotation: 0,
-                username: u.username,
-              }),
-            );
-          if (added.length) setOverlays(current => [...current, ...added].slice(0, 12));
+          setOverlays(current => {
+            if (current.some(item => item.type === 'location')) {
+              return current.map(item =>
+                item.type === 'location'
+                  ? { ...item, name: place.name.slice(0, 80), x: 0.5, y: 0.5 }
+                  : item,
+              );
+            }
+            return [
+              ...current,
+              {
+                ...placed({
+                  id: overlayId(),
+                  type: 'location' as const,
+                  x: 0,
+                  y: 0,
+                  scale: 1,
+                  rotation: 0,
+                  name: place.name.slice(0, 80),
+                }),
+                x: 0.5,
+                y: 0.5,
+              },
+            ];
+          });
         }}
       />
     </View>
@@ -261,22 +243,11 @@ const styles = StyleSheet.create({
   bottom: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     gap: 12,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
-  pill: {
-    flexShrink: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: 40,
-    paddingHorizontal: 14,
-    borderRadius: radius.full,
-    backgroundColor: GLASS,
-  },
-  pillText: { color: WHITE, fontWeight: '700', fontSize: 14, flexShrink: 1 },
   share: {
     flexDirection: 'row',
     alignItems: 'center',

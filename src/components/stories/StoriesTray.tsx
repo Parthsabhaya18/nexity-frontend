@@ -28,8 +28,15 @@ export function StoriesTray({ groups, onOpen, onCreate }: Props) {
       <Pressable
         onPress={mine ? () => onOpen(mine) : onCreate}
         style={styles.item}
+        accessibilityRole="button"
+        accessibilityLabel={mine ? 'View your story' : 'Add to your story'}
       >
-        <View>
+        <View
+          style={[
+            styles.ring,
+            { borderColor: mine ? colors.primary : 'transparent' },
+          ]}
+        >
           <Avatar
             uri={user?.avatar_url}
             name={user?.display_name ?? ''}

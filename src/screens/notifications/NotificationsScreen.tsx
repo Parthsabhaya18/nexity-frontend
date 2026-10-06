@@ -7,6 +7,7 @@ import {
   UserPlus,
 } from 'lucide-react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -31,6 +32,7 @@ import {
   useNotifications,
 } from '@/features/notifications/useNotifications';
 import { focusReelId } from '@/features/reels/reelFocus';
+import type { RootStackParamList } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { radius, spacing, type ThemeColors, useAppTheme } from '@/theme';
 import { DAY, timeAgoLong } from '@/utils/time';
@@ -217,13 +219,13 @@ function leadFor(type: NotificationType, colors: ThemeColors): Lead {
 
 function NotificationRow({ item }: { item: AppNotification }) {
   const { colors } = useAppTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const lead = leadFor(item.type, colors);
   const open = () => {
     if (item.postId) navigation.navigate('PostDetail', { postId: item.postId });
     else if (item.reelId) {
       focusReelId(item.reelId);
-      navigation.navigate('Main', { screen: 'Reels' });
+      navigation.popTo('Main', { screen: 'Reels' });
     }
   };
 

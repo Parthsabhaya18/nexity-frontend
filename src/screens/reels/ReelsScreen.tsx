@@ -40,7 +40,7 @@ import { Button } from '@/components/ui/Button';
 import { usePagedList } from '@/features/follows/usePagedList';
 import { setLikeState } from '@/features/posts/likeSync';
 import { useEngagementSync } from '@/features/posts/postEvents';
-import { consumeFocusedReel } from '@/features/reels/reelFocus';
+import { consumeFocusedReel, keepPinnedFirst } from '@/features/reels/reelFocus';
 import { useTabBarInset } from '@/navigation/BottomNav';
 import type { TabScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
@@ -50,62 +50,89 @@ import { type Reel, reelsApi } from '@/services/api/reels';
 const WHITE = '#FFFFFF';
 const LIKE = '#FF3B5C';
 const DOUBLE_TAP_MS = 260;
+const CONTROLS_MS = 1500;
+
+/** The feed never ends and repeats reels in later rounds, so each copy gets its own key. */
+type FeedReel = Reel & { feed_key: string };
 
 export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
   const bottomInset = useTabBarInset();
   const focused = useIsFocused();
   const [page, setPage] = useState(0);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
   const [comments, setComments] = useState<CommentTarget | null>(null);
   const [options, setOptions] = useState<Reel | null>(null);
   const [report, setReport] = useState<Reel | null>(null);
-  const pendingId = useRef<string | null>(null);
-  const listRef = useRef<FlatList<Reel>>(null);
+  const pinned = useRef<FeedReel | null>(null);
+  const listRef = useRef<FlatList<FeedReel>>(null);
+  const copies = useRef(0);
   useStatusBar('dark');
 
-  const fetchPage = useCallback(
-    (cursor: string | null, signal: AbortSignal) => reelsApi.feed(cursor, signal),
+  const keyed = useCallback(
+    (reel: Reel): FeedReel => ({ ...reel, feed_key: `${reel.id}:${copies.current++}` }),
     [],
   );
-  const list = usePagedList<Reel>(fetchPage);
+  const fetchPage = useCallback(
+    (cursor: string | null, signal: AbortSignal) =>
+      reelsApi.feed(cursor, signal).then(res => ({ ...res, items: res.items.map(keyed) })),
+    [keyed],
+  );
+  const list = usePagedList<FeedReel>(fetchPage);
   const { items, setItems } = list;
-  useEngagementSync<Reel>('reel', setItems);
+  useEngagementSync<FeedReel>('reel', setItems);
 
   useEffect(() => {
-    if (!activeId && items[0]) setActiveId(items[0].id);
-    if (activeId && items.length && !items.some(r => r.id === activeId)) {
-      setActiveId(items[0]?.id ?? null);
+    if (!activeKey && items[0]) setActiveKey(items[0].feed_key);
+    if (activeKey && items.length && !items.some(r => r.feed_key === activeKey)) {
+      setActiveKey(items[0]?.feed_key ?? null);
     }
-  }, [items, activeId]);
+  }, [items, activeKey]);
 
   useFocusEffect(
     useCallback(() => {
       const focus = consumeFocusedReel();
       if (!focus) return;
-      if ('video_url' in focus) {
-        setItems(prev => [focus, ...prev.filter(item => item.id !== focus.id)]);
-        setActiveId(focus.id);
+      const open = (reel: Reel) => {
+        const item = keyed(reel);
+        pinned.current = item;
+        setItems(prev => [item, ...prev.filter(r => r.id !== reel.id)]);
+        setActiveKey(item.feed_key);
         listRef.current?.scrollToOffset({ offset: 0, animated: false });
-        pendingId.current = null;
-      } else {
-        pendingId.current = focus.id;
+      };
+      if ('video_url' in focus) {
+        open(focus);
+        return;
       }
-    }, [setItems]),
+      // Only the id is known (a notification): the random feed may not contain it.
+      const controller = new AbortController();
+      reelsApi
+        .get(focus.id, controller.signal)
+        .then(open)
+        .catch(() => {});
+      return () => controller.abort();
+    }, [keyed, setItems]),
   );
 
+  // A reel opened from a profile stays first even when the (random) feed page
+  // arrives afterwards and replaces the list. Later rounds may repeat it.
   useEffect(() => {
-    const id = pendingId.current;
-    if (!id || !items.some(item => item.id === id)) return;
-    pendingId.current = null;
-    setItems(prev => {
-      const found = prev.find(item => item.id === id);
-      if (!found) return prev;
-      return [found, ...prev.filter(item => item.id !== id)];
-    });
-    setActiveId(id);
-    listRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [items, setItems]);
+    const pin = pinned.current;
+    if (!pin || list.loading) return;
+    pinned.current = null;
+    const next = keepPinnedFirst(items, pin);
+    if (!next) return;
+    setItems(next);
+    if (items[0]?.id !== pin.id) {
+      setActiveKey(next[0]!.feed_key);
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }
+  }, [items, list.loading, setItems]);
+
+  const refresh = useCallback(() => {
+    pinned.current = null;
+    list.refresh();
+  }, [list]);
 
   const openComments = useCallback((reel: Reel) => {
     setComments({
@@ -141,7 +168,7 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
         <FlatList
           ref={listRef}
           data={items}
-          keyExtractor={r => r.id}
+          keyExtractor={r => r.feed_key}
           pagingEnabled
           snapToInterval={page}
           snapToAlignment="start"
@@ -155,12 +182,12 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
           removeClippedSubviews
           onEndReached={list.loadMore}
           onEndReachedThreshold={2}
-          onRefresh={list.refresh}
+          onRefresh={refresh}
           refreshing={list.refreshing}
           onMomentumScrollEnd={e => {
             const i = Math.round(e.nativeEvent.contentOffset.y / page);
             const reel = items[i];
-            if (reel) setActiveId(reel.id);
+            if (reel) setActiveKey(reel.feed_key);
           }}
           ListEmptyComponent={
             <View style={[styles.state, { height: page, paddingBottom: bottomInset }]}>
@@ -177,7 +204,7 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
               reel={item}
               height={page}
               bottomInset={bottomInset}
-              active={focused && item.id === activeId && !comments && !options && !report}
+              active={focused && item.feed_key === activeKey && !comments && !options && !report}
               muted={muted}
               onToggleMute={toggleMute}
               onComments={openComments}
@@ -255,15 +282,38 @@ const ReelItem = memo(function ReelPage({
   const [expanded, setExpanded] = useState(false);
   const lastTap = useRef(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [controls, setControls] = useState(false);
+  const controlsTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const burst = useRef(new Animated.Value(0)).current;
   const pop = useRef(new Animated.Value(1)).current;
   const startSec = (reel.trim_start_ms ?? 0) / 1000;
 
   // Coming back to a reel starts it playing again.
   useEffect(() => {
-    if (!active) setUserPaused(false);
+    if (!active) {
+      setUserPaused(false);
+      setControls(false);
+    }
   }, [active]);
-  useEffect(() => () => clearTimeout(tapTimer.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(tapTimer.current);
+      clearTimeout(controlsTimer.current);
+    },
+    [],
+  );
+
+  /** Shows the centre buttons; while playing they fade out after a moment. */
+  const showControls = () => {
+    clearTimeout(controlsTimer.current);
+    setControls(true);
+    controlsTimer.current = setTimeout(() => setControls(false), CONTROLS_MS);
+  };
+
+  const togglePlay = () => {
+    setUserPaused(p => !p);
+    showControls();
+  };
 
   const like = (want: boolean) => {
     setLikeState('reel', reel.id, reel, want);
@@ -289,7 +339,7 @@ const ReelItem = memo(function ReelPage({
       return;
     }
     lastTap.current = now;
-    tapTimer.current = setTimeout(() => setUserPaused(p => !p), DOUBLE_TAP_MS);
+    tapTimer.current = setTimeout(togglePlay, DOUBLE_TAP_MS);
   };
 
   const playing = active && !userPaused;
@@ -349,11 +399,33 @@ const ReelItem = memo(function ReelPage({
         <ActivityIndicator color={WHITE} style={styles.center} pointerEvents="none" />
       ) : null}
 
-      {!playing && active && ready ? (
-        <View style={styles.playWrap} pointerEvents="none">
-          <View style={styles.playBadge}>
-            <Play size={34} color={WHITE} fill={WHITE} />
-          </View>
+      {active && ready && (!playing || controls) ? (
+        <View style={styles.playWrap} pointerEvents="box-none">
+          {reel.audio_muted ? null : (
+            <Pressable
+              onPress={() => {
+                onToggleMute();
+                showControls();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
+              style={styles.soundBadge}
+            >
+              {muted ? <VolumeX size={24} color={WHITE} /> : <Volume2 size={24} color={WHITE} />}
+            </Pressable>
+          )}
+          <Pressable
+            onPress={togglePlay}
+            accessibilityRole="button"
+            accessibilityLabel={playing ? 'Pause' : 'Play'}
+            style={[styles.playBadge, playing && styles.pauseBadge]}
+          >
+            {playing ? (
+              <Pause size={32} color={WHITE} fill={WHITE} />
+            ) : (
+              <Play size={34} color={WHITE} fill={WHITE} />
+            )}
+          </Pressable>
         </View>
       ) : null}
 
@@ -415,28 +487,6 @@ const ReelItem = memo(function ReelPage({
         >
           <Send size={27} color={WHITE} />
         </Pressable>
-        {reel.audio_muted ? null : (
-          <Pressable
-            onPress={onToggleMute}
-            accessibilityRole="button"
-            accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
-            style={styles.action}
-          >
-            {muted ? <VolumeX size={26} color={WHITE} /> : <Volume2 size={26} color={WHITE} />}
-          </Pressable>
-        )}
-        <Pressable
-          onPress={() => setUserPaused(p => !p)}
-          accessibilityRole="button"
-          accessibilityLabel={playing ? 'Pause' : 'Play'}
-          style={styles.action}
-        >
-          {playing ? (
-            <Pause size={26} color={WHITE} fill={WHITE} />
-          ) : (
-            <Play size={26} color={WHITE} fill={WHITE} />
-          )}
-        </Pressable>
         <Pressable
           onPress={() => onMenu(reel)}
           accessibilityRole="button"
@@ -496,6 +546,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 4,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  pauseBadge: { paddingLeft: 0 },
+  soundBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   side: { position: 'absolute', right: 8, alignItems: 'center', gap: 6 },

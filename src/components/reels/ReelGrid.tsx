@@ -1,4 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Clapperboard } from 'lucide-react-native';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
@@ -12,9 +13,12 @@ import {
 import Video, { type VideoRef } from 'react-native-video';
 
 import { focusReel } from '@/features/reels/reelFocus';
+import type { RootStackParamList } from '@/navigation/types';
 import type { Reel } from '@/services/api/reels';
 import { reelsApi } from '@/services/api/reels';
 import { useAppTheme } from '@/theme';
+
+const GAP = 2;
 
 function ReelCover({ reel }: { reel: Reel }) {
   const video = useRef<VideoRef>(null);
@@ -51,9 +55,11 @@ export function ReelGrid({
   empty: ReactNode;
 }) {
   const { colors } = useAppTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { width } = useWindowDimensions();
-  const size = width / 3;
+  const [gridWidth, setGridWidth] = useState(width);
+  // Rounded down: three tiles that add up to even a fraction over the row wrap to two columns.
+  const size = Math.floor((gridWidth - GAP * 2) / 3);
   const [items, setItems] = useState<Reel[] | null>(null);
 
   useEffect(() => {
@@ -74,13 +80,17 @@ export function ReelGrid({
   if (!items) return null;
   if (!items.length) return <>{empty}</>;
   return (
-    <View style={styles.wrap}>
+    <View
+      style={styles.wrap}
+      onLayout={e => setGridWidth(e.nativeEvent.layout.width)}
+    >
       {items.map(reel => (
         <Pressable
           key={reel.id}
           onPress={() => {
             focusReel(reel);
-            navigation.navigate('Main', { screen: 'Reels' });
+            // Profiles sit above the tabs in the stack; go back down to them instead of pushing.
+            navigation.popTo('Main', { screen: 'Reels' });
           }}
           accessibilityRole="button"
           accessibilityLabel="Play reel"
@@ -93,8 +103,10 @@ export function ReelGrid({
             },
           ]}
         >
-          <ReelCover reel={reel} />
-          <View style={styles.shade}>
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <ReelCover reel={reel} />
+          </View>
+          <View style={styles.shade} pointerEvents="none">
             <Clapperboard size={18} color="#FFFFFF" />
             <Text style={styles.likes}>{reel.likes_count}</Text>
           </View>
@@ -105,7 +117,7 @@ export function ReelGrid({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexDirection: 'row', flexWrap: 'wrap' },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
   tile: {},
   shade: {
     position: 'absolute',

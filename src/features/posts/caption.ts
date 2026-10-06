@@ -9,7 +9,8 @@ export const ALT_TEXT_MAX = 100;
 export const LOCATION_MAX = 100;
 
 const NAME_CHARS = 'a-z0-9._';
-const MENTION_RE = /(^|[^\w.@])@([a-z0-9._]{1,30})/gi;
+/** Only at the start, after a space or an opening bracket, so "…@ann" or "hi@ann" stays text. */
+const MENTION_RE = /(^|[\s([{])@([a-z0-9._]{1,30})/gi;
 
 export type CaptionSegment =
   | { type: 'text'; text: string }
