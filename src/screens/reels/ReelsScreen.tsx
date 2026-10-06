@@ -50,6 +50,7 @@ import { type Reel, reelsApi } from '@/services/api/reels';
 const WHITE = '#FFFFFF';
 const LIKE = '#FF3B5C';
 const DOUBLE_TAP_MS = 260;
+const CONTROLS_MS = 1500;
 
 export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
   const bottomInset = useTabBarInset();
@@ -255,15 +256,38 @@ const ReelItem = memo(function ReelPage({
   const [expanded, setExpanded] = useState(false);
   const lastTap = useRef(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [controls, setControls] = useState(false);
+  const controlsTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const burst = useRef(new Animated.Value(0)).current;
   const pop = useRef(new Animated.Value(1)).current;
   const startSec = (reel.trim_start_ms ?? 0) / 1000;
 
   // Coming back to a reel starts it playing again.
   useEffect(() => {
-    if (!active) setUserPaused(false);
+    if (!active) {
+      setUserPaused(false);
+      setControls(false);
+    }
   }, [active]);
-  useEffect(() => () => clearTimeout(tapTimer.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(tapTimer.current);
+      clearTimeout(controlsTimer.current);
+    },
+    [],
+  );
+
+  /** Shows the centre buttons; while playing they fade out after a moment. */
+  const showControls = () => {
+    clearTimeout(controlsTimer.current);
+    setControls(true);
+    controlsTimer.current = setTimeout(() => setControls(false), CONTROLS_MS);
+  };
+
+  const togglePlay = () => {
+    setUserPaused(p => !p);
+    showControls();
+  };
 
   const like = (want: boolean) => {
     setLikeState('reel', reel.id, reel, want);
@@ -289,7 +313,7 @@ const ReelItem = memo(function ReelPage({
       return;
     }
     lastTap.current = now;
-    tapTimer.current = setTimeout(() => setUserPaused(p => !p), DOUBLE_TAP_MS);
+    tapTimer.current = setTimeout(togglePlay, DOUBLE_TAP_MS);
   };
 
   const playing = active && !userPaused;
@@ -349,11 +373,33 @@ const ReelItem = memo(function ReelPage({
         <ActivityIndicator color={WHITE} style={styles.center} pointerEvents="none" />
       ) : null}
 
-      {!playing && active && ready ? (
-        <View style={styles.playWrap} pointerEvents="none">
-          <View style={styles.playBadge}>
-            <Play size={34} color={WHITE} fill={WHITE} />
-          </View>
+      {active && ready && (!playing || controls) ? (
+        <View style={styles.playWrap} pointerEvents="box-none">
+          {reel.audio_muted ? null : (
+            <Pressable
+              onPress={() => {
+                onToggleMute();
+                showControls();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
+              style={styles.soundBadge}
+            >
+              {muted ? <VolumeX size={24} color={WHITE} /> : <Volume2 size={24} color={WHITE} />}
+            </Pressable>
+          )}
+          <Pressable
+            onPress={togglePlay}
+            accessibilityRole="button"
+            accessibilityLabel={playing ? 'Pause' : 'Play'}
+            style={[styles.playBadge, playing && styles.pauseBadge]}
+          >
+            {playing ? (
+              <Pause size={32} color={WHITE} fill={WHITE} />
+            ) : (
+              <Play size={34} color={WHITE} fill={WHITE} />
+            )}
+          </Pressable>
         </View>
       ) : null}
 
@@ -415,28 +461,6 @@ const ReelItem = memo(function ReelPage({
         >
           <Send size={27} color={WHITE} />
         </Pressable>
-        {reel.audio_muted ? null : (
-          <Pressable
-            onPress={onToggleMute}
-            accessibilityRole="button"
-            accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
-            style={styles.action}
-          >
-            {muted ? <VolumeX size={26} color={WHITE} /> : <Volume2 size={26} color={WHITE} />}
-          </Pressable>
-        )}
-        <Pressable
-          onPress={() => setUserPaused(p => !p)}
-          accessibilityRole="button"
-          accessibilityLabel={playing ? 'Pause' : 'Play'}
-          style={styles.action}
-        >
-          {playing ? (
-            <Pause size={26} color={WHITE} fill={WHITE} />
-          ) : (
-            <Play size={26} color={WHITE} fill={WHITE} />
-          )}
-        </Pressable>
         <Pressable
           onPress={() => onMenu(reel)}
           accessibilityRole="button"
@@ -496,6 +520,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 4,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  pauseBadge: { paddingLeft: 0 },
+  soundBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   side: { position: 'absolute', right: 8, alignItems: 'center', gap: 6 },

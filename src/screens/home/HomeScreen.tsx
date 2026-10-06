@@ -23,6 +23,8 @@ import { useChats } from '@/features/chats/useChats';
 import { usePagedList } from '@/features/follows/usePagedList';
 import { useNotifications } from '@/features/notifications/useNotifications';
 import { onPostShared } from '@/features/posts/postComposer';
+import { dropExpired } from '@/features/stories/expiry';
+import { onStoryShared } from '@/features/stories/storyEvents';
 import { useEngagementSync } from '@/features/posts/postEvents';
 import { useTabBarInset } from '@/navigation/BottomNav';
 import type { TabScreenProps } from '@/navigation/types';
@@ -80,10 +82,15 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
 
   useEffect(() => {
     loadStories();
-    return onPostShared(post => {
+    const offPost = onPostShared(post => {
       setItems(prev => [post, ...prev.filter(p => p.id !== post.id)]);
       loadStories();
     });
+    const offStory = onStoryShared(loadStories);
+    return () => {
+      offPost();
+      offStory();
+    };
   }, [loadStories, setItems]);
 
   return (
@@ -201,18 +208,6 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
 }
 
 /** Keeps the same arrays when nothing expired, so the tray doesn't re-render. */
-function dropExpired(groups: StoryGroup[]) {
-  const now = Date.now();
-  let changed = false;
-  const live = groups.flatMap(group => {
-    const items = group.stories.filter(s => Date.parse(s.expires_at) > now);
-    if (items.length === group.stories.length) return [group];
-    changed = true;
-    return items.length ? [{ ...group, stories: items }] : [];
-  });
-  return changed ? live : groups;
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   cta: { minWidth: 200 },

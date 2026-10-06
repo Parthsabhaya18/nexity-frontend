@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { Layers, Play } from 'lucide-react-native';
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -41,7 +41,9 @@ export function PostGrid({
   const { colors } = useAppTheme();
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
-  const size = (width - GAP * 2) / 3;
+  const [gridWidth, setGridWidth] = useState(width);
+  // Rounded down: three tiles that add up to even a fraction over the row wrap to two columns.
+  const size = Math.floor((gridWidth - GAP * 2) / 3);
   const list = usePagedList(fetchPage);
   useEngagementSync<Post>('post', list.setItems);
 
@@ -64,7 +66,7 @@ export function PostGrid({
   if (!list.items.length) return <>{empty}</>;
 
   return (
-    <View>
+    <View onLayout={e => setGridWidth(e.nativeEvent.layout.width)}>
       <View style={styles.wrap}>
         {list.items.map(item => {
           const cover = item.media[0];

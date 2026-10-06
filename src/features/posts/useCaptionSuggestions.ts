@@ -7,13 +7,13 @@ import { useDebouncedValue } from '@/utils/useDebouncedValue';
 import { MENTION_SUGGESTIONS, type ActiveToken } from './caption';
 
 /**
- * Up to five people for the `@name` being typed. Typing just `@` lists people
- * the user may want to mention; blocked accounts are never returned. Stale
- * requests are cancelled.
+ * Up to five people for the `@name` being typed. Just `@` lists people the
+ * user follows; typing narrows it to names starting with the text. Blocked
+ * accounts are never returned. Stale requests are cancelled.
  */
 export function useMentionSuggestions(token: ActiveToken | null) {
   const active = !!token;
-  const query = useDebouncedValue(token?.query ?? '', 200);
+  const query = useDebouncedValue(token?.query ?? '', 150);
   const [result, setResult] = useState<UserSummary[] | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -25,10 +25,8 @@ export function useMentionSuggestions(token: ActiveToken | null) {
     }
     const controller = new AbortController();
     setLoading(true);
-    const request = query
-      ? followsApi.searchUsers(query, controller.signal)
-      : followsApi.suggestUsers(controller.signal);
-    request
+    followsApi
+      .mentionUsers(query, MENTION_SUGGESTIONS, controller.signal)
       .then(items => {
         if (controller.signal.aborted) return;
         primeFollowStatuses(items);

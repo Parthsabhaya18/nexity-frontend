@@ -2,7 +2,6 @@ import { usePreventRemove } from '@react-navigation/native';
 import {
   ChevronRight,
   Heart,
-  ImageIcon,
   MapPin,
   MessageCircleOff,
   Volume2,
@@ -12,7 +11,6 @@ import { type ReactNode, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Pressable,
@@ -24,7 +22,6 @@ import {
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { CaptureView } from '@/components/create/CaptureView';
-import { GalleryPicker } from '@/components/create/GalleryPicker';
 import { TrimBar } from '@/components/create/TrimBar';
 import { LocationSheet } from '@/components/posts/LocationSheet';
 import { MentionInput } from '@/components/posts/MentionInput';
@@ -46,8 +43,6 @@ import { ApiError } from '@/services/api/client';
 import { reelsApi } from '@/services/api/reels';
 import { radius, spacing, useAppTheme } from '@/theme';
 
-type Cover = 'start' | 'middle' | 'photo';
-
 /** Full-screen camera or gallery first, then trim, describe and share. */
 export function CreateReelScreen({ navigation }: ScreenProps<'CreateReel'>) {
   const { colors } = useAppTheme();
@@ -60,9 +55,6 @@ export function CreateReelScreen({ navigation }: ScreenProps<'CreateReel'>) {
   const [audioMuted, setAudioMuted] = useState(false);
   const [hideLikes, setHideLikes] = useState(false);
   const [commentsOff, setCommentsOff] = useState(false);
-  const [coverMode, setCoverMode] = useState<Cover>('start');
-  const [coverPhoto, setCoverPhoto] = useState<LocalMedia | null>(null);
-  const [coverPicker, setCoverPicker] = useState(false);
   const [places, setPlaces] = useState(false);
   const [startMs, setStartMs] = useState(0);
   const [endMs, setEndMs] = useState(0);
@@ -97,8 +89,6 @@ export function CreateReelScreen({ navigation }: ScreenProps<'CreateReel'>) {
     setMedia(clip);
     setStartMs(0);
     setEndMs(Math.min(duration, maxMs));
-    setCoverMode('start');
-    setCoverPhoto(null);
     setAudioMuted(false);
   };
 
@@ -118,19 +108,11 @@ export function CreateReelScreen({ navigation }: ScreenProps<'CreateReel'>) {
     controller.current = c;
     setProgress(0);
     try {
-      const withCover = coverMode === 'photo' && !!coverPhoto;
-      const videoShare = withCover ? 0.85 : 0.95;
       const asset = await uploadMedia(
         { ...media, durationMs: Math.max(1000, endMs - startMs) },
         'reel',
-        { signal: c.signal, onProgress: f => setProgress(f * videoShare) },
+        { signal: c.signal, onProgress: f => setProgress(f * 0.95) },
       );
-      const coverAsset = withCover
-        ? await uploadMedia(coverPhoto!, 'post', {
-            signal: c.signal,
-            onProgress: f => setProgress(videoShare + f * 0.1),
-          })
-        : null;
       const reel = await reelsApi.create({
         video_media_id: asset.id,
         caption: caption.trim(),
@@ -140,8 +122,7 @@ export function CreateReelScreen({ navigation }: ScreenProps<'CreateReel'>) {
         audio_muted: audioMuted,
         hide_like_count: hideLikes,
         comments_disabled: commentsOff,
-        cover_time_ms: Math.round(coverMode === 'middle' ? (startMs + endMs) / 2 : startMs),
-        cover_media_id: coverAsset?.id,
+        cover_time_ms: Math.round(startMs),
         client_upload_id: uploadId.current,
         trim_start_ms: trimmed ? Math.round(startMs) : null,
         trim_end_ms: trimmed ? Math.round(endMs) : null,
@@ -177,12 +158,6 @@ export function CreateReelScreen({ navigation }: ScreenProps<'CreateReel'>) {
     );
   }
 
-  const coverChoices: { id: Cover; label: string }[] = [
-    { id: 'start', label: 'First frame' },
-    { id: 'middle', label: 'Middle' },
-    { id: 'photo', label: coverPhoto ? 'Photo ✓' : 'Photo' },
-  ];
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <AppBar
@@ -204,19 +179,15 @@ export function CreateReelScreen({ navigation }: ScreenProps<'CreateReel'>) {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <View style={styles.previewRow}>
             <View style={styles.preview}>
-              {coverMode === 'photo' && coverPhoto ? (
-                <Image source={{ uri: coverPhoto.uri }} style={StyleSheet.absoluteFill} />
-              ) : (
-                <PlayableMedia
-                  uri={media.uri}
-                  kind="video"
-                  active={!busy}
-                  trimStartMs={startMs}
-                  trimEndMs={endMs}
-                  forceMuted={audioMuted}
-                  style={StyleSheet.absoluteFill}
-                />
-              )}
+              <PlayableMedia
+                uri={media.uri}
+                kind="video"
+                active={!busy}
+                trimStartMs={startMs}
+                trimEndMs={endMs}
+                forceMuted={audioMuted}
+                style={StyleSheet.absoluteFill}
+              />
             </View>
           </View>
 
@@ -241,38 +212,6 @@ export function CreateReelScreen({ navigation }: ScreenProps<'CreateReel'>) {
               maxLength={CAPTION_MAX}
               accessibilityLabel="Description"
             />
-          </View>
-
-          <Text style={[styles.section, { color: colors.textSecondary }]}>Cover</Text>
-          <View style={styles.segment}>
-            {coverChoices.map(choice => {
-              const on = coverMode === choice.id;
-              return (
-                <Pressable
-                  key={choice.id}
-                  onPress={() => {
-                    if (choice.id === 'photo') setCoverPicker(true);
-                    else setCoverMode(choice.id);
-                  }}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: on }}
-                  style={[
-                    styles.segmentItem,
-                    {
-                      backgroundColor: on ? colors.primarySoft : colors.surfaceAlt,
-                      borderColor: on ? colors.primary : 'transparent',
-                    },
-                  ]}
-                >
-                  {choice.id === 'photo' ? (
-                    <ImageIcon size={16} color={on ? colors.primary : colors.text} />
-                  ) : null}
-                  <Text style={[styles.segmentText, { color: on ? colors.primary : colors.text }]}>
-                    {choice.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
           </View>
 
           <Pressable
@@ -381,19 +320,6 @@ export function CreateReelScreen({ navigation }: ScreenProps<'CreateReel'>) {
         </View>
       </Modal>
 
-      <GalleryPicker
-        visible={coverPicker}
-        purpose="post"
-        kind="image"
-        onClose={() => setCoverPicker(false)}
-        onPick={items => {
-          setCoverPicker(false);
-          if (items[0]) {
-            setCoverPhoto(items[0]);
-            setCoverMode('photo');
-          }
-        }}
-      />
       <LocationSheet
         visible={places}
         onClose={() => setPlaces(false)}
@@ -463,18 +389,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
-  segment: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md },
-  segmentItem: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 6,
-    height: 40,
-    borderRadius: radius.full,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentText: { fontSize: 13.5, fontWeight: '700' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -20,6 +20,8 @@ export interface StoryItem {
   liked_by_me?: boolean;
 }
 
+export type StoryViewerRow = UserSummary & { liked: boolean };
+
 export interface StoryGroup {
   user: UserSummary;
   seen: boolean;
@@ -65,7 +67,7 @@ export const storiesApi = {
     else await apiClient.delete(`/stories/${id}/like`);
   },
 
-  /** A private reply to the story's owner. */
+  /** A private reply to the story's owner, delivered in your chat with them. */
   async message(id: string, body: string) {
     await apiClient.post(`/stories/${id}/message`, { body });
   },
@@ -84,8 +86,9 @@ export const storiesApi = {
     await apiClient.post(`/stories/${id}/view`);
   },
 
+  /** People who liked the story come first. */
   async viewers(id: string) {
-    const { data } = await apiClient.get<{ items: UserSummary[] }>(
+    const { data } = await apiClient.get<{ items: StoryViewerRow[] }>(
       `/stories/${id}/viewers`,
     );
     return data.items;

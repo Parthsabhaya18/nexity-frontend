@@ -29,8 +29,8 @@ import {
   TabButton,
   WebsiteLink,
 } from '@/components/profile/ProfileParts';
+import { StoryAvatar } from '@/components/stories/StoryAvatar';
 import { AppBar } from '@/components/ui/AppBar';
-import { Avatar } from '@/components/ui/Avatar';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { PostGrid } from '@/components/posts/PostGrid';
 import { ReelGrid } from '@/components/reels/ReelGrid';
@@ -150,18 +150,15 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
       >
         <View style={styles.head}>
           <View style={styles.top}>
-            <Pressable
-              onPress={() => setPhotoOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="View profile photo"
-              style={({ pressed }) => pressed && styles.pressed}
-            >
-              <Avatar
-                uri={user.avatar_url}
-                name={user.display_name}
-                size={88}
-              />
-            </Pressable>
+            <StoryAvatar
+              self
+              userId={user.id}
+              username={user.username}
+              avatarUrl={user.avatar_url}
+              name={user.display_name}
+              size={84}
+              onShowPhoto={() => setPhotoOpen(true)}
+            />
             <View style={styles.stats}>
               <Stat value={user.posts_count ?? 0} label="Posts" />
               <Stat

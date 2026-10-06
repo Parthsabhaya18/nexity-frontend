@@ -16,6 +16,8 @@ import type { Reel } from '@/services/api/reels';
 import { reelsApi } from '@/services/api/reels';
 import { useAppTheme } from '@/theme';
 
+const GAP = 2;
+
 function ReelCover({ reel }: { reel: Reel }) {
   const video = useRef<VideoRef>(null);
   if (reel.cover_url) {
@@ -53,7 +55,9 @@ export function ReelGrid({
   const { colors } = useAppTheme();
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
-  const size = width / 3;
+  const [gridWidth, setGridWidth] = useState(width);
+  // Rounded down: three tiles that add up to even a fraction over the row wrap to two columns.
+  const size = Math.floor((gridWidth - GAP * 2) / 3);
   const [items, setItems] = useState<Reel[] | null>(null);
 
   useEffect(() => {
@@ -74,7 +78,10 @@ export function ReelGrid({
   if (!items) return null;
   if (!items.length) return <>{empty}</>;
   return (
-    <View style={styles.wrap}>
+    <View
+      style={styles.wrap}
+      onLayout={e => setGridWidth(e.nativeEvent.layout.width)}
+    >
       {items.map(reel => (
         <Pressable
           key={reel.id}
@@ -105,7 +112,7 @@ export function ReelGrid({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexDirection: 'row', flexWrap: 'wrap' },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
   tile: {},
   shade: {
     position: 'absolute',

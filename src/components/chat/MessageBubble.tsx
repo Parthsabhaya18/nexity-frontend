@@ -18,6 +18,7 @@ import type {
   MessageMedia,
   ReactionGroup,
   ReplyPreview,
+  StoryRef,
 } from '@/services/api/chat';
 import { useAppTheme } from '@/theme';
 import { clockTime } from '@/utils/time';
@@ -315,6 +316,13 @@ export const MessageBubble = memo(function Bubble({
   return (
     <View style={[styles.wrap, tail && styles.wrapTail]}>
       <Animated.View style={{ transform: [{ translateX }] }}>
+        {message.story && !deleted ? (
+          <StoryQuote
+            story={message.story}
+            mine={mine}
+            peerName={peer?.display_name ?? ''}
+          />
+        ) : null}
         {message.reply_to && !deleted ? (
           <Quote
             reply={message.reply_to}
@@ -735,6 +743,57 @@ function quotedNoun(
   if (type === 'sticker') return 'a sticker';
   if (media.count > 1) return `${media.count} photos`;
   return media.kind === 'video' ? 'a video' : 'a photo';
+}
+
+/** The story a reply was sent from, shown above the message like Instagram. */
+function StoryQuote({
+  story,
+  mine,
+  peerName,
+}: {
+  story: StoryRef;
+  mine: boolean;
+  peerName: string;
+}) {
+  const { colors } = useAppTheme();
+  const bar = (
+    <View style={[styles.quoteBar, { backgroundColor: colors.border }]} />
+  );
+  return (
+    <View style={[styles.quoteWrap, mine ? styles.quoteOut : styles.quoteIn]}>
+      <Text
+        style={[styles.quoteLabel, { color: colors.textSecondary }]}
+        numberOfLines={1}
+      >
+        {mine
+          ? `You replied to ${peerName}'s story`
+          : `${peerName} replied to your story`}
+      </Text>
+      <View style={styles.quoteRow}>
+        {mine ? null : bar}
+        {story.url ? (
+          <View style={styles.quoteMedia}>
+            <QuoteThumb
+              item={{ uri: story.url, video: story.kind === 'video' }}
+            />
+          </View>
+        ) : (
+          <View style={[styles.quote, { backgroundColor: colors.surfaceAlt }]}>
+            <Text
+              style={[
+                styles.quoteText,
+                styles.deleted,
+                { color: colors.textSecondary },
+              ]}
+            >
+              Story unavailable
+            </Text>
+          </View>
+        )}
+        {mine ? bar : null}
+      </View>
+    </View>
+  );
 }
 
 /**

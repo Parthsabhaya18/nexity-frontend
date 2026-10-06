@@ -118,6 +118,15 @@ export const followsApi = {
     return data.users;
   },
 
+  /** `@` picker: people you follow for an empty query, best name matches while typing. */
+  async mentionUsers(q: string, limit: number, signal?: AbortSignal) {
+    const { data } = await apiClient.get<{ users: UserSummary[] }>(
+      '/users/mention-suggestions',
+      { params: { q, limit }, signal },
+    );
+    return data.users;
+  },
+
   async searchUsers(q: string, signal?: AbortSignal) {
     const { data } = await apiClient.get<{ users: UserSummary[] }>('/search', {
       params: { q, type: 'users' },

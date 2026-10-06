@@ -17,6 +17,8 @@ describe('parseCaption', () => {
 
   it('counts unique mentions', () => {
     expect(countMentions('#a @ann @Ann @bob')).toBe(2);
+    expect(countMentions('wow...@ann wow…@bob hi@cat')).toBe(0);
+    expect(countMentions('(@ann) and\n@bob')).toBe(2);
   });
 });
 

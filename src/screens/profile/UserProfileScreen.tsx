@@ -19,7 +19,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Pressable,
   RefreshControl,
   ScrollView,
   Share,
@@ -39,8 +38,8 @@ import {
 } from '@/components/profile/ProfileParts';
 import { ReportSheet } from '@/components/safety/ReportSheet';
 import { ActionSheet } from '@/components/ui/ActionSheet';
+import { StoryAvatar } from '@/components/stories/StoryAvatar';
 import { AppBar } from '@/components/ui/AppBar';
-import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { PostGrid } from '@/components/posts/PostGrid';
 import { ReelGrid } from '@/components/reels/ReelGrid';
@@ -256,18 +255,14 @@ function ProfileBody({ profile }: { profile: Profile }) {
     <>
       <View style={styles.head}>
         <View style={styles.top}>
-          <Pressable
-            onPress={() => setPhotoOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel={`View @${profile.username}'s profile photo`}
-            style={({ pressed }) => pressed && styles.pressed}
-          >
-            <Avatar
-              uri={profile.avatar_url}
-              name={profile.display_name}
-              size={88}
-            />
-          </Pressable>
+          <StoryAvatar
+            userId={profile.id}
+            username={profile.username}
+            avatarUrl={profile.avatar_url}
+            name={profile.display_name}
+            size={84}
+            onShowPhoto={() => setPhotoOpen(true)}
+          />
           <View style={styles.stats}>
             <Stat value={profile.posts_count} label="Posts" />
             <Stat
@@ -492,7 +487,6 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     borderRadius: radius.sm,
   },
-  pressed: { opacity: 0.7 },
   private: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
