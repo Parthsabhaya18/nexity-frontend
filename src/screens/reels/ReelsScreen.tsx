@@ -40,7 +40,7 @@ import { Button } from '@/components/ui/Button';
 import { usePagedList } from '@/features/follows/usePagedList';
 import { setLikeState } from '@/features/posts/likeSync';
 import { useEngagementSync } from '@/features/posts/postEvents';
-import { consumeFocusedReel } from '@/features/reels/reelFocus';
+import { consumeFocusedReel, keepPinnedFirst } from '@/features/reels/reelFocus';
 import { useTabBarInset } from '@/navigation/BottomNav';
 import type { TabScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
@@ -61,7 +61,7 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
   const [comments, setComments] = useState<CommentTarget | null>(null);
   const [options, setOptions] = useState<Reel | null>(null);
   const [report, setReport] = useState<Reel | null>(null);
-  const pendingId = useRef<string | null>(null);
+  const pinned = useRef<Reel | null>(null);
   const listRef = useRef<FlatList<Reel>>(null);
   useStatusBar('dark');
 
@@ -84,29 +84,44 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
     useCallback(() => {
       const focus = consumeFocusedReel();
       if (!focus) return;
-      if ('video_url' in focus) {
-        setItems(prev => [focus, ...prev.filter(item => item.id !== focus.id)]);
-        setActiveId(focus.id);
+      const open = (reel: Reel) => {
+        pinned.current = reel;
+        setItems(prev => [reel, ...prev.filter(item => item.id !== reel.id)]);
+        setActiveId(reel.id);
         listRef.current?.scrollToOffset({ offset: 0, animated: false });
-        pendingId.current = null;
-      } else {
-        pendingId.current = focus.id;
+      };
+      if ('video_url' in focus) {
+        open(focus);
+        return;
       }
+      // Only the id is known (a notification): the random feed may not contain it.
+      const controller = new AbortController();
+      reelsApi
+        .get(focus.id, controller.signal)
+        .then(open)
+        .catch(() => {});
+      return () => controller.abort();
     }, [setItems]),
   );
 
+  // A reel opened from a profile stays first even when the (random) feed page
+  // arrives afterwards and replaces the list, and is never shown twice.
   useEffect(() => {
-    const id = pendingId.current;
-    if (!id || !items.some(item => item.id === id)) return;
-    pendingId.current = null;
-    setItems(prev => {
-      const found = prev.find(item => item.id === id);
-      if (!found) return prev;
-      return [found, ...prev.filter(item => item.id !== id)];
-    });
-    setActiveId(id);
-    listRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [items, setItems]);
+    const pin = pinned.current;
+    if (!pin || list.loading) return;
+    const next = keepPinnedFirst(items, pin);
+    if (!next) return;
+    setItems(next);
+    if (items[0]?.id !== pin.id) {
+      setActiveId(pin.id);
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }
+  }, [items, list.loading, setItems]);
+
+  const refresh = useCallback(() => {
+    pinned.current = null;
+    list.refresh();
+  }, [list]);
 
   const openComments = useCallback((reel: Reel) => {
     setComments({
@@ -156,7 +171,7 @@ export function ReelsScreen({ navigation }: TabScreenProps<'Reels'>) {
           removeClippedSubviews
           onEndReached={list.loadMore}
           onEndReachedThreshold={2}
-          onRefresh={list.refresh}
+          onRefresh={refresh}
           refreshing={list.refreshing}
           onMomentumScrollEnd={e => {
             const i = Math.round(e.nativeEvent.contentOffset.y / page);
