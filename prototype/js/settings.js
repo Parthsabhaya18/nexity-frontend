@@ -311,7 +311,7 @@
   /* ---------- Help + Contact ---------- */
   const FAQ = [
     ['How does a Secret Message reveal work?', 'The sender\'s name and message stay sealed (blurred). After your 2nd reply, their name, photo and full message are revealed together, and it becomes a normal chat.'],
-    ['Will someone know I added them as a Secret Crush?', 'Only if they add you too — then it\'s a match. Otherwise they only see "Someone added you as a secret crush 👀" and never find out who.'],
+    ['Will someone know I added them as a Secret Crush?', 'Only if they add you too — then it\'s a match. Otherwise they only see "Someone added you as a Secret Crush 👀" and never find out who.'],
     ['Does Nearby share my location?', 'No. Nearby only shows "Was near you today 💫". Never a place, map, distance, time, visit count or history — not even to administrators.'],
     ['What do Plus and Premium include?', 'Plus (₹99/month) lets you send 5 Secret Messages a month, add 3 Secret Crushes, read & reply to Secret Messages and see Nearby. Premium (₹249/month) gives unlimited Secret Messages (fair use), up to 10 Secret Crushes and a 👑 profile badge.'],
     ['How do I report or block someone?', 'Tap ••• on a profile, post, reel, story, chat or secret message and choose Report or Block. Anonymous senders can be blocked without revealing who they are.'],

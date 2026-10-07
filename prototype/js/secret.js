@@ -18,41 +18,72 @@
   const inbox = () => S.secretInbox.filter(m => !(S.blockedAnon || []).includes(m.senderId)).sort((a, b) => b.createdAt - a.createdAt);
   NX.secretInboxList = inbox;
 
-  /* ---------- Secret tab ---------- */
+  const NOTICE = 'Someone is trying to reach you with a Secret Message 💌';
+  NX.secretNotice = NOTICE;
+  const firstName = (u) => esc(u.name.split(' ')[0]);
+
+  /* ---------- Premium tab (Secret hub) ---------- */
+  const unreadSealed = () => inbox().filter(m => !m.revealed && m.messages[m.messages.length - 1].from === 'them').length;
+  const crushDot = () => S.notifications.some(n => !n.read && (n.type === 'crush' || n.type === 'match'));
+
+  const planPill = () => {
+    const p = S.me.plan;
+    const label = p === 'premium' ? `${Icon('crown', 13)} Premium` : p === 'plus' ? `${Icon('sparkles', 13)} Plus` : 'Free';
+    return `<button class="px-plan-pill ${p}" data-go="mySubscription" aria-label="Your plan: ${p}. Open subscription">${label}</button>`;
+  };
+
   Screens.secret = {
     tab: 'secret', title: 'Premium',
     render: (p) => {
       if (p.tab) { App.secretTab = p.tab; p.tab = null; }
       const t = App.secretTab;
-      const unread = inbox().filter(m => !m.revealed && m.messages[m.messages.length - 1].from === 'them').length;
+      const unread = unreadSealed();
+      const dot = crushDot();
       return `
-        <header class="appbar appbar-secret">
-          <div class="appbar-title"><h1>${Icon('crown', 20)} Premium</h1></div>
+        <header class="appbar px-appbar">
+          <div class="appbar-title"><h1><span class="px-crown" aria-hidden="true">${Icon('crown', 18)}</span>Premium</h1></div>
           <div class="appbar-actions">
+            ${planPill()}
             <button class="icon-btn" data-action="secretHowItWorks" aria-label="How it works">${Icon('help', 23)}</button>
           </div>
         </header>
-        <div class="page page-secret">
-          <section class="secret-hero">
+        <div class="page px-page">
+          <section class="px-hero">
             <div class="stars" aria-hidden="true"></div>
-            <div class="sh-row">
-              <div>
-                <p class="eyebrow">${Icon('mask', 15)} Your secret side</p>
-                <h2>Say it without saying who.</h2>
-              </div>
-              <span class="sh-seal" aria-hidden="true">💌</span>
+            <div class="px-hero-text">
+              <p class="px-eyebrow"><span aria-hidden="true">🎭</span> Your secret side</p>
+              <h2>Say it without saying who.</h2>
             </div>
-            <div class="secret-tabs" role="tablist" aria-label="Secret sections">
-              <button role="tab" class="${t === 'messages' ? 'active' : ''}" aria-selected="${t === 'messages'}" data-action="secretTab" data-tab="messages"><span aria-hidden="true">💌</span> Messages ${unread ? `<span class="count">${unread}</span>` : ''}</button>
-              <button role="tab" class="${t === 'crush' ? 'active' : ''}" aria-selected="${t === 'crush'}" data-action="secretTab" data-tab="crush"><span aria-hidden="true">💘</span> Secret Crush</button>
-            </div>
+            <span class="px-hero-seal" aria-hidden="true"><span>💌</span></span>
           </section>
+          <div class="px-tabs" role="tablist" aria-label="Premium sections">
+            <button role="tab" class="${t === 'messages' ? 'active' : ''}" aria-selected="${t === 'messages'}" data-action="secretTab" data-tab="messages">
+              <span aria-hidden="true">💌</span> Messages${unread ? `<span class="px-count" aria-label="${unread} unread">${unread}</span>` : ''}
+            </button>
+            <button role="tab" class="${t === 'crush' ? 'active' : ''}" aria-selected="${t === 'crush'}" data-action="secretTab" data-tab="crush">
+              <span aria-hidden="true">💘</span> Secret Crush${dot ? '<span class="px-dot" aria-label="New"></span>' : ''}
+            </button>
+          </div>
           <div class="tab-anim" role="tabpanel">${t === 'messages' ? messagesTab() : Crush.renderTab()}</div>
+          ${NX.isPaid() ? '' : `
+            <button class="px-unlock" data-go="plans">
+              <span class="px-unlock-ic" aria-hidden="true">${Icon('crown', 20)}</span>
+              <span class="px-unlock-text"><b>Unlock your secret side</b><small>From ${inr(S.plans.plus.price)}/month · Plus or Premium</small></span>
+              ${Icon('chevronRight', 20)}
+            </button>`}
         </div>`;
     },
     mount() {
-      const n = S.notifications.filter(x => !x.read && (App.secretTab === 'messages' ? x.type === 'secret' && !x.target.params.role : x.type === 'crush'));
-      if (n.length && (App.secretTab === 'crush' || NX.canReadSecret())) { n.forEach(x => { x.read = true; }); NX.save(); App.renderChrome(); }
+      /* Free users keep the dot until a plan unlocks the section, so the reason to upgrade stays visible. */
+      const msgs = App.secretTab === 'messages';
+      const unlocked = msgs ? NX.canReadSecret() : NX.isPaid();
+      if (!unlocked) return;
+      const n = S.notifications.filter(x => !x.read && (msgs ? x.type === 'secret' && !x.target.params.role : x.type === 'crush' || x.type === 'match'));
+      if (!n.length) return;
+      n.forEach(x => { x.read = true; });
+      NX.save();
+      App.renderChrome();
+      if (!msgs) { const d = $('.px-tabs .px-dot'); d && d.remove(); }
     }
   };
   Actions.secretTab = (el) => { App.secretTab = el.dataset.tab; App.refresh(); };
@@ -61,54 +92,78 @@
   function messagesTab() {
     const sub = App.secretSub;
     const rec = inbox();
+    const seg = (id, icon, label, n) => `
+      <button role="tab" class="${sub === id ? 'active' : ''}" aria-selected="${sub === id}" data-action="secretSub" data-sub="${id}">
+        ${Icon(icon, 16)} ${label}${n ? `<span class="px-seg-n">${n}</span>` : ''}
+      </button>`;
     return `
-      <div class="sm-switch" role="tablist" aria-label="Secret messages">
-        <button role="tab" class="${sub === 'received' ? 'active' : ''}" aria-selected="${sub === 'received'}" data-action="secretSub" data-sub="received">${Icon('inbox', 17)} Received${rec.length ? `<span>${rec.length}</span>` : ''}</button>
-        <button role="tab" class="${sub === 'sent' ? 'active' : ''}" aria-selected="${sub === 'sent'}" data-action="secretSub" data-sub="sent">${Icon('send', 16)} Sent${S.secretSent.length ? `<span>${S.secretSent.length}</span>` : ''}</button>
+      <div class="px-seg" role="tablist" aria-label="Secret Messages">
+        ${seg('received', 'inbox', 'Received', rec.length)}
+        ${seg('sent', 'send', 'Sent', S.secretSent.length)}
       </div>
       ${sub === 'received' ? receivedList(rec) : sentList()}`;
   }
 
-  /* Two-step reveal track used by cards and threads. */
-  const steps = (n) => `<span class="sm-steps" aria-hidden="true"><i class="${n >= 1 ? 'on' : ''}"></i><i class="${n >= 2 ? 'on' : ''}"></i></span>`;
+  /* Reply 1 → Reply 2 → ✨ track for list rows. */
+  const track = (n) => `
+    <span class="px-track" aria-hidden="true">
+      <i class="${n >= 1 ? 'on' : ''}"></i><i class="${n >= 2 ? 'on' : ''}"></i><em>✨</em>
+    </span>`;
+
+  const envelope = (icon) => `
+    <span class="px-env" aria-hidden="true"><span class="px-env-flap"></span><span class="px-wax">${Icon(icon, 15)}</span></span>`;
 
   function receivedList(list) {
+    const canRead = NX.canReadSecret();
     if (!list.length) return emptyState({
       emoji: '💌', title: 'No secret messages yet', cls: 'empty-secret',
       text: 'When someone sends you a Secret Message it lands here, sealed. Reply twice to unseal who sent it and what they wrote.',
       actions: '<button class="btn btn-secret" data-action="sendSecretFromTab">Send a Secret Message</button>'
     });
-    const hidden = list.filter(m => !m.revealed);
-    const canRead = NX.canReadSecret();
-    return `
-      ${!canRead && hidden.length ? `
-        <div class="locked-banner">
-          <div class="lb-ic">${Icon('lock', 22)}</div>
-          <h3>You have ${hidden.length} sealed message${hidden.length > 1 ? 's' : ''}</h3>
+    if (!canRead) {
+      const sealed = list.filter(m => !m.revealed);
+      return `
+        <section class="px-locked">
+          <div class="stars" aria-hidden="true"></div>
+          <span class="px-locked-ic" aria-hidden="true">${Icon('lock', 24)}</span>
+          <h3>You have <b>${sealed.length}</b> sealed message${sealed.length === 1 ? '' : 's'}</h3>
           <p>Someone has something to tell you. Upgrade to reply — the name and message unseal after your 2nd reply.</p>
-          <button class="btn btn-light btn-block" data-go="plans" data-params='{"reason":"secret-read"}'>Unlock Secret Messages</button>
-        </div>` : `<p class="privacy-line">${Icon('shieldCheck', 15)} Name and message stay sealed until you reply twice.</p>`}
-      <div class="sm-list">
-        ${list.map(m => m.revealed ? revealedCard(m) : sealedCard(m, !canRead)).join('')}
-      </div>`;
+          <button class="btn btn-light btn-lg btn-block" data-go="plans" data-params='{"reason":"secret-read"}'>${Icon('unlock', 18)} Unlock Secret Messages</button>
+        </section>
+        <div class="px-head"><h2>Sealed messages</h2><span>${sealed.length}</span></div>
+        <div class="px-list">${sealed.map(lockedRow).join('')}</div>`;
+    }
+    return `
+      <p class="px-privacy">${Icon('shieldCheck', 15)} Name and message stay sealed until you reply twice.</p>
+      <div class="px-list">${list.map(m => (m.revealed ? revealedCard(m) : sealedCard(m))).join('')}</div>`;
   }
 
-  const sealedCard = (m, locked) => {
-    const used = m.repliesUsed;
-    const fresh = !locked && m.messages[m.messages.length - 1].from === 'them';
-    const status = locked ? 'Upgrade to reply and unseal'
-      : used === 0 ? 'Sealed · reply twice to unseal'
-      : 'One more reply unseals it ✨';
-    const go = locked ? `data-go="plans" data-params='{"reason":"secret-read"}'` : `data-go="secretThread" data-params='{"id":"${m.id}"}'`;
-    return `
-      <button class="sm-card${locked ? ' locked' : ''}${fresh ? ' fresh' : ''}" ${go} aria-label="Sealed secret message. ${status}">
-        <span class="sm-env" aria-hidden="true"><span class="sm-flap"></span><span class="sm-wax">${locked ? Icon('lock', 15) : Icon('mask', 16)}</span></span>
-        <span class="sm-body">
-          <b>Someone sent you a secret message</b>
-          <span class="sm-status">${status}</span>
-          ${locked ? '' : steps(used)}
+  /* Free receiver: no text, no sender, day only. The row opens Plans; ••• offers Report / Block. */
+  const lockedRow = (m) => `
+    <div class="px-row px-row-locked">
+      <button class="px-row-main" data-go="plans" data-params='{"reason":"secret-read"}' aria-label="Sealed message from ${dayLabel(m.createdAt)}. Upgrade to open.">
+        ${envelope('lock')}
+        <span class="px-row-body">
+          <b>Sealed message</b>
+          <small>${Icon('lock', 11)} Locked · ${dayLabel(m.createdAt)}</small>
         </span>
-        <span class="sm-side"><span class="sm-day">${dayLabel(m.createdAt)}</span>${fresh ? '<span class="sm-new">New</span>' : ''}</span>
+      </button>
+      <button class="icon-btn sm" data-action="lockedSecretMenu" data-id="${m.id}" aria-label="Options">${Icon('more', 20)}</button>
+    </div>`;
+
+  const sealedCard = (m) => {
+    const used = m.repliesUsed;
+    const fresh = m.messages[m.messages.length - 1].from === 'them';
+    const status = used === 0 ? 'Sealed · reply twice to unseal' : 'One more reply unseals it ✨';
+    return `
+      <button class="px-row px-row-sealed${fresh ? ' fresh' : ''}" data-go="secretThread" data-params='{"id":"${m.id}"}' aria-label="Sealed message. ${status}">
+        ${envelope('mask')}
+        <span class="px-row-body">
+          <b>Someone sent you a secret message</b>
+          <small class="${used === 1 ? 'px-hot' : ''}">${status}</small>
+          ${track(used)}
+        </span>
+        <span class="px-row-side"><span class="px-day">${dayLabel(m.createdAt)}</span>${fresh ? '<span class="px-new">New</span>' : ''}</span>
       </button>`;
   };
 
@@ -116,69 +171,144 @@
     const u = NX.user(m.senderId);
     const near = NX.nearbyState(m.senderId);
     return `
-      <button class="sm-card revealed" data-go="chat" data-params='{"id":"${m.chatId}"}'>
-        ${avatar(u, 50)}
-        <span class="sm-body">
+      <button class="px-row" data-go="chat" data-params='{"id":"${m.chatId}"}'>
+        <span class="px-av">${avatar(u, 52)}<span class="px-av-badge ok">${Icon('check', 11)}</span></span>
+        <span class="px-row-body">
           <b>${esc(u.name)}</b>
-          <span class="sm-status">${near === 'on' ? `<span class="sm-near-inline">${NX.nearText(m.senderId)} 💫</span>` : 'Unsealed · now a chat'}</span>
+          <small>${near === 'on' ? `<span class="px-near">${NX.nearText(m.senderId)} 💫</span>` : 'Unsealed · now a chat'}</small>
         </span>
-        <span class="sm-side"><span class="chip chip-ok">${Icon('check', 12)} Revealed</span></span>
+        <span class="px-row-side"><span class="chip chip-ok">${Icon('check', 12)} Revealed</span></span>
       </button>`;
   };
 
-  function usageMeter() {
+  function usageCard() {
     const l = NX.limitOf('secretMessages');
-    if (l < 0) return `<div class="usage">${Icon('crown', 16)}<span><b>Unlimited</b> Secret Messages with Premium</span></div>`;
+    if (l < 0) return `
+      <div class="px-usage">
+        <span class="px-usage-ic premium" aria-hidden="true">${Icon('crown', 20)}</span>
+        <span class="px-usage-text"><b>Unlimited Secret Messages with Premium</b><small>Fair use: up to 30 new a day</small></span>
+      </div>`;
     const used = Math.min(S.usage.secretSent, l);
-    return `<div class="usage"><div class="usage-top"><span><b>${Math.max(0, l - used)} of ${l}</b> Secret Messages left this month</span>${NX.secretLeft() === 0 ? '<button class="link" data-go="plans" data-params=\'{"reason":"limit"}\'>Get more</button>' : ''}</div><div class="meter"><i style="width:${(used / l) * 100}%"></i></div></div>`;
+    const left = Math.max(0, l - used);
+    const reset = new Date(); reset.setMonth(reset.getMonth() + 1, 1);
+    return `
+      <div class="px-usage">
+        <span class="px-usage-ic" aria-hidden="true">💌</span>
+        <span class="px-usage-text">
+          <b>${left} of ${l} Secret Messages left this month</b>
+          <span class="px-pips" aria-hidden="true">${Array.from({ length: l }, (_, i) => `<i class="${i < left ? 'on' : ''}"></i>`).join('')}</span>
+          <small>Resets ${reset.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</small>
+        </span>
+        ${left === 0 ? '<button class="btn btn-premium btn-xs" data-go="plans" data-params=\'{"reason":"limit"}\'>Get more</button>' : ''}
+      </div>`;
   }
+
+  const sentStatus = (m) => (m.revealed ? 'They replied twice · you\'re revealed'
+    : m.repliesReceived ? `${m.repliesReceived} of 2 replies · you're still hidden` : 'Delivered · you\'re hidden');
 
   function sentList() {
     const paid = NX.isPaid();
     const list = [...S.secretSent].sort((a, b) => b.createdAt - a.createdAt);
-    const head = paid ? usageMeter() : `
-      <div class="upsell-card">
-        <span class="upsell-emoji">💌</span>
+    const head = paid ? usageCard() : `
+      <div class="px-upsell">
+        <span class="px-upsell-emoji" aria-hidden="true">💌</span>
         <div><b>Send your first Secret Message</b><p>Say what you've been holding back. You stay anonymous until they reply twice.</p></div>
         <button class="btn btn-primary btn-sm" data-go="plans" data-params='{"reason":"secret-send"}'>See plans</button>
       </div>`;
     if (!list.length) return head + emptyState({
       emoji: '🤫', title: 'Nothing sent yet', cls: 'empty-secret',
-      text: 'Find someone, open their profile and tap <b>Send Secret Message</b>.',
-      actions: '<button class="btn btn-secret" data-action="sendSecretFromTab">Send a Secret Message</button>'
+      text: 'Pick someone and tell them what you\'ve been holding back. They\'ll only learn it\'s you after they reply twice.',
+      actions: paid ? '<button class="btn btn-secret" data-action="sendSecretFromTab">Send a Secret Message</button>' : ''
     });
     return head + `
-      <div class="sm-list">${list.map(m => {
+      <div class="px-list">${list.map(m => {
         const u = NX.user(m.toId);
-        return `<button class="sm-card sent" data-go="${m.revealed ? 'chat' : 'secretThread'}" data-params='${m.revealed ? `{"id":"${m.chatId}"}` : `{"id":"${m.id}","role":"sent"}`}'>
-            ${avatar(u, 50)}
-            <span class="sm-body">
+        const go = m.revealed ? `data-go="chat" data-params='{"id":"${m.chatId}"}'` : `data-go="secretThread" data-params='{"id":"${m.id}","role":"sent"}'`;
+        return `
+          <button class="px-row" ${go}>
+            <span class="px-av">${avatar(u, 52)}<span class="px-av-badge${m.revealed ? ' ok' : ''}">${Icon(m.revealed ? 'check' : 'mask', 11)}</span></span>
+            <span class="px-row-body">
               <b>To ${esc(u.name)}</b>
-              <span class="sm-status">${m.revealed ? 'They replied twice · you\'re revealed' : m.repliesReceived ? `${m.repliesReceived} of 2 replies · you're still hidden` : 'Delivered · you\'re hidden'}</span>
-              ${m.revealed ? '' : steps(m.repliesReceived)}
+              <small class="${m.repliesReceived === 1 && !m.revealed ? 'px-hot' : ''}">${sentStatus(m)}</small>
+              ${m.revealed ? '' : track(m.repliesReceived)}
             </span>
-            <span class="sm-side"><span class="sm-day">${dayLabel(m.createdAt)}</span>${m.revealed ? `<span class="chip chip-ok">${Icon('check', 12)} Chat</span>` : ''}</span>
+            <span class="px-row-side"><span class="px-day">${dayLabel(m.createdAt)}</span>${m.revealed ? `<span class="chip chip-ok">${Icon('chat', 12)} Chat</span>` : ''}</span>
           </button>`;
       }).join('')}</div>
-      <button class="btn btn-secret btn-block mt" data-action="sendSecretFromTab">${Icon('send', 18)} Send another Secret Message</button>`;
+      ${paid ? `<button class="btn btn-secret btn-lg btn-block mt" data-action="sendSecretFromTab">${Icon('send', 18)} Send another Secret Message</button>` : ''}`;
   }
+
+  Actions.lockedSecretMenu = (el) => {
+    const m = S.secretInbox.find(x => x.id === el.dataset.id);
+    Modal.menu([
+      { label: 'Report', icon: 'flag', danger: true, onClick: () => Safety.report({ userId: m.senderId, content: 'Secret Message', anonymous: true }) },
+      { label: 'Block sender', icon: 'ban', danger: true, onClick: () => Safety.block(m.senderId, { anonymous: true }) },
+    ], { title: 'Your report stays private. The sender\'s identity stays hidden.' });
+  };
 
   Actions.sendSecretFromTab = () => {
     if (!NX.isPaid() || NX.limitOf('secretMessages') === 0) return Nav.go('plans', { reason: 'secret-send' });
-    Nav.go('search', { intent: 'secret' });
+    if (NX.secretLeft() <= 0) return upgradeLimitModal('secret');
+    openPeoplePicker('secret_message');
+  };
+
+  /* ---------- SecretPeoplePicker (shared with Secret Crush) ---------- */
+  const PICKER = {
+    secret_message: { title: 'Send a Secret Message', emoji: '💌', text: 'Pick anyone — public or private. You stay <b>"Someone"</b> until they reply twice.' },
+    crush: { title: 'Add a Secret Crush', emoji: '💘', text: 'Who do you like? They\'ll only find out it\'s you <b>if they add you too</b>.' },
+  };
+
+  const pickerRows = (intent, q) => {
+    const v = q.trim().toLowerCase().replace(/^@/, '');
+    const pool = S.users.filter(u => !NX.isBlocked(u.id) && !(S.blockedAnon || []).includes(u.id));
+    const list = v ? pool.filter(u => u.name.toLowerCase().includes(v) || u.username.includes(v)) : pool.slice(0, 8);
+    if (!list.length) return `<p class="px-pick-empty">No one matches "<b>${esc(q)}</b>".</p>`;
+    return `${v ? '' : '<p class="px-pick-label">Suggested</p>'}${list.map(u => {
+      const open = intent === 'secret_message' && S.secretSent.some(m => m.toId === u.id && !m.revealed);
+      const crushed = intent === 'crush' && NX.hasCrush(u.id);
+      const matched = intent === 'crush' && NX.matchWith(u.id);
+      const tag = matched ? '<span class="px-pick-tag love">💘 Match</span>'
+        : crushed ? '<span class="px-pick-tag">In your crushes</span>'
+        : open ? '<span class="px-pick-tag">Open thread</span>' : Icon('chevronRight', 18);
+      return `
+        <button class="px-pick-row" data-action="pickPerson" data-intent="${intent}" data-id="${u.id}" ${crushed || matched ? 'disabled' : ''}>
+          ${avatar(u, 46)}
+          <span class="px-row-body"><b>${esc(u.username)}${premiumBadge(u)}</b><small>${esc(u.name)}</small></span>
+          ${tag}
+        </button>`;
+    }).join('')}`;
+  };
+
+  function openPeoplePicker(intent) {
+    const c = PICKER[intent];
+    Modal.open({
+      title: c.title, cls: 'sheet-tall px-picker',
+      body: `
+        <p class="px-pick-intro"><span aria-hidden="true">${c.emoji}</span><span>${c.text}</span></p>
+        <div class="search-box px-pick-search">
+          ${Icon('search', 18)}
+          <input type="search" placeholder="Search by name or username" data-input="pickerSearch" data-intent="${intent}" autocomplete="off" aria-label="Search people" data-autofocus>
+        </div>
+        <div class="px-pick-list" id="pickerList" aria-live="polite">${pickerRows(intent, '')}</div>`
+    });
+  }
+  window.openPeoplePicker = openPeoplePicker;
+  Inputs.pickerSearch = (el) => { $('#pickerList').innerHTML = pickerRows(el.dataset.intent, el.value); };
+  Actions.pickPerson = (el) => {
+    const { intent, id } = el.dataset;
+    Modal.closeAll();
+    setTimeout(() => (intent === 'crush' ? Actions.toggleCrush(el) : Actions.startSecretMessage(el)), 180);
   };
 
   Actions.secretHowItWorks = () => Modal.open({
-    title: 'How Secret works', cls: 'sheet-tall',
+    title: 'How it works', cls: 'sheet-tall',
     body: `
       <div class="how">
         <div class="how-block"><span class="how-emoji">💌</span><div><h3>Secret Messages</h3>
-          <ol><li>Send a message to anyone. They're told <b>"Someone sent you a secret message 💌"</b>.</li><li>The sender's <b>name and message stay sealed</b> — blurred — while they reply.</li><li>After their <b>2nd reply</b>, the name, photo and full message unseal together and it becomes a normal chat.</li></ol></div></div>
+          <ol><li>Send a message to anyone. They're told <b>"${NOTICE}"</b>.</li><li>The sender's <b>name and message stay sealed</b> while they reply.</li><li>After their <b>2nd reply</b>, the name, photo and full message unseal together and it becomes a normal chat.</li></ol></div></div>
         <div class="how-block"><span class="how-emoji">💘</span><div><h3>Secret Crush</h3>
-          <ol><li>Add people to your private crush list.</li><li>They're told <b>"Someone added you as a secret crush 👀"</b> — never who.</li><li>If they add you too: <b>"Congratulations! It's a match 💘"</b> and a chat opens.</li><li>No match? Nobody ever finds out.</li></ol></div></div>
-        <div class="how-block"><span class="how-emoji">💫</span><div><h3>Nearby, privately</h3>
-          <p>If you both turn on Nearby, you may see one line under their name — <b>"Was near you today 💫"</b>, "yesterday" or "3 days ago", whichever is latest. Never a place, map, distance, time or history.</p></div></div>
-        <p class="how-plans">Replying to Secret Messages, sending them and adding crushes need <b>Plus</b> or <b>Premium</b>.</p>
+          <ol><li>Add people to your private crush list.</li><li>They're told <b>"Someone added you as a Secret Crush 👀"</b> — never who.</li><li>If they add you too: <b>"Congratulations! It's a match 💘"</b> and a love chat opens.</li><li>No match? Nobody ever finds out.</li></ol></div></div>
+        <p class="how-plans">Opening and replying to Secret Messages, sending them and adding crushes need <b>Plus</b> or <b>Premium</b>.</p>
       </div>`,
     footer: `<button class="btn btn-primary btn-block" data-close>Got it</button>`
   });
@@ -234,7 +364,7 @@
               ${PROMPTS.map(t => `<button type="button" class="chip" data-action="usePrompt" data-t="${esc(t)}">${esc(t)}</button>`).join('')}
             </div>
             <ol class="smc-how">
-              <li><span>1</span><p>${esc(u.name.split(' ')[0])} gets <b>"Someone sent you a secret message 💌"</b>.</p></li>
+              <li><span>1</span><p>${firstName(u)} gets <b>"${NOTICE}"</b>.</p></li>
               <li><span>2</span><p>Your <b>name and message stay sealed</b> while they reply.</p></li>
               <li><span>3</span><p>After their <b>2nd reply</b>, both are revealed and you chat normally.</p></li>
             </ol>
@@ -278,7 +408,7 @@
           <div class="stars" aria-hidden="true"></div>
           <div class="envelope" aria-hidden="true"><span class="env-back"></span><span class="env-letter">💌</span><span class="env-front"></span></div>
           <h1>Sealed &amp; sent</h1>
-          <p>${u ? esc(u.name.split(' ')[0]) : 'They'} will see <i>"Someone sent you a secret message 💌"</i>. Your name and message stay sealed until they reply twice.</p>
+          <p>${u ? firstName(u) : 'They'} will see <i>"Someone is trying to reach you…"</i>. Your name and message stay sealed until they reply twice.</p>
           <div class="done-actions">
             <button class="btn btn-light btn-lg btn-block" data-go="secretThread" data-params='{"id":"${p.id}","role":"sent"}' data-replace>View conversation</button>
             <button class="btn btn-ghost-light btn-lg btn-block" data-action="back">Done</button>
@@ -303,7 +433,7 @@
         m.revealed = true; m.chatId = chat.id;
         n = NX.notify({ type: 'secret', userId: m.toId, text: `<b>${esc(u.username)}</b> replied twice — you've been revealed ✨ Your chat is open.`, target: { screen: 'chat', params: { id: chat.id } } });
       } else {
-        n = NX.notify({ type: 'secret', text: `Your secret message to <b>${esc(u.username)}</b> got a reply 💌 (1 of 2)`, target: { screen: 'secretThread', params: { id: m.id, role: 'sent' } } });
+        n = NX.notify({ type: 'secret', text: `<b>${esc(u.username)}</b> replied to your Secret Message (1 of 2)`, target: { screen: 'secretThread', params: { id: m.id, role: 'sent' } } });
       }
       NX.save();
       if (Nav.is('secretThread') && Nav.cur().params.id === id) App.refresh();
@@ -439,17 +569,27 @@
         <div id="threadEnd"></div>
       </div>
       <form class="composer composer-fixed sm-composer" data-form="secretFollowUp" data-id="${m.id}">
+        ${followupsLeft(m) <= 0 ? '<p class="sm-hint">Wait for their reply · you can add up to 3 messages in a row</p>' : ''}
         <div class="composer-row">
-          <input class="input" id="secretFollowInput" name="text" placeholder="Add to your message (still anonymous)…" autocomplete="off" maxlength="500" aria-label="Write a message">
-          <button class="send-btn" type="submit" aria-label="Send">${Icon('send', 20)}</button>
+          <input class="input" id="secretFollowInput" name="text" placeholder="${followupsLeft(m) <= 0 ? 'Wait for their reply' : 'Add to your message (still anonymous)…'}" autocomplete="off" maxlength="500" aria-label="Write a message" ${followupsLeft(m) <= 0 ? 'disabled' : ''}>
+          <button class="send-btn" type="submit" aria-label="Send" ${followupsLeft(m) <= 0 ? 'disabled' : ''}>${Icon('send', 20)}</button>
         </div>
       </form>`;
   }
+
+  /* The first message isn't a follow-up; after it, max 3 in a row without a reply. */
+  const followupsLeft = (m) => {
+    let run = 0;
+    for (let i = m.messages.length - 1; i >= 0 && m.messages[i].from === 'me'; i--) run++;
+    const hasReply = m.messages.some(x => x.from === 'them');
+    return 3 - (hasReply ? run : run - 1);
+  };
 
   Forms.secretFollowUp = (form) => {
     const text = form.text.value.trim();
     if (!text) return;
     const m = S.secretSent.find(x => x.id === form.dataset.id);
+    if (followupsLeft(m) <= 0) return;
     m.messages.push({ from: 'me', text, time: Date.now() });
     form.text.value = '';
     NX.save();
@@ -535,7 +675,7 @@
     const tpl = NX.secretPool[S.secretInbox.length % NX.secretPool.length];
     const item = { id: uid('sm'), senderId: sender.id, createdAt: Date.now(), repliesUsed: 0, revealed: false, chatId: null, messages: [{ from: 'them', text: tpl.text, time: Date.now() }], script: tpl.script };
     S.secretInbox.unshift(item);
-    const n = NX.notify({ type: 'secret', text: 'Someone sent you a secret message 💌', target: { screen: 'secretThread', params: { id: item.id } } });
+    const n = NX.notify({ type: 'secret', text: NOTICE, target: { screen: 'secretThread', params: { id: item.id } } });
     NX.save();
     App.incoming(n);
     return item;
