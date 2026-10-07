@@ -145,13 +145,13 @@ window.NX = window.NX || {};
   ];
 
   NX.seedNotifications = (now) => [
-    { id: 'n1', type: 'secret', text: 'Someone sent you a secret message 💌', time: now - 3 * HOUR, read: false, target: { screen: 'secretThread', params: { id: 'sm1' } } },
+    { id: 'n1', type: 'secret', text: 'Someone is trying to reach you with a Secret Message 💌', time: now - 3 * HOUR, read: false, target: { screen: 'secretThread', params: { id: 'sm1' } } },
     { id: 'n2', type: 'chat', userId: 'u2', text: 'You have a new message 💬', time: now - 38 * MIN, read: false, target: { screen: 'chat', params: { id: 'c1' } } },
-    { id: 'n3', type: 'crush', text: 'Someone added you as a secret crush 👀', time: now - 5 * HOUR, read: false, target: { screen: 'secret', params: { tab: 'crush' } } },
+    { id: 'n3', type: 'crush', text: 'Someone added you as a Secret Crush 👀', time: now - 5 * HOUR, read: false, target: { screen: 'secret', params: { tab: 'crush' } } },
     { id: 'n4', type: 'like', text: 'Someone liked your post ❤️', time: now - 6 * HOUR, read: true, target: { screen: 'post', params: { id: 'p15' } } },
     { id: 'n5', type: 'like', userId: 'u6', text: '<b>ananya.rao</b> commented on your post: "Saving this one"', time: now - 9 * HOUR, read: true, target: { screen: 'post', params: { id: 'p16' } } },
-    { id: 'n6', type: 'secret', text: 'Someone sent you a secret message 💌', time: now - 26 * HOUR, read: true, target: { screen: 'secretThread', params: { id: 'sm2' } } },
-    { id: 'n7', type: 'crush', text: 'Someone added you as a secret crush 👀', time: now - 30 * HOUR, read: true, target: { screen: 'secret', params: { tab: 'crush' } } },
+    { id: 'n6', type: 'secret', text: 'Someone is trying to reach you with a Secret Message 💌', time: now - 26 * HOUR, read: true, target: { screen: 'secretThread', params: { id: 'sm2' } } },
+    { id: 'n7', type: 'crush', text: 'Someone added you as a Secret Crush 👀', time: now - 30 * HOUR, read: true, target: { screen: 'secret', params: { tab: 'crush' } } },
     { id: 'n8', type: 'like', text: 'Someone liked your post ❤️', time: now - 2 * DAY, read: true, target: { screen: 'post', params: { id: 'p16' } } },
     { id: 'n9', type: 'subscription', text: 'Unlock Secret Messages and Secret Crush with Plus — from ₹99/month.', time: now - 2.5 * DAY, read: true, target: { screen: 'plans', params: {} } },
   ];

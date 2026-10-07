@@ -96,13 +96,13 @@
         setPlan(s, 'plus'); myTxn('plus');
         s.me.nearbyEnabled = true; s.me.nearbyConsent = true; s.me.locPermission = 'while-using';
         s.secretInbox.unshift(NX.extraSecret(now));
-        s.notifications.unshift({ id: 'n0', type: 'secret', text: 'Someone sent you a secret message 💌', time: now - 50 * MIN, read: false, target: { screen: 'secretThread', params: { id: 'sm3' } } });
+        s.notifications.unshift({ id: 'n0', type: 'secret', text: 'Someone is trying to reach you with a Secret Message 💌', time: now - 50 * MIN, read: false, target: { screen: 'secretThread', params: { id: 'sm3' } } });
         break;
       case 'crush-receiver':
         setPlan(s, 'plus'); myTxn('plus');
         s.me.nearbyEnabled = true; s.me.nearbyConsent = true; s.me.locPermission = 'while-using';
         s.crushedBy = ['u2', 'u5'];
-        s.notifications.unshift({ id: 'n0', type: 'crush', text: 'Someone added you as a secret crush 👀', time: now - 12 * MIN, read: false, target: { screen: 'secret', params: { tab: 'crush' } } });
+        s.notifications.unshift({ id: 'n0', type: 'crush', text: 'Someone added you as a Secret Crush 👀', time: now - 12 * MIN, read: false, target: { screen: 'secret', params: { tab: 'crush' } } });
         break;
       case 'matched': {
         setPlan(s, 'premium'); myTxn('premium');
@@ -164,7 +164,7 @@
   NX.isFollowing = (id) => S.following.includes(id);
   NX.limitOf = (key) => NX.plan().limits[key];
   NX.secretLeft = () => { const l = NX.limitOf('secretMessages'); return l < 0 ? Infinity : Math.max(0, l - S.usage.secretSent); };
-  NX.crushLeft = () => { const l = NX.limitOf('crushes'); return l < 0 ? Infinity : Math.max(0, l - S.crushes.length); };
+  NX.crushLeft = () => { const l = NX.limitOf('crushes'); return l < 0 ? Infinity : Math.max(0, l - S.crushes.filter(c => !NX.matchWith(c.userId)).length); };
   NX.canReadSecret = () => !!NX.limitOf('readSecret');
   NX.canSeeNearby = () => !!NX.limitOf('nearby');
   NX.hasCrush = (id) => S.crushes.some(c => c.userId === id);

@@ -48,13 +48,13 @@ Use the **Demo** button (bottom-right on mobile, "Demo controls" in the desktop 
 - Admins can edit every price, feature and limit in **Admin → Plans**, and the app picks up the changes immediately.
 
 ### Secret Messages
-- A received message arrives sealed. The receiver's list and thread show only "Someone sent you a secret message", a masked avatar, and placeholder lines. The sender's name, photo and message text are never rendered before the reveal.
+- The receiver is notified "Someone is trying to reach you with a Secret Message 💌". The message arrives sealed: the list and thread show only "Someone sent you a secret message", a masked avatar, and placeholder lines. The sender's name, photo and message text are never rendered before the reveal.
 - The receiver replies twice ("Reply 1 of 2", then "Reply 2 of 2"). The second reply unseals the envelope: the sender's name, photo and everything they wrote appear together, and the thread becomes a regular chat.
 - Free receivers get the notification but the message stays locked until they upgrade.
 - Reporting or blocking an anonymous sender never reveals who they are.
 
 ### Secret Crush
-- The person you add gets "Someone added you as a secret crush 👀" and nothing more.
+- The person you add gets "Someone added you as a Secret Crush 👀" and nothing more.
 - If both people add each other, both see "Congratulations! It's a match 🎉" and the chat opens automatically.
 - A crush that isn't mutual is never revealed to anyone, including whether the other person added you.
 
@@ -108,7 +108,8 @@ css/
   global.css        Reset, typography, buttons, forms, logo
   components.css    Shared components (nav, modals, toasts, chips…)
   screens.css       Screen-specific styles
-  secret.css        Secret Messages, Secret Crush, unseal reveal
+  secret.css        Secret threads, compose, unseal reveal
+  premium.css       Premium tab: Secret Messages + Secret Crush sections, people picker, add-crush sheet
   create.css        Camera, post editor, story editor
   responsive.css    Tablet / desktop layouts
   admin.css         Admin panel layout

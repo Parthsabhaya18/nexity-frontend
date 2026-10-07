@@ -2,7 +2,7 @@
 (function () {
   const REASONS = {
     'secret-send': { emoji: '💌', title: 'Secret Messages need Plus or Premium', text: 'Send anonymous messages — you\'re only revealed after they reply twice.' },
-    'secret-read': { emoji: '💌', title: 'Someone sent you a secret message', text: 'Upgrade to reply. Their name and message unseal together after your 2nd reply.' },
+    'secret-read': { emoji: '💌', title: 'Someone is trying to reach you', text: 'Upgrade to reply. Their name and message unseal together after your 2nd reply.' },
     crush: { emoji: '💘', title: 'Secret Crush needs Plus or Premium', text: 'Add your crushes privately. If it\'s mutual, it\'s a match.' },
     nearby: { emoji: '💫', title: 'See who was near you', text: 'Plus and Premium show "Was near you today 💫" in secret chats and your crush list — never a place, time or distance.' },
     limit: { emoji: '👑', title: 'You\'ve reached your plan limit', text: 'Premium gives unlimited Secret Messages (fair use), up to 10 Secret Crushes and a 👑 badge.' },

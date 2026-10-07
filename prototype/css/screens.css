@@ -299,20 +299,10 @@ button.stat:hover { background: var(--surface-2); }
 .avatar-choice.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
 
 /* ================= Secret ================= */
-.appbar-secret .appbar-title h1 { background: var(--brand-grad); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 22px; }
 .nearby-toggle { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: var(--r-full); background: var(--surface-2); border: 1px solid var(--border); font-size: 12.5px; font-weight: 700; color: var(--text-2); margin-right: 4px; }
 .nearby-toggle.on { background: linear-gradient(135deg, #FFF3CC, #FFE1EC); color: #8A5A00; border-color: rgba(232, 160, 0, .3); }
 [data-theme="dark"] .nearby-toggle.on { background: rgba(255, 200, 80, .14); color: #FFD98A; border-color: rgba(255, 200, 80, .3); }
-.secret-hero { position: relative; overflow: hidden; padding: 22px 18px 16px; border-radius: var(--r-xl); background: var(--secret-grad); color: var(--secret-text); margin-bottom: 14px; }
-.secret-hero .eyebrow { color: #9FD4FF; }
-.secret-hero h2 { font-size: 23px; letter-spacing: -.025em; margin: 8px 0 4px; }
-.secret-hero-sub { color: var(--secret-muted); font-size: 14px; }
 .stars { position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(1.5px 1.5px at 12% 20%, rgba(255, 255, 255, .9), transparent), radial-gradient(1px 1px at 30% 70%, rgba(255, 255, 255, .7), transparent), radial-gradient(1.5px 1.5px at 62% 18%, rgba(255, 255, 255, .8), transparent), radial-gradient(1px 1px at 80% 55%, rgba(255, 255, 255, .7), transparent), radial-gradient(1.5px 1.5px at 90% 15%, rgba(255, 255, 255, .9), transparent), radial-gradient(1px 1px at 50% 45%, rgba(255, 255, 255, .6), transparent); animation: twinkle 4s ease-in-out infinite; }
-.secret-hero > *:not(.stars) { position: relative; }
-.secret-tabs { display: flex; gap: 6px; padding: 5px; margin-top: 16px; border-radius: var(--r-lg); background: rgba(0, 0, 0, .25); border: 1px solid var(--secret-line); }
-.secret-tabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; padding: 0 8px; border-radius: 13px; font-weight: 700; font-size: 14px; white-space: nowrap; letter-spacing: -.01em; color: var(--secret-muted); transition: all .2s var(--ease); }
-.secret-tabs button.active { background: #fff; color: #0F172A; box-shadow: 0 6px 18px rgba(0, 0, 0, .25); }
-.secret-tabs .count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 800; display: inline-grid; place-items: center; }
 .tab-anim { animation: fadeUp .3s var(--ease-out); }
 
 .nearby-strip { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); margin-bottom: 14px; text-align: left; transition: background-color .15s; }
@@ -324,12 +314,6 @@ button.nearby-strip:hover { background: var(--surface-2); }
 .ns-text b { font-size: 14px; }
 .ns-text small { font-size: 12.5px; color: var(--text-3); }
 
-.locked-banner { position: relative; overflow: hidden; padding: 20px 18px 18px; border-radius: var(--r-xl); background: var(--secret-grad); color: var(--secret-text); text-align: center; margin-bottom: 14px; }
-.locked-banner::after { content: ''; position: absolute; inset: auto -40px -60px auto; width: 200px; height: 200px; background: radial-gradient(circle, rgba(232, 72, 127, .35), transparent 65%); pointer-events: none; }
-.lb-ic { width: 52px; height: 52px; border-radius: 18px; margin: 0 auto 12px; display: grid; place-items: center; background: rgba(255, 255, 255, .12); }
-.locked-banner h3 { font-size: 18px; margin-bottom: 6px; }
-.locked-banner p { color: var(--secret-muted); font-size: 14px; margin-bottom: 16px; }
-.locked-banner .btn { position: relative; z-index: 1; }
 .privacy-line { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); margin: 2px 0 12px; }
 .privacy-line .ic { color: var(--success); }
 
@@ -481,19 +465,6 @@ button.nearby-strip:hover { background: var(--surface-2); }
 .reveal-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 26px; animation: fadeUp .5s 1.5s both; }
 
 /* ================= Crush ================= */
-.crush-received { display: flex; gap: 14px; align-items: flex-start; padding: 18px; border-radius: var(--r-xl); background: linear-gradient(135deg, var(--accent-soft), var(--primary-soft)); margin-bottom: 4px; }
-.cr-eyes { width: 54px; height: 54px; border-radius: 18px; background: var(--surface); display: grid; place-items: center; font-size: 28px; flex-shrink: 0; box-shadow: var(--shadow-sm); animation: float 4s ease-in-out infinite; }
-.cr-text { flex: 1; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
-.cr-text h3 { font-size: 16.5px; }
-.cr-text p { font-size: 13.5px; color: var(--text-2); }
-.match-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
-.match-card { flex-shrink: 0; width: 110px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); }
-.match-card .avatar { box-shadow: 0 0 0 3px var(--accent); border-radius: 50%; }
-.match-card b { font-size: 14px; }
-.match-card small { font-size: 11.5px; color: var(--text-3); }
-.crush-list .user-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
-.crush-list .user-row:last-child { border-bottom: 0; }
-
 .match-overlay { background: radial-gradient(120% 120% at 50% 0%, #7A1F4F 0%, #2A1546 45%, #0B0F24 100%); }
 .match { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; overflow: hidden; padding: 24px; }
 .match-hearts span { position: absolute; bottom: -40px; left: calc(var(--i) * 7.2%); font-size: calc(16px + (var(--i) * 1.5px)); animation: heartRise 5s calc(var(--i) * .3s) ease-in infinite; opacity: 0; }
