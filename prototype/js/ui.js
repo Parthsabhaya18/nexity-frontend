@@ -78,17 +78,18 @@ window.App = window.App || {};
 
   window.premiumBadge = (u) => (u && u.plan === 'premium' && !NX.isRemoved(u.id) ? '<span class="crown-badge" title="Premium member" aria-label="Premium member">👑</span>' : '');
 
+  /* Locked chips never carry the day: the plan decides whether "today" / "yesterday" is shown at all. */
   window.nearbyChip = (state, opts = {}) => {
     if (!state) return '';
-    const label = state === 'on' ? (opts.label || 'Was near you today') : 'Was near you recently';
-    if (state === 'on') return `<span class="nearby-chip">${label} 💫</span>`;
-    if (opts.static) return `<span class="nearby-chip locked">${Icon('lock', 12)}<span class="blur-text">${label}</span> 💫</span>`;
-    return `<button class="nearby-chip locked" data-go="plans" data-params='{"reason":"nearby"}' aria-label="Nearby indicator locked. Upgrade to see.">${Icon('lock', 12)}<span class="blur-text">${label}</span> 💫</button>`;
+    if (state === 'on') return `<span class="nearby-chip">${Icon('radar', 12)}${esc(opts.label)}</span>`;
+    const inner = `${Icon('lock', 12)}<span class="blur-text">This person was near you</span>`;
+    if (opts.static) return `<span class="nearby-chip locked">${inner}</span>`;
+    return `<button class="nearby-chip locked" data-go="plans" data-params='{"reason":"nearby"}' aria-label="Nearby hint locked. Upgrade to see.">${inner}</button>`;
   };
 
   window.nearChipFor = (userId, opts = {}) => nearbyChip(NX.nearbyState(userId), Object.assign({ label: NX.nearText(userId) }, opts));
   window.nearLineFor = (userId, cls = 'near-line') =>
-    NX.nearbyState(userId) === 'on' ? `<small class="${cls}">${NX.nearText(userId)} 💫</small>` : '';
+    NX.nearbyState(userId) === 'on' ? `<small class="${cls}">${esc(NX.nearText(userId))}</small>` : '';
 
   window.spinner = (size = 18) => `<span class="spinner" style="--sz:${size}px" aria-hidden="true"></span>`;
 

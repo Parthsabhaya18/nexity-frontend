@@ -17,7 +17,7 @@ window.NX = window.NX || {};
     U('u1', 'Aarav Shah', 'aarav.shah', 12, 'Man', 'Product designer. Chai over coffee, always. Collecting sunsets one weekend at a time.', 1284, 312, { online: true, plan: 'plus', joined: '2026-03-14', nearbyEnabled: true, nearDays: 2 }),
     U('u2', 'Riya Patel', 'riya.patel', 47, 'Woman', 'Dancer · dog mom to Bruno 🐶 · writing a little every day.', 2391, 418, { online: true, plan: 'premium', joined: '2025-12-02', nearbyEnabled: true, nearDays: 0 }),
     U('u3', 'Kabir Mehta', 'kabir.mehta', 15, 'Man', 'Guitar, gym, and too many playlists. Ask me for a song.', 967, 540, { lastSeen: 20 * MIN, plan: 'plus', joined: '2026-02-19', nearbyEnabled: true, nearDays: 1 }),
-    U('u4', 'Mahi Joshi', 'mahi.joshi', 44, 'Woman', 'Architecture student. Sketching buildings that don\'t exist yet.', 1543, 601, { online: true, joined: '2026-04-01' }),
+    U('u4', 'Mahi Joshi', 'mahi.joshi', 44, 'Woman', 'Architecture student. Sketching buildings that don\'t exist yet.', 1543, 601, { online: true, joined: '2026-04-01', nearbyEnabled: true }),
     U('u5', 'Ishaan Verma', 'ishaan.v', 33, 'Man', 'Startup things by day, street food hunts by night.', 734, 290, { lastSeen: 2 * HOUR, plan: 'premium', joined: '2025-10-21', nearbyEnabled: true, nearDays: 0 }),
     U('u6', 'Ananya Rao', 'ananya.rao', 45, 'Woman', 'Bookworm 📚 Currently reading: everything.', 3120, 377, { lastSeen: 45 * MIN, plan: 'plus', joined: '2026-01-28' }),
     U('u7', 'Vihaan Kapoor', 'vihaan.kapoor', 59, 'Man', 'Photographer. I see the world in 35mm.', 4210, 212, { lastSeen: 5 * HOUR, joined: '2026-05-09', nearbyEnabled: true, nearDays: 5 }),
@@ -25,14 +25,15 @@ window.NX = window.NX || {};
     U('u9', 'Arjun Nair', 'arjun.nair', 53, 'Man', 'Marathoner in training. 21K done, 42K loading…', 1102, 388, { lastSeen: DAY, joined: '2026-06-17' }),
     U('u10', 'Diya Malhotra', 'diya.m', 49, 'Woman', 'Baking my way through life 🍰', 2640, 512, { lastSeen: 3 * HOUR, plan: 'premium', joined: '2025-11-11' }),
     U('u11', 'Rohan Gupta', 'rohan.gupta', 68, 'Man', 'Engineer who secretly wants to be a chef.', 588, 301, { lastSeen: 6 * HOUR, joined: '2026-07-22' }),
-    U('u12', 'Meera Desai', 'meera.desai', 26, 'Woman', 'Painting, plants, and Sunday markets.', 1990, 620, { online: true, joined: '2026-03-30' }),
+    U('u12', 'Meera Desai', 'meera.desai', 26, 'Woman', 'Painting, plants, and Sunday markets.', 1990, 620, { online: true, joined: '2026-03-30', nearbyEnabled: true }),
   ];
 
   NX.meDefaults = () => ({
     id: 'me', name: 'Tara Mehra', username: 'tara.mehra', email: 'tara@nexity.app', avatar: av(5),
     bio: 'Coffee, poetry & late-night playlists. Here for real connections ✨', followers: 842, following: 261,
     gender: 'Woman', dob: '2000-06-12', plan: 'free', planExpiry: null, planSource: null, planMethod: null, autoRenew: true,
-    nearbyEnabled: false, nearbyConsent: false, status: 'active', joined: '2025-11-02', online: true
+    nearbyEnabled: false, nearbyConsent: false, nearbyBluetooth: false, nearbyLocation: false, nearbyNotifications: false,
+    status: 'active', joined: '2025-11-02', online: true
   });
 
   const POSTS = [

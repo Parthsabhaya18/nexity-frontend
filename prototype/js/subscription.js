@@ -4,7 +4,7 @@
     'secret-send': { emoji: '💌', title: 'Secret Messages need Plus or Premium', text: 'Send anonymous messages — you\'re only revealed after they reply twice.' },
     'secret-read': { emoji: '💌', title: 'Someone is trying to reach you', text: 'Upgrade to reply. Their name and message unseal together after your 2nd reply.' },
     crush: { emoji: '💘', title: 'Secret Crush needs Plus or Premium', text: 'Add your crushes privately. If it\'s mutual, it\'s a match.' },
-    nearby: { emoji: '💫', title: 'See who was near you', text: 'Plus and Premium show "Was near you today 💫" in secret chats and your crush list — never a place, time or distance.' },
+    nearby: { emoji: '✨', title: 'See who was near you', text: 'Plus and Premium show "This person was near you today." or "yesterday." in Secret Messages and Secret Crush — never a place, time or distance.' },
     limit: { emoji: '👑', title: 'You\'ve reached your plan limit', text: 'Premium gives unlimited Secret Messages (fair use), up to 10 Secret Crushes and a 👑 badge.' },
   };
   const ORDER = ['free', 'plus', 'premium'];
@@ -19,7 +19,7 @@
     else if (idx < curIdx) cta = `<p class="pc-note">${p.id === 'free' ? 'Included in every plan' : `Included in ${S.plans[S.me.plan].name}`}</p>`;
     else cta = `<button class="btn btn-block ${p.id === 'premium' ? 'btn-premium' : 'btn-primary'}" data-go="checkout" data-params='{"plan":"${p.id}"}'>${p.id === 'premium' ? 'Get Premium' : `Upgrade to ${esc(p.name)}`}</button>`;
     const save = p.mrp > p.price && p.price > 0 ? Math.round((1 - p.price / p.mrp) * 100) : 0;
-    const missing = p.id === 'free' ? ['Send or read Secret Messages', 'Add Secret Crushes', 'Nearby indicator'] : [];
+    const missing = p.id === 'free' ? ['Send or read Secret Messages', 'Add Secret Crushes', 'Nearby hints in Secret Messages & Crush'] : [];
     return `
       <article class="plan-card plan-${p.id} ${cur ? 'current' : ''}" aria-label="${esc(p.name)} plan">
         ${p.id === 'premium' ? '<span class="ribbon">Most loved</span>' : ''}
@@ -42,7 +42,7 @@
   }
 
   Screens.plans = {
-    tab: 'plans', title: 'Plans',
+    tab: 'secret', title: 'Plans',
     render: (p) => {
       const r = REASONS[p.reason];
       if (p.to) App.afterUpgrade = { screen: 'secretCompose', params: { id: p.to } };
@@ -70,7 +70,8 @@
                 <tr><th scope="row">Secret Crush spots</th><td>${lim(P.free.limits.crushes)}</td><td>${lim(P.plus.limits.crushes)}</td><td>${lim(P.premium.limits.crushes)}</td></tr>
                 <tr><th scope="row">Match animation &amp; chat</th><td>${yes(false)}</td><td>${yes(true)}</td><td>${yes(true)}</td></tr>
                 <tr><th scope="row">Premium profile badge 👑</th><td>${yes(false)}</td><td>${yes(false)}</td><td>${yes(true)}</td></tr>
-                <tr><th scope="row">"Was near you today 💫"</th><td>${yes(P.free.limits.nearby)}</td><td>${yes(P.plus.limits.nearby)}</td><td>${yes(P.premium.limits.nearby)}</td></tr>
+                <tr><th scope="row">Nearby screen &amp; notifications</th><td>${yes(true)}</td><td>${yes(true)}</td><td>${yes(true)}</td></tr>
+                <tr><th scope="row">"This person was near you today."</th><td>${yes(P.free.limits.nearby)}</td><td>${yes(P.plus.limits.nearby)}</td><td>${yes(P.premium.limits.nearby)}</td></tr>
               </tbody>
             </table></div>
           </section>
@@ -341,7 +342,7 @@
                 <div><dt>${S.me.autoRenew ? 'Renews on' : 'Active until'}</dt><dd>${fmtDate(S.me.planExpiry)}</dd></div>
                 <div><dt>Price</dt><dd>${S.me.planSource === 'admin' ? 'Free (gift from Nexity)' : (S.me.planMonths || 1) > 1 ? `${inr(NX.quote(plan, { period: S.me.planMonths, coupon: null }).total)} / ${S.me.planMonths === 12 ? 'year' : '3 months'}` : inr(plan.price) + '/month'}</dd></div>
                 <div><dt>Payment method</dt><dd>${S.me.planSource === 'admin' ? '—' : esc(S.me.planMethod || 'UPI')}</dd></div>
-              </dl>` : `<p class="sub-free">You're on the Free plan. Upgrade to send and read Secret Messages, add Secret Crushes and see Nearby.</p>`}
+              </dl>` : `<p class="sub-free">You're on the Free plan. Upgrade to send and read Secret Messages, add Secret Crushes and see who was near you.</p>`}
           </section>
           ${paid ? `
           <section class="card usage-card">
@@ -349,7 +350,7 @@
             <div class="usage-grid">
               <div><b>${l.secretMessages < 0 ? '∞' : Math.max(0, l.secretMessages - S.usage.secretSent)}</b><span>Secret Messages left</span></div>
               <div><b>${l.crushes < 0 ? '∞' : Math.max(0, l.crushes - S.crushes.length)}</b><span>Crush spots left</span></div>
-              <div><b>${l.nearby ? '✓' : '—'}</b><span>"Was near you 💫"</span></div>
+              <div><b>${l.nearby ? '✓' : '—'}</b><span>Nearby hints</span></div>
             </div>
           </section>` : ''}
           <div class="stack-btns">

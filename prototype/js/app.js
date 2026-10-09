@@ -92,7 +92,7 @@
     const active = Nav.rootTab();
     const cur = Nav.cur().name;
     const secretN = NX.secretBadge(), chatN = NX.unreadChats(), notifN = NX.unreadNotifications();
-    const items = [['home', 'home', 'Home', 0], ['search', 'search', 'Search', 0], ['secret', 'crown', 'Premium', secretN], ['plans', 'card', 'Plans', 0]];
+    const items = [['home', 'home', 'Home', 0], ['search', 'search', 'Search', 0], ['secret', 'crown', 'Premium', secretN], ['reels', 'reels', 'Reels', 0]];
     bottomNav.innerHTML = `
       <div class="nav-pill">
         ${items.map(([t, ic, label, n]) => `
@@ -104,8 +104,8 @@
 
     const side = [
       ['tab', 'home', 'home', 'Home', 0], ['tab', 'search', 'search', 'Search', 0], ['tab', 'reels', 'reels', 'Reels', 0],
-      ['tab', 'secret', 'crown', 'Premium', secretN], ['tab', 'plans', 'card', 'Plans', 0], ['tab', 'chats', 'chat', 'Chat', chatN],
-      ['go', 'notifications', 'bell', 'Notifications', notifN], ['action', 'openCreateMenu', 'plusSquare', 'Create', 0], ['tab', 'profile', null, 'Profile', 0],
+      ['tab', 'secret', 'crown', 'Premium', secretN], ['tab', 'chats', 'chat', 'Chat', chatN],
+      ['go', 'notifications', 'bell', 'Notifications', notifN], ['go', 'nearby', 'radar', 'Nearby', 0], ['action', 'openCreateMenu', 'plusSquare', 'Create', 0], ['tab', 'profile', null, 'Profile', 0],
     ];
     const attr = (kind, t) => (kind === 'tab' ? `data-nav-tab="${t}"` : kind === 'action' ? `data-action="${t}"` : `data-go="${t}"`);
     sidebar.innerHTML = `
@@ -147,7 +147,8 @@
     App.renderChrome();
     if (Nav.cur().name === 'notifications' || Nav.cur().name === 'secret') App.refresh();
     const allowed = { secret: 'secretMessage', crush: 'secretCrush', match: 'match', chat: 'chat', like: 'likes', subscription: 'subscription' }[n.type];
-    if (S.notifSettings.push && (!allowed || S.notifSettings[allowed])) {
+    const nearbyMuted = n.type === 'nearby' && !S.me.nearbyNotifications;
+    if (S.notifSettings.push && !nearbyMuted && (!allowed || S.notifSettings[allowed])) {
       Toast.show(toastText || n.text.replace(/<[^>]+>/g, ''), { duration: 4200, icon: 'bell', action: { label: 'View', onClick: () => App.openNotification(n.id) } });
     }
   };
