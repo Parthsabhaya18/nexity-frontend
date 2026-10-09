@@ -166,6 +166,7 @@
       <header class="appbar appbar-home">
         <div class="brand">${Wordmark(32)}</div>
         <div class="home-actions">
+          <button class="icon-btn" data-go="nearby" aria-label="People nearby">${Icon('radar', 24)}${S.me.nearbyEnabled && NX.livePresence().length ? `<span class="dot-badge">${NX.livePresence().length}</span>` : ''}</button>
           <button class="icon-btn" data-go="notifications" aria-label="Notifications">${Icon('bell', 24)}${NX.unreadNotifications() ? `<span class="dot-badge">${NX.unreadNotifications()}</span>` : ''}</button>
           <button class="icon-btn" data-nav-tab="chats" aria-label="Chats">${Icon('chat', 24)}${NX.unreadChats() ? `<span class="dot-badge">${NX.unreadChats()}</span>` : ''}</button>
           <button class="home-me" data-nav-tab="profile" aria-label="Your profile">${avatar(S.me, 34)}</button>
@@ -179,31 +180,8 @@
     mount(root) {
       bindPostCarousels(root);
       if (!App.loaded.home && !S.demo.offline) setTimeout(() => { App.loaded.home = true; if (Nav.is('home')) App.refresh(); }, 700);
-      if (!S.me.locPermission && !S.me.nearbyEnabled && !App.locAsking) { App.locAsking = true; setTimeout(askLocation, 1500); }
     }
   };
-
-  /* Location permission is requested once when the app opens. Nearby itself stays off until the user opts in. */
-  function askLocation() {
-    App.locAsking = false;
-    if (S.me.locPermission || !S.session.loggedIn || Modal.stack.length || Overlay.top()) return;
-    const el = Modal.open({
-      cls: 'confirm-layer os-permission', hideHeader: true, label: 'Location permission',
-      body: `<div class="confirm">
-        <div class="confirm-ic">${Icon('radar', 26)}</div>
-        <h2>Allow location</h2>
-        <p>Nearby needs location. Open Settings and turn Location on. Your place is never shown.</p>
-        <div class="confirm-actions os">
-          <button class="btn btn-block btn-primary" data-perm="while-using">Open Settings</button>
-          <button class="btn btn-block btn-ghost" data-perm="denied">Not now</button>
-        </div></div>`
-    });
-    el.querySelectorAll('[data-perm]').forEach(b => b.addEventListener('click', () => {
-      Modal.close(el, true);
-      S.me.locPermission = b.dataset.perm;
-      NX.save();
-    }));
-  }
   Actions.retryFeed = async (el) => {
     setBusy(el, true, 'Retrying…');
     await delay(900);

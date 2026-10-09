@@ -426,7 +426,7 @@
                 <div><dt>Secret Messages / month</dt><dd>${fmtLimit(p.limits.secretMessages)}</dd></div>
                 <div><dt>Secret Crushes</dt><dd>${fmtLimit(p.limits.crushes)}</dd></div>
                 <div><dt>Read Secret Messages</dt><dd>${p.limits.readSecret ? 'Yes' : 'No'}</dd></div>
-                <div><dt>Nearby indicator</dt><dd>${p.limits.nearby ? 'Yes' : 'No'}</dd></div>
+                <div><dt>Nearby hints</dt><dd>${p.limits.nearby ? 'Yes' : 'No'}</dd></div>
               </dl>
               <button class="btn btn-secondary btn-block" data-action="adEditPlan" data-id="${p.id}">${Icon('edit', 16)} Edit plan</button>
             </section>`).join('')}
@@ -471,7 +471,7 @@
         <div class="field"><label for="pl_feat">Features <span class="muted">(one per line)</span></label><textarea class="input" id="pl_feat" name="features" rows="5">${esc(p.features.join('\n'))}</textarea></div>
         <div class="field-row">${lim('secretMessages', 'Secret Messages / month', p.limits.secretMessages)}${lim('crushes', 'Secret Crush spots', p.limits.crushes)}</div>
         <label class="check"><input type="checkbox" name="readSecret" ${p.limits.readSecret ? 'checked' : ''}><span class="check-box">${Icon('check', 14)}</span><span>Can read &amp; reply to Secret Messages</span></label>
-        <label class="check"><input type="checkbox" name="nearby" ${p.limits.nearby ? 'checked' : ''}><span class="check-box">${Icon('check', 14)}</span><span>Can see "Was near you today 💫"</span></label>
+        <label class="check"><input type="checkbox" name="nearby" ${p.limits.nearby ? 'checked' : ''}><span class="check-box">${Icon('check', 14)}</span><span>Can see "This person was near you today / yesterday."</span></label>
         <label class="check"><input type="checkbox" name="active" ${p.active ? 'checked' : ''} ${id === 'free' ? 'disabled' : ''}><span class="check-box">${Icon('check', 14)}</span><span>Plan is active and visible to users</span></label>
         <p class="field-error center" id="planErr"></p>
       </form>`,
@@ -672,14 +672,23 @@
     const misuseOpen = misuse.filter(r => !['dismissed', 'actioned', 'blocked'].includes(r.status)).length;
     const days = Array.from({ length: 7 }, (_, i) => new Date(Date.now() - (6 - i) * DAY).toLocaleDateString('en-IN', { weekday: 'short' }));
     const shown = series(7, 1180, 260, 71, 0.01);
-    shown[6] = on ? S.admin.indicatorsBase + all.filter(u => u.nearDays === 0).length : 0;
+    const now = NX.now();
+    const encToday = S.encounters.filter(e => e.expiresAt > now && NX.calendarDiff(e.lastDetectedAt, now) === 0).length;
+    const pushesToday = S.nearbyPushLog.filter(p => NX.calendarDiff(p.time, now) === 0).length;
+    shown[6] = on ? S.admin.indicatorsBase + encToday : 0;
+    const c = S.admin.nearbyConfig;
+    const cfgRows = [['Location radius', `${c.radiusMeters} m`], ['Minimum time together', `${c.minDurationSeconds} s`], ['Max location accuracy', `${c.accuracyLimitMeters} m`], ['Encounter refresh cooldown', `${c.encounterCooldownMinutes} min`], ['Notification cooldown per pair', `${c.notificationCooldownMinutes} min`], ['Max nearby pushes per day', c.maxPushesPerDay], ['Keep encounters for', `${c.retentionDays} days`], ['Bluetooth id rotation', `${c.tokenTtlMinutes} min`], ['"Nearby now" lasts', `${c.presenceTtlSeconds} s`]];
     return `
       <div class="ad-page">
-        <div class="ad-privacy-hero">${Icon('shieldCheck', 26)}<div><b>User locations are never visible to administrators.</b><p>Nexity only keeps the latest day two people were near each other, and only those two people see it. Admins can't see who has Nearby on or off. There are no maps, coordinates, distances, timestamps or history — not for users, and not for admins.</p></div></div>
+        <div class="ad-privacy-hero">${Icon('shieldCheck', 26)}<div><b>User locations are never visible to administrators.</b><p>Nexity keeps one encounter per pair of people — only the latest day — for ${c.retentionDays} days, and only those two people see "today" or "yesterday". Admins can't see who has Nearby on or off. There are no maps, coordinates, distances, timestamps or history — not for users, and not for admins.</p></div></div>
         <section class="ad-card nearby-toggle-card">
           <div class="ntc-ic${on ? ' on' : ''}">${Icon('radar', 28)}</div>
-          <div class="ntc-text"><h3>Nearby feature</h3><p class="muted">${on ? 'Live. Turning it off hides every "Was near you 💫" line instantly.' : 'Paused for all users. No indicators are computed or shown while it\'s off.'}</p></div>
+          <div class="ntc-text"><h3>Nearby feature</h3><p class="muted">${on ? 'Live. Turning it off stops Bluetooth discovery, location checks, nearby notifications and every "This person was near you" hint instantly.' : 'Paused for all users. Nothing is scanned, checked, sent or shown while it\'s off.'}</p></div>
           <div class="ntc-switch"><span class="status ${on ? 's-active' : 's-disabled'}">${on ? 'On' : 'Off'}</span>${switchEl({ checked: on, action: 'adNearbyToggle', label: 'Nearby feature enabled globally' })}</div>
+        </section>
+        <section class="ad-card">
+          <div class="ad-card-head"><div><h3>Server settings</h3><p class="muted">Backend NEARBY_* values · aggregate only · ${pushesToday} nearby push${pushesToday === 1 ? '' : 'es'} sent today</p></div><button class="btn btn-sm btn-secondary" data-action="adNearbyConfig">${Icon('edit', 16)} Edit</button></div>
+          <dl class="pa-limits">${cfgRows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
         </section>
         <div class="kpi-grid two">
           <div class="kpi"><span class="kpi-ic">${Icon('sparkles', 20)}</span><span class="kpi-label">Indicators shown today</span><b class="kpi-value">${num(shown[6])}</b><span class="kpi-foot"><span class="kpi-delta">${on ? 'Aggregate count only' : 'Feature paused'}</span></span></div>
@@ -907,13 +916,29 @@
     adNearbyToggle: async () => {
       const on = S.admin.nearbyGlobal;
       const ok = await Modal.confirm(on
-        ? { title: 'Turn off Nearby for everyone?', message: 'All "Was near you today 💫" indicators disappear immediately. Users\' own settings are kept.', confirm: 'Turn off Nearby', danger: true, icon: 'radar' }
-        : { title: 'Turn Nearby back on?', message: '"Was near you 💫" lines return for the people involved.', confirm: 'Turn on Nearby', icon: 'radar' });
+        ? { title: 'Turn off Nearby for everyone?', message: 'Bluetooth discovery, location checks, nearby notifications and all "This person was near you" hints stop immediately. Users\' own settings are kept.', confirm: 'Turn off Nearby', danger: true, icon: 'radar' }
+        : { title: 'Turn Nearby back on?', message: 'Nearby works again for people who turned it on. Hints that haven\'t expired return.', confirm: 'Turn on Nearby', icon: 'radar' });
       if (!ok) return;
       S.admin.nearbyGlobal = !on;
       audit(`Nearby feature ${on ? 'disabled' : 'enabled'} globally`);
       save();
       Toast.show(`Nearby is now ${on ? 'off' : 'on'} for all users`, { type: on ? 'warning' : 'success', icon: 'radar' });
+    },
+    adNearbyConfig: () => {
+      const c = S.admin.nearbyConfig;
+      const num = (name, label, min, max, hint) => `<div class="field"><label for="nc_${name}">${label}</label><input class="input" id="nc_${name}" name="${name}" type="number" min="${min}" max="${max}" step="1" value="${c[name]}"><p class="field-hint">${hint}</p></div>`;
+      Modal.open({
+        title: 'Nearby server settings', cls: 'ad-modal',
+        body: `<form id="nearbyCfgForm" data-form="adSaveNearbyConfig" novalidate>
+          <div class="field-row">${num('radiusMeters', 'Location radius (m)', 10, 200, '10–200')}${num('minDurationSeconds', 'Minimum time together (s)', 60, 900, '60–900')}</div>
+          <div class="field-row">${num('accuracyLimitMeters', 'Max accuracy (m)', 10, 100, '10–100')}${num('encounterCooldownMinutes', 'Encounter cooldown (min)', 5, 180, '5–180')}</div>
+          <div class="field-row">${num('notificationCooldownMinutes', 'Push cooldown per pair (min)', 30, 1440, '30–1440')}${num('maxPushesPerDay', 'Max pushes per day', 0, 10, '0–10')}</div>
+          <div class="field-row">${num('retentionDays', 'Keep encounters (days)', 2, 2, 'Fixed at 2 — the hint only ever shows today or yesterday')}${num('tokenTtlMinutes', 'Bluetooth id rotation (min)', 5, 30, '5–30')}</div>
+          ${num('presenceTtlSeconds', '"Nearby now" lasts (s)', 60, 900, '60–900')}
+          <p class="field-error center" id="ncErr"></p>
+        </form>`,
+        footer: `<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" type="submit" form="nearbyCfgForm">Save</button>`
+      });
     },
     adPref: (el) => {
       const k = el.dataset.key;
@@ -975,6 +1000,23 @@
       Modal.closeAll(); save();
       Toast.show(`${name} plan saved — the app reflects it now`, { type: 'success' });
     },
+  };
+
+  Frm.adSaveNearbyConfig = (f) => {
+    const next = {};
+    let bad = false;
+    f.querySelectorAll('input[name]').forEach(inp => {
+      const v = Number(inp.value), min = Number(inp.min), max = Number(inp.max);
+      const ok = Number.isInteger(v) && v >= min && v <= max;
+      fieldError(f, inp.name, ok ? '' : `Use a whole number from ${min} to ${max}.`);
+      if (!ok) bad = true; else next[inp.name] = v;
+    });
+    if (bad) { document.getElementById('ncErr').textContent = 'Please fix the highlighted fields.'; return; }
+    const changed = Object.keys(next).filter(k => next[k] !== S.admin.nearbyConfig[k]);
+    Object.assign(S.admin.nearbyConfig, next);
+    if (changed.length) audit(`Nearby settings changed: ${changed.join(', ')}`);
+    Modal.closeAll(); save();
+    Toast.show(changed.length ? 'Nearby settings saved' : 'No changes', { type: 'success', icon: 'radar' });
   };
 
   const Inp = {

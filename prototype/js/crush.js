@@ -37,12 +37,7 @@
             </button>`;
         }).join('')}</div>` : '';
 
-      const upsell = `
-        <div class="px-upsell love">
-          <span class="px-upsell-emoji" aria-hidden="true">💘</span>
-          <div><b>Add your own Secret Crushes</b><p>Plus lets you add up to ${S.plans.plus.limits.crushes} crushes, Premium up to ${S.plans.premium.limits.crushes}. Mutual crushes become a match.</p></div>
-          <button class="btn btn-primary btn-sm" data-go="plans" data-params='{"reason":"crush"}'>See plans</button>
-        </div>`;
+      const upsell = pxLockCard('crush');
       let list;
       if (!canAdd && !mine.length) {
         list = upsell;
@@ -70,7 +65,7 @@
                   <span class="px-row-body">
                     <b>${esc(u.name)}</b>
                     <small>${paused ? `${Icon('pause', 11)} Paused — renew your plan to reactivate` : `Added ${timeAgo(c.time) === 'now' ? 'just now' : `${timeAgo(c.time)} ago`} · kept secret 🤫`}</small>
-                    ${near === 'on' ? `<small class="px-near">${NX.nearText(u.id)} 💫</small>` : near ? nearChipFor(u.id, { static: true }) : ''}
+                    ${near === 'on' ? `<small class="px-near">${esc(NX.nearText(u.id))}</small>` : near ? nearChipFor(u.id, { static: true }) : ''}
                   </span>
                 </button>
                 <button class="icon-btn sm px-remove" data-action="removeCrush" data-id="${u.id}" aria-label="Remove ${esc(u.name)} from Secret Crushes">${Icon('x', 18)}</button>

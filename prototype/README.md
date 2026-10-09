@@ -26,8 +26,10 @@ Open the app and the admin panel in two tabs of the same browser to see admin ac
 
 Use the **Demo** button (bottom-right on mobile, "Demo controls" in the desktop sidebar), or press <kbd>Alt</kbd>+<kbd>D</kbd>, to:
 
-- switch personas: Free, Plus, Premium, Secret Message receiver, Secret Crush receiver, Matched, New visitor, or open Admin;
+- switch personas: Free, Plus, Premium, Secret Message receiver, Secret Crush receiver, Matched, Nearby explorer, New visitor, or open Admin;
 - simulate events: an incoming secret message, a secret crush, a mutual match, or a chat reply;
+- run the **Nearby simulator**: someone comes into or leaves Bluetooth range, an unknown Bluetooth device is ignored, a server-side location encounter (with the generic push, cooldown and daily cap), and "Advance clock by 1 day" to watch a hint go from today → yesterday → gone;
+- change the simulated **phone**: Bluetooth adapter, Bluetooth advertising support, location services, precise location, and the Bluetooth / location permissions (not asked → denied → blocked → allowed);
 - toggle a network error, a failing payment, or dark mode;
 - pick a mood (Happy, Calm, Romantic, Sad, Angry, Cool, Relaxed, Excited, Tired, Motivated) and watch the light theme change;
 - reset all demo data.
@@ -40,7 +42,8 @@ Use the **Demo** button (bottom-right on mobile, "Demo controls" in the desktop 
 | Secret Crush spots | — | 3 | Up to 10 |
 | Read & reply to Secret Messages | Notification only (locked) | ✓ | ✓ |
 | Match animation & chat | — | ✓ | ✓ |
-| "Was near you 💫" (today / yesterday / N days ago) | Locked teaser | ✓ | ✓ |
+| Nearby screen and "Someone is near you" notifications | ✓ | ✓ | ✓ |
+| "This person was near you today." / "yesterday." in Secret Messages & Crush | Locked teaser | ✓ | ✓ |
 | Premium profile badge 👑 | — | — | ✓ |
 
 - Plans can be bought monthly, for 3 months (10% off) or yearly (25% off). Coupons stack on top and the checkout shows every discount.
@@ -59,11 +62,14 @@ Use the **Demo** button (bottom-right on mobile, "Demo controls" in the desktop 
 - A crush that isn't mutual is never revealed to anyone, including whether the other person added you.
 
 ### Nearby
-- Off by default. The app asks for location permission like a phone OS does ("While using the app", "Only this time", "Don't allow"). Turning Nearby on also requires explicit consent, and it can be switched off anytime in Settings.
-- The only thing ever shown is one line under the person's name: "Was near you today 💫", "Was near you yesterday 💫" or "Was near you 3 days ago 💫". Only the latest day is kept. It appears only between people connected by a Secret Crush or Secret Message: on anonymous threads, the crush list, the match screen, and matched or revealed chats.
-- Nobody is ever shown that Nearby or location is off. If either person has it off, the line simply doesn't appear. Your own toggle lives in Settings → Nearby and only you can see it.
-- No location, map, distance, time, visit count or history exists anywhere in the data model.
-- Admins see aggregate indicator counts and misuse reports only. They can't see who has Nearby on or off, and can turn the feature off globally. The panel states: "User locations are never visible to administrators."
+Full spec: `backend/documentation/modules/nearby/nearby-encounters.md`. The prototype simulates the phone, the other users and the server checks; it never uses real Bluetooth or GPS.
+- Off by default and never asked for at launch. Turning it on goes through a consent screen where you pick **Bluetooth discovery**, **Location notifications** or both; each one then shows its own OS-style permission popup. A second "Don't allow" blocks the permission, after which only "Open Settings" can fix it.
+- **Nearby screen** (Home header radar button, desktop sidebar, or Settings → Nearby → See who's nearby): scans only while it's open, then lists people whose phones confirmed each other, with "Nearby now", Follow, and ••• Report / Block. It has its own states for Nearby off, Bluetooth discovery off, permission needed or blocked, Bluetooth adapter off, unsupported phone, scanning, nobody nearby, offline, and paused by an admin.
+- **Location notifications**: when the server finds two opted-in people close together, each gets "Someone is near you on Nexity. ✨". It never includes a name, photo or place. Each pair gets at most one per 6 hours, and each person at most 3 a day.
+- **Secret hints**: Secret Message and Secret Crush rows, threads and the reveal show "This person was near you today." or "This person was near you yesterday.". After 2+ days, or when an encounter expires or doesn't exist, nothing is shown. Free users see a locked teaser. Anonymous cards never reveal who it is.
+- One encounter per pair is kept (latest only, for 2 days). Blocked people, people with Nearby off and a globally paused feature never produce anything.
+- Turning Nearby off stops everything at once. You'll see: "Nearby is off. Notifications that were already sent may still arrive."
+- Admins see aggregate counts, misuse reports and the server settings (radius, minimum time together, cooldowns, daily cap, retention, id rotation), which they can edit with an audit entry. They can't see locations or who has Nearby on.
 
 ### Create (posts and stories)
 - Create opens the camera. Tap the shutter for a photo; in Story mode, hold it to record a clip of up to 15 seconds. Switch cameras, use the flash, or pick from the gallery or an upload.
@@ -111,6 +117,7 @@ css/
   secret.css        Secret threads, compose, unseal reveal
   premium.css       Premium tab: Secret Messages + Secret Crush sections, people picker, add-crush sheet
   create.css        Camera, post editor, story editor
+  nearby.css        Nearby screen, signal switches, consent, permission popups
   responsive.css    Tablet / desktop layouts
   admin.css         Admin panel layout
 js/
@@ -120,5 +127,6 @@ js/
   auth.js, home.js, create.js, reels.js, search.js, user.js, secret.js,
   crush.js, chat.js, subscription.js, notifications.js, settings.js,
   safety.js, demo.js
+  nearby.js         Nearby screen, permissions, signal switches, simulator
   admin.js          Admin panel
 ```

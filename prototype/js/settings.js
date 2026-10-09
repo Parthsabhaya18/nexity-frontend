@@ -33,7 +33,7 @@
           ${group('Account', row({ icon: 'user', label: 'Edit profile', action: 'editProfile' }) + row({ icon: 'mail', label: 'Account information', sub: 'Email, username, birthday', go: 'settingsAccount' }))}
           ${group('Privacy', row({ icon: 'shield', label: 'Privacy', sub: 'Account visibility, messages, activity', go: 'settingsPrivacy' }) + row({ icon: 'ban', label: 'Blocked accounts', value: S.blocked.length ? String(S.blocked.length) : '', go: 'blocked' }))}
           ${group('Notifications', row({ icon: 'bell', label: 'Notification settings', sub: 'Choose what you hear about', go: 'settingsNotifications' }))}
-          ${group('Nearby', row({ icon: 'radar', label: 'Nearby', sub: '"Was near you 💫" · never shows location', go: 'settingsNearby' }))}
+          ${group('Nearby', row({ icon: 'radar', label: 'Nearby', sub: S.me.nearbyEnabled ? 'On · Bluetooth discovery & location notifications' : 'Off · never shows your location', go: 'settingsNearby' }))}
           ${group('Subscription', row({ icon: S.me.plan === 'premium' ? 'crown' : 'sparkles', label: 'Subscription', sub: NX.isPaid() ? `Active until ${fmtDate(S.me.planExpiry)}` : 'Upgrade to unlock Secret features', value: NX.plan().name, go: NX.isPaid() ? 'mySubscription' : 'plans' }))}
           ${group('Security', row({ icon: 'key', label: 'Change password', go: 'changePassword' }) + row({ icon: 'devices', label: 'Login & security', sub: 'Where you\'re logged in', go: 'settingsSecurity' }))}
           ${group('Theme', `<div class="set-row static"><span class="set-ic">${Icon('moon', 20)}</span><span class="set-text"><b>Appearance</b><small>${S.mood ? 'Off while a mood is on · pick one to remove the mood' : 'Light, dark or match your device'}</small></span></div><div class="set-pad">${themeSeg()}</div><div class="set-row static"><span class="set-ic">${Icon('sparkles', 20)}</span><span class="set-text"><b>Mood</b><small>${esc((NX.moods.find(m => m[0] === S.mood) || [0, 0, 'No mood'])[2])} · replaces Light/Dark/System · tap again to remove</small></span></div><div class="set-pad">${moodGrid()}</div>`)}
@@ -151,22 +151,15 @@
       ${appbar({ title: 'Notifications' })}
       <div class="page settings">
         ${group('', toggleRow({ icon: 'bell', label: 'Push notifications', sub: 'Pause everything at once', checked: S.notifSettings.push, action: 'toggleNotif', k: 'push' }))}
-        ${group('Notify me about', NOTIF.map(([k, ic, l, sub]) => toggleRow({ icon: ic, label: l, sub: sub || '', checked: S.notifSettings[k] && S.notifSettings.push, action: 'toggleNotif', k, disabled: !S.notifSettings.push })).join(''))}
-        <p class="fine">Secret Message and Secret Crush notifications never include names or photos.</p>
+        ${group('Notify me about', NOTIF.map(([k, ic, l, sub]) => toggleRow({ icon: ic, label: l, sub: sub || '', checked: S.notifSettings[k] && S.notifSettings.push, action: 'toggleNotif', k, disabled: !S.notifSettings.push })).join('')
+          + toggleRow({ icon: 'radar', label: 'Nearby', sub: S.me.nearbyEnabled ? '"Someone is near you on Nexity. ✨"' : 'Turn on Nearby first', checked: S.me.nearbyEnabled && S.me.nearbyNotifications && S.notifSettings.push, action: 'nearbySignal', k: 'notifications', disabled: !S.notifSettings.push || !S.me.nearbyEnabled }))}
+        <p class="fine">Secret Message, Secret Crush and Nearby notifications never include names or photos.</p>
       </div>`
   };
   Actions.toggleNotif = (el) => { const k = el.dataset.k; S.notifSettings[k] = !S.notifSettings[k]; commit(); };
 
   /* ---------- Nearby ---------- */
-  const neverList = () => `
-    <ul class="never-list">
-      <li>${Icon('pinOff', 18)}<span>No exact location</span></li>
-      <li>${Icon('map', 18)}<span>No map</span></li>
-      <li>${Icon('ruler', 18)}<span>No distance</span></li>
-      <li>${Icon('clock', 18)}<span>No time</span></li>
-      <li>${Icon('repeat', 18)}<span>No number of visits</span></li>
-      <li>${Icon('history', 18)}<span>No location history</span></li>
-    </ul>`;
+  const statusSub = (k, extra) => { const s = NX.signalStatus(k); return `${esc(extra)}<span class="sig ${s.ok ? 'ok' : S.me[k === 'bluetooth' ? 'nearbyBluetooth' : 'nearbyLocation'] ? 'warn' : ''}">${esc(s.text)}</span>`; };
 
   Screens.settingsNearby = {
     title: 'Nearby',
@@ -177,25 +170,29 @@
         ${appbar({ title: 'Nearby' })}
         <div class="page settings">
           <section class="nearby-hero ${on ? 'on' : ''}">
-            <div class="radar" aria-hidden="true"><i></i><i></i><i></i><span>${Icon('sparkles', 22)}</span></div>
-            <h2>"Was near you 💫"</h2>
-            <p>People you added as Secret Crush or sent a Secret Message to will only see when you were last near them — today, yesterday or a few days ago. Your place and time are never shown.</p>
+            <div class="radar" aria-hidden="true"><i></i><i></i><i></i><span>${Icon('radar', 22)}</span></div>
+            <h2>Nearby</h2>
+            <p>See Nexity users around you, get a notification when someone is near, and see "This person was near you today." in Secret Messages and Secret Crush.</p>
           </section>
-          ${group('', toggleRow({ icon: 'radar', label: 'Nearby', sub: 'Only you can see this setting.', checked: on, action: 'toggleNearby', disabled: !g }))}
-          ${on && !NX.canSeeNearby() ? `<div class="upsell-card"><span class="upsell-emoji">💫</span><div><b>See who was near you</b><p>Upgrade to Plus or Premium to see "Was near you today 💫" in your secret chats and crush list.</p></div><button class="btn btn-primary btn-sm" data-go="plans" data-params='{"reason":"nearby"}'>Upgrade</button></div>` : ''}
-          ${group('What\'s never shown', neverList())}
-          <div class="rule-card">${Icon('shieldCheck', 18)}<p>Only a simple yes/no for <b>today</b> is used, and it resets every day. Administrators can never see your location.</p></div>
+          ${!g ? `<div class="rule-card">${Icon('info', 18)}<p>Nearby is paused for everyone right now. Your settings are kept.</p></div>` : ''}
+          ${group('', toggleRow({ icon: 'radar', label: 'Nearby', sub: 'Off by default. Only you can see this setting.', checked: on, action: 'toggleNearby', disabled: !g }))}
+          ${on ? group('How Nearby works', toggleRow({ icon: 'bluetooth', label: 'Bluetooth discovery', sub: statusSub('bluetooth', 'Find people close by on the Nearby screen. '), checked: S.me.nearbyBluetooth, action: 'nearbySignal', k: 'bluetooth' })
+            + toggleRow({ icon: 'pin', label: 'Location notifications', sub: statusSub('location', 'Know when someone is near, while you use Nexity. '), checked: S.me.nearbyLocation, action: 'nearbySignal', k: 'location' })
+            + toggleRow({ icon: 'bell', label: 'Nearby notifications', sub: '"Someone is near you on Nexity. ✨" — never a name, photo or place.', checked: S.me.nearbyNotifications, action: 'nearbySignal', k: 'notifications' })
+            + row({ icon: 'users', label: 'See who\'s nearby', sub: 'Opens the Nearby screen', go: 'nearby' })) : ''}
+          ${on && !NX.canSeeNearby() ? `<div class="upsell-card"><span class="upsell-emoji">✨</span><div><b>See who was near you</b><p>Upgrade to Plus or Premium to see "This person was near you today." in Secret Messages and Secret Crush.</p></div><button class="btn btn-primary btn-sm" data-go="plans" data-params='{"reason":"nearby"}'>Upgrade</button></div>` : ''}
+          ${group('Your privacy', `
+            <ul class="nearby-privacy">
+              <li><span class="set-ic">${Icon('shieldCheck', 20)}</span><span><b>Private by design</b><small>Bluetooth uses anonymous ids that change every 15 minutes.</small></span></li>
+              <li><span class="set-ic">${Icon('history', 20)}</span><span><b>Only today or yesterday</b><small>Just the latest day is kept, then it disappears.</small></span></li>
+              <li><span class="set-ic">${Icon('eyeOff', 20)}</span><span><b>Only you control it</b><small>Nobody can see whether your Nearby is on or off.</small></span></li>
+            </ul>`)}
         </div>`;
     }
   };
   Actions.toggleNearby = () => {
     if (!S.admin.nearbyGlobal) return;
-    if (S.me.nearbyEnabled) {
-      S.me.nearbyEnabled = false;
-      commit();
-      Toast.show('Saved');
-      return;
-    }
+    if (S.me.nearbyEnabled) return Nearby.turnOff();
     Nav.go('nearbyConsent');
   };
 
@@ -204,47 +201,43 @@
     render: () => `
       <div class="consent">
         <button class="icon-btn consent-x" data-action="back" aria-label="Close">${Icon('x', 24)}</button>
-        <div class="radar big" aria-hidden="true"><i></i><i></i><i></i><span>💫</span></div>
+        <div class="radar big" aria-hidden="true"><i></i><i></i><i></i><span>${Icon('radar', 30)}</span></div>
         <p class="eyebrow">Nearby · optional</p>
-        <h1>Let them know you were near.</h1>
-        <p class="consent-lead">People you added as Secret Crush or sent a Secret Message to will only see when you were last near them — today, yesterday or a few days ago. Your place and time are never shown.</p>
-        <div class="consent-example"><span class="muted">They'd see:</span> <span class="nearby-chip">Was near you today 💫</span></div>
-        ${neverList()}
+        <h1>See who's around you.</h1>
+        <p class="consent-lead">Find Nexity users close by, get a notification when someone is near, and see when someone you sent a Secret Message to or added as a Secret Crush was near you.</p>
+        <div class="consent-example"><span class="muted">They'd see:</span> <span class="nearby-chip">${Icon('radar', 12)}This person was near you today.</span></div>
+        <div class="consent-signals">
+          <label class="consent-check"><input type="checkbox" id="ncBt" checked><span>${Icon('bluetooth', 18)}<span><b>Bluetooth discovery</b><small>Finds people close by while the Nearby screen is open.</small></span></span></label>
+          <label class="consent-check"><input type="checkbox" id="ncLoc" checked><span>${Icon('pin', 18)}<span><b>Location notifications</b><small>Tells you "Someone is near you on Nexity. ✨" while you use the app.</small></span></span></label>
+        </div>
         <ul class="consent-points">
-          <li>${Icon('eyeOff', 18)}<span>It never shows your name on anonymous cards.</span></li>
-          <li>${Icon('refresh', 18)}<span>Only the latest day is kept — older days are replaced.</span></li>
-          <li>${Icon('shield', 18)}<span>Nobody — not other users, not administrators — can see your location or whether Nearby is on or off.</span></li>
+          <li>${Icon('eyeOff', 18)}<span>Anonymous cards stay anonymous — the hint never shows a name.</span></li>
+          <li>${Icon('history', 18)}<span>Only "today" or "yesterday" is shown. Older encounters disappear.</span></li>
+          <li>${Icon('shield', 18)}<span>Nobody — not other users, not administrators — can see your location or whether Nearby is on.</span></li>
           <li>${Icon('settings', 18)}<span>Turn it off anytime in Settings → Nearby.</span></li>
         </ul>
         <div class="consent-actions">
-          <button class="btn btn-primary btn-lg btn-block" data-action="enableNearby">Enable Nearby</button>
+          <button class="btn btn-primary btn-lg btn-block" data-action="enableNearby">Turn on Nearby</button>
           <button class="btn btn-ghost btn-lg btn-block" data-action="nearbyNotNow">Not now</button>
         </div>
       </div>`
   };
   Actions.nearbyNotNow = () => Nav.back();
-  Actions.enableNearby = () => {
-    const el = Modal.open({
-      cls: 'confirm-layer os-permission', hideHeader: true, label: 'Location permission',
-      body: `<div class="confirm">
-        <div class="confirm-ic">${Icon('radar', 26)}</div>
-        <h2>Allow location</h2>
-        <p>Nearby needs location. Open Settings and turn Location on. Your place is never shown.</p>
-        <div class="confirm-actions os">
-          <button class="btn btn-block btn-primary" data-perm="allow">Open Settings</button>
-          <button class="btn btn-block btn-ghost" data-perm="deny">Not now</button>
-        </div></div>`
-    });
-    el.querySelectorAll('[data-perm]').forEach(b => b.addEventListener('click', () => {
-      Modal.close(el, true);
-      if (b.dataset.perm === 'deny') { S.me.locPermission = 'denied'; NX.save(); Toast.show('Nearby needs location permission to turn on.', { type: 'warning' }); return; }
-      S.me.locPermission = 'while-using';
-      S.me.nearbyEnabled = true;
-      S.me.nearbyConsent = true;
-      NX.save();
-      Nav.back();
-      Toast.show('Saved 💫', { type: 'success' });
-    }));
+  Actions.enableNearby = async (el) => {
+    const bt = $('#ncBt').checked, loc = $('#ncLoc').checked;
+    if (!bt && !loc) return Toast.show('Choose Bluetooth discovery, location notifications or both.', { type: 'warning' });
+    setBusy(el, true, 'Turning on…');
+    Object.assign(S.me, { nearbyEnabled: true, nearbyConsent: true, nearbyNotifications: true, nearbyBluetooth: false, nearbyLocation: false });
+    NX.save();
+    const btOn = bt ? await Nearby.enableSignal('bluetooth') : false;
+    const locOn = loc ? await Nearby.enableSignal('location') : false;
+    NX.save();
+    if (!btOn && !locOn) Toast.show('Nearby is on, but no permission was allowed. Turn a signal on in Settings → Nearby.', { type: 'warning', duration: 4200 });
+    else Toast.show('Nearby is on', { type: 'success' });
+    const target = btOn ? 'nearby' : 'settingsNearby';
+    const prev = Nav.stack[Nav.stack.length - 2];
+    if (prev && prev.name === target) Nav.back();
+    else Nav.go(target, {}, { replace: true });
   };
 
   /* ---------- Security ---------- */
@@ -312,7 +305,8 @@
   const FAQ = [
     ['How does a Secret Message reveal work?', 'The sender\'s name and message stay sealed (blurred). After your 2nd reply, their name, photo and full message are revealed together, and it becomes a normal chat.'],
     ['Will someone know I added them as a Secret Crush?', 'Only if they add you too — then it\'s a match. Otherwise they only see "Someone added you as a Secret Crush 👀" and never find out who.'],
-    ['Does Nearby share my location?', 'No. Nearby only shows "Was near you today 💫". Never a place, map, distance, time, visit count or history — not even to administrators.'],
+    ['Does Nearby share my location?', 'No. Nearby shows people close by on the Nearby screen (Bluetooth, only while it\'s open), sends "Someone is near you on Nexity. ✨" and shows "This person was near you today." or "yesterday" in Secret Messages and Secret Crush. Never a place, map, distance, time, visit count or history — not even to administrators.'],
+    ['Who can find me with Nearby?', 'Only people who also turned Nearby on, and only when both phones confirm each other. People you blocked never see you. Turn Nearby off anytime in Settings → Nearby.'],
     ['What do Plus and Premium include?', 'Plus (₹99/month) lets you send 5 Secret Messages a month, add 3 Secret Crushes, read & reply to Secret Messages and see Nearby. Premium (₹249/month) gives unlimited Secret Messages (fair use), up to 10 Secret Crushes and a 👑 profile badge.'],
     ['How do I report or block someone?', 'Tap ••• on a profile, post, reel, story, chat or secret message and choose Report or Block. Anonymous senders can be blocked without revealing who they are.'],
   ];
@@ -398,7 +392,7 @@
     privacy: { title: 'Privacy Policy', body: [
       ['What we collect', 'Your profile details, the content you share and basic device information needed to run the app.'],
       ['Anonymous features', 'Secret Message senders stay hidden until the receiver replies twice. Secret Crushes are only revealed when mutual. We never reveal a non-mutual crush.'],
-      ['Nearby', 'Nearby is off by default. When on, only the most recent day you were near someone is kept, shown as "today", "yesterday" or "N days ago". We never show or store a place, map, distance, time, visit count or location history — and administrators cannot see your location.'],
+      ['Nearby', 'Nearby is off by default. Bluetooth discovery uses anonymous ids that change every 15 minutes. Location notifications use a rounded location that is deleted within 15 minutes. Only the latest day you were near someone is kept, for 2 days, and shown only as "today" or "yesterday". We never show a place, map, distance, time, visit count or location history — and administrators cannot see your location.'],
       ['Payments', 'Payments are handled by certified payment partners. We never store your full card number.'],
       ['Your choices', 'Change privacy settings, download your data or delete your account at any time from Settings.'],
     ] },

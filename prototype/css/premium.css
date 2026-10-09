@@ -132,6 +132,28 @@ button.px-row:active { transform: scale(.985); }
 .px-unlock-text b { font-size: 15px; }
 .px-unlock-text small { font-size: 12.5px; color: var(--secret-muted); }
 
+/* Free plan: "needs a plan" banner, tab locks and locked feature cards. */
+.px-gate { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px; padding: 12px 12px 12px 14px; border-radius: var(--r-lg); text-align: left; background: var(--warning-soft); border: 1.5px solid color-mix(in srgb, var(--warning) 45%, transparent); color: var(--text); transition: transform .12s var(--ease); }
+.px-gate:active { transform: scale(.985); }
+.px-gate-ic { width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0; display: grid; place-items: center; background: var(--warning); color: var(--on-primary); animation: wobble 3s ease-in-out infinite; }
+.px-gate-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.px-gate-text b { font-size: 14.5px; }
+.px-gate-text small { font-size: 12.5px; color: var(--text-2); }
+.px-gate-cta { flex-shrink: 0; display: inline-flex; align-items: center; gap: 2px; padding: 8px 12px; border-radius: var(--r-full); font-size: 13px; font-weight: 800; background: var(--button, var(--primary)); color: var(--on-primary); }
+.px-tab-lock { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--warning-soft); color: var(--warning); }
+.px-tabs button.active .px-tab-lock { background: color-mix(in srgb, var(--on-primary) 22%, transparent); color: var(--on-primary); }
+
+.px-lockcard { position: relative; overflow: hidden; padding: 18px; margin-bottom: 12px; border-radius: var(--r-xl); background: var(--surface); border: 1.5px dashed color-mix(in srgb, var(--warning) 55%, var(--border)); }
+.px-lockcard-head { display: flex; align-items: center; gap: 14px; }
+.px-lockcard-emoji { position: relative; flex-shrink: 0; width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; font-size: 28px; background: linear-gradient(135deg, var(--primary-soft), var(--accent-soft)); }
+.px-lockcard-emoji i { position: absolute; right: -4px; bottom: -4px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--warning); color: var(--on-primary); border: 2px solid var(--surface); }
+.px-lock-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--r-full); font-size: 11.5px; font-weight: 800; letter-spacing: .02em; background: var(--warning-soft); color: var(--warning); }
+.px-lockcard h3 { margin-top: 6px; font-size: 17px; letter-spacing: -.015em; }
+.px-lockcard ul { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 16px 0 18px; }
+.px-lockcard li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text-2); }
+.px-lockcard li .ic { flex-shrink: 0; margin-top: 1px; color: var(--success); }
+.px-lockcard-foot { display: block; margin-top: 10px; text-align: center; font-size: 12.5px; color: var(--text-3); }
+
 /* ---------- Secret Crush ---------- */
 .px-admirers { position: relative; overflow: hidden; display: flex; gap: 14px; align-items: flex-start; padding: 18px; border-radius: var(--r-xl); background: linear-gradient(135deg, var(--accent-soft), var(--primary-soft)); border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); }
 .px-admirers.empty { background: var(--surface); border-color: var(--border); }

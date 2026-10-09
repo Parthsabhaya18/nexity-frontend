@@ -29,8 +29,34 @@
   const planPill = () => {
     const p = S.me.plan;
     const label = p === 'premium' ? `${Icon('crown', 13)} Premium` : p === 'plus' ? `${Icon('sparkles', 13)} Plus` : 'Free';
-    return `<button class="px-plan-pill ${p}" data-go="mySubscription" aria-label="Your plan: ${p}. Open subscription">${label}</button>`;
+    return `<button class="px-plan-pill ${p}" data-go="${p === 'free' ? 'plans' : 'mySubscription'}" aria-label="Your plan: ${p}. ${p === 'free' ? 'See plans' : 'Open subscription'}">${label}</button>`;
   };
+
+  /* Free users see every Premium feature, clearly marked as needing a plan, with one way to upgrade. */
+  const LOCKS = {
+    read: { emoji: '📬', title: 'Read & reply to Secret Messages', reason: 'secret-read', points: () => ['Open sealed messages people send you', 'Reply twice to unseal who sent it and what they wrote', 'Blocking and reporting stay free'] },
+    send: { emoji: '💌', title: 'Send Secret Messages', reason: 'secret-send', points: () => ['They only see "Someone sent you a secret message"', 'You\'re revealed only after they reply twice', `Plus: ${S.plans.plus.limits.secretMessages} a month · Premium: unlimited`] },
+    crush: { emoji: '💘', title: 'Add Secret Crushes', reason: 'crush', points: () => [`Plus: up to ${S.plans.plus.limits.crushes} crushes · Premium: up to ${S.plans.premium.limits.crushes}`, 'Nobody finds out unless it\'s mutual', 'A mutual crush becomes a match and opens a chat'] },
+  };
+  window.pxLockCard = (k) => {
+    const c = LOCKS[k];
+    return `
+      <section class="px-lockcard">
+        <div class="px-lockcard-head">
+          <span class="px-lockcard-emoji" aria-hidden="true">${c.emoji}<i>${Icon('lock', 12)}</i></span>
+          <div><span class="px-lock-tag">${Icon('crown', 12)} Plus or Premium</span><h3>${c.title}</h3></div>
+        </div>
+        <ul>${c.points().map(p => `<li>${Icon('check', 16)}<span>${esc(p)}</span></li>`).join('')}</ul>
+        <button class="btn btn-premium btn-lg btn-block" data-go="plans" data-params='{"reason":"${c.reason}"}'>${Icon('unlock', 18)} Choose a plan</button>
+        <small class="px-lockcard-foot">From ${inr(S.plans.plus.price)}/month · cancel anytime</small>
+      </section>`;
+  };
+  const gate = (t) => `
+    <button class="px-gate" data-go="plans" data-params='{"reason":"${t === 'crush' ? 'crush' : 'secret-read'}"}'>
+      <span class="px-gate-ic" aria-hidden="true">${Icon('lock', 20)}</span>
+      <span class="px-gate-text"><b>You need a plan to use Premium</b><small>You're on Free · Plus from ${inr(S.plans.plus.price)}/month</small></span>
+      <span class="px-gate-cta">See plans ${Icon('chevronRight', 16)}</span>
+    </button>`;
 
   Screens.secret = {
     tab: 'secret', title: 'Premium',
@@ -39,6 +65,7 @@
       const t = App.secretTab;
       const unread = unreadSealed();
       const dot = crushDot();
+      const free = !NX.isPaid();
       return `
         <header class="appbar px-appbar">
           <div class="appbar-title"><h1><span class="px-crown" aria-hidden="true">${Icon('crown', 18)}</span>Premium</h1></div>
@@ -56,21 +83,16 @@
             </div>
             <span class="px-hero-seal" aria-hidden="true"><span>💌</span></span>
           </section>
+          ${free ? gate(t) : ''}
           <div class="px-tabs" role="tablist" aria-label="Premium sections">
             <button role="tab" class="${t === 'messages' ? 'active' : ''}" aria-selected="${t === 'messages'}" data-action="secretTab" data-tab="messages">
-              <span aria-hidden="true">💌</span> Messages${unread ? `<span class="px-count" aria-label="${unread} unread">${unread}</span>` : ''}
+              <span aria-hidden="true">💌</span> Messages${free ? `<span class="px-tab-lock" aria-label="Needs a plan">${Icon('lock', 12)}</span>` : ''}${unread ? `<span class="px-count" aria-label="${unread} unread">${unread}</span>` : ''}
             </button>
             <button role="tab" class="${t === 'crush' ? 'active' : ''}" aria-selected="${t === 'crush'}" data-action="secretTab" data-tab="crush">
-              <span aria-hidden="true">💘</span> Secret Crush${dot ? '<span class="px-dot" aria-label="New"></span>' : ''}
+              <span aria-hidden="true">💘</span> Secret Crush${free ? `<span class="px-tab-lock" aria-label="Needs a plan">${Icon('lock', 12)}</span>` : ''}${dot ? '<span class="px-dot" aria-label="New"></span>' : ''}
             </button>
           </div>
           <div class="tab-anim" role="tabpanel">${t === 'messages' ? messagesTab() : Crush.renderTab()}</div>
-          ${NX.isPaid() ? '' : `
-            <button class="px-unlock" data-go="plans">
-              <span class="px-unlock-ic" aria-hidden="true">${Icon('crown', 20)}</span>
-              <span class="px-unlock-text"><b>Unlock your secret side</b><small>From ${inr(S.plans.plus.price)}/month · Plus or Premium</small></span>
-              ${Icon('chevronRight', 20)}
-            </button>`}
         </div>`;
     },
     mount() {
@@ -115,6 +137,7 @@
 
   function receivedList(list) {
     const canRead = NX.canReadSecret();
+    if (!list.length && !canRead) return pxLockCard('read');
     if (!list.length) return emptyState({
       emoji: '💌', title: 'No secret messages yet', cls: 'empty-secret',
       text: 'When someone sends you a Secret Message it lands here, sealed. Reply twice to unseal who sent it and what they wrote.',
@@ -146,6 +169,7 @@
         <span class="px-row-body">
           <b>Sealed message</b>
           <small>${Icon('lock', 11)} Locked · ${dayLabel(m.createdAt)}</small>
+          ${nearChipFor(m.senderId, { static: true })}
         </span>
       </button>
       <button class="icon-btn sm" data-action="lockedSecretMenu" data-id="${m.id}" aria-label="Options">${Icon('more', 20)}</button>
@@ -162,6 +186,7 @@
           <b>Someone sent you a secret message</b>
           <small class="${used === 1 ? 'px-hot' : ''}">${status}</small>
           ${track(used)}
+          ${nearChipFor(m.senderId, { static: true })}
         </span>
         <span class="px-row-side"><span class="px-day">${dayLabel(m.createdAt)}</span>${fresh ? '<span class="px-new">New</span>' : ''}</span>
       </button>`;
@@ -175,7 +200,7 @@
         <span class="px-av">${avatar(u, 52)}<span class="px-av-badge ok">${Icon('check', 11)}</span></span>
         <span class="px-row-body">
           <b>${esc(u.name)}</b>
-          <small>${near === 'on' ? `<span class="px-near">${NX.nearText(m.senderId)} 💫</span>` : 'Unsealed · now a chat'}</small>
+          <small>${near === 'on' ? `<span class="px-near">${esc(NX.nearText(m.senderId))}</span>` : 'Unsealed · now a chat'}</small>
         </span>
         <span class="px-row-side"><span class="chip chip-ok">${Icon('check', 12)} Revealed</span></span>
       </button>`;
@@ -209,12 +234,8 @@
   function sentList() {
     const paid = NX.isPaid();
     const list = [...S.secretSent].sort((a, b) => b.createdAt - a.createdAt);
-    const head = paid ? usageCard() : `
-      <div class="px-upsell">
-        <span class="px-upsell-emoji" aria-hidden="true">💌</span>
-        <div><b>Send your first Secret Message</b><p>Say what you've been holding back. You stay anonymous until they reply twice.</p></div>
-        <button class="btn btn-primary btn-sm" data-go="plans" data-params='{"reason":"secret-send"}'>See plans</button>
-      </div>`;
+    const head = paid ? usageCard() : pxLockCard('send');
+    if (!list.length && !paid) return head;
     if (!list.length) return head + emptyState({
       emoji: '🤫', title: 'Nothing sent yet', cls: 'empty-secret',
       text: 'Pick someone and tell them what you\'ve been holding back. They\'ll only learn it\'s you after they reply twice.',
@@ -231,6 +252,7 @@
               <b>To ${esc(u.name)}</b>
               <small class="${m.repliesReceived === 1 && !m.revealed ? 'px-hot' : ''}">${sentStatus(m)}</small>
               ${m.revealed ? '' : track(m.repliesReceived)}
+              ${nearChipFor(m.toId, { static: true })}
             </span>
             <span class="px-row-side"><span class="px-day">${dayLabel(m.createdAt)}</span>${m.revealed ? `<span class="chip chip-ok">${Icon('chat', 12)} Chat</span>` : ''}</span>
           </button>`;
@@ -456,8 +478,8 @@
   };
 
   const nearLine = (state, userId) => {
-    if (state === 'on') return `<small class="sm-near">${NX.nearText(userId)} 💫</small>`;
-    if (state === 'locked') return `<button class="sm-near locked" data-go="plans" data-params='{"reason":"nearby"}' aria-label="Nearby indicator locked. Upgrade to see.">${Icon('lock', 11)}<span class="blur-text">Was near you recently</span> 💫</button>`;
+    if (state === 'on') return `<small class="sm-near">${esc(NX.nearText(userId))}</small>`;
+    if (state === 'locked') return `<button class="sm-near locked" data-go="plans" data-params='{"reason":"nearby"}' aria-label="Nearby hint locked. Upgrade to see.">${Icon('lock', 11)}<span class="blur-text">This person was near you</span></button>`;
     return `<small class="sm-sub">${Icon('lock', 11)} Name sealed until the reveal</small>`;
   };
 
@@ -550,7 +572,7 @@
     return `
       <header class="appbar sm-head">
         <button class="icon-btn" data-action="back" aria-label="Go back">${Icon('back', 24)}</button>
-        <button class="sm-who" data-go="user" data-id="${u.id}">${avatar(u, 40)}<div class="sm-who-text"><b>${esc(u.name)}</b><small class="sm-sub">${Icon('mask', 11)} You're "Someone" to them</small></div></button>
+        <button class="sm-who" data-go="user" data-id="${u.id}">${avatar(u, 40)}<div class="sm-who-text"><b>${esc(u.name)}</b><small class="sm-sub">${Icon('mask', 11)} You're "Someone" to them</small>${NX.nearbyState(u.id) ? nearLine(NX.nearbyState(u.id), u.id) : ''}</div></button>
         <div class="appbar-actions"></div>
       </header>
       <div class="page sm-thread">
@@ -643,7 +665,7 @@
             <span class="reveal-mask">${anonAvatar(120)}</span>
           </div>
           <h2>It's ${esc(u.name)}!</h2>
-          <p class="reveal-sub">@${esc(u.username)}${near === 'on' ? ` · <span class="reveal-near">${NX.nearText(u.id)} 💫</span>` : ''}</p>
+          <p class="reveal-sub">@${esc(u.username)}</p>${near === 'on' ? `<p class="reveal-sub reveal-near">${esc(NX.nearText(u.id))}</p>` : ''}
           <div class="um">
             <p class="um-label">${Icon('mail', 14)} What they wrote</p>
             ${theirs.map((x, i) => `<div class="um-bubble" style="--d:${1.7 + i * .35}s">${esc(x.text)}</div>`).join('')}
