@@ -72,6 +72,7 @@ import { useToast } from '@/components/chat/Toast';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { useKeyboardVisible } from '@/components/chat/useKeyboardVisible';
 import { useNow } from '@/components/chat/useNow';
+import { FloatingHearts } from '@/components/celebration/Celebration';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -99,7 +100,8 @@ import {
 import { ApiError } from '@/services/api/client';
 import type { ScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
-import { radius, spacing, useAppTheme } from '@/theme';
+import { loveTheme, radius, spacing, useAppTheme } from '@/theme';
+import { ThemeScope } from '@/theme/ThemeProvider';
 import { clockTime, dayLabel, presenceLabel } from '@/utils/time';
 
 type Row =
@@ -153,11 +155,26 @@ function dismissKeyboard() {
   });
 }
 
-export function ChatThreadScreen({
+/** Secret Crush match chats (`theme: 'love'`) render in the romantic palette; the rest of the app keeps its theme. */
+export function ChatThreadScreen(props: ScreenProps<'ChatThread'>) {
+  const love = useChatStore(
+    s => s.conversations[props.route.params.conversationId]?.theme === 'love',
+  );
+  const app = useAppTheme();
+  const theme = useMemo(() => (love ? loveTheme(app) : null), [love, app]);
+  return (
+    <ThemeScope theme={theme}>
+      <ChatThreadContent {...props} love={love} />
+    </ThemeScope>
+  );
+}
+
+function ChatThreadContent({
   navigation,
   route,
-}: ScreenProps<'ChatThread'>) {
-  const { conversationId } = route.params;
+  love,
+}: ScreenProps<'ChatThread'> & { love: boolean }) {
+  const { conversationId, draft } = route.params;
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisible();
@@ -595,12 +612,24 @@ export function ChatThreadScreen({
             size={40}
           />
           <View style={styles.headText}>
-            <Text
-              style={[styles.headName, { color: colors.text }]}
-              numberOfLines={1}
-            >
-              {peer?.display_name ?? 'Chat'}
-            </Text>
+            <View style={styles.headNameRow}>
+              <Text
+                style={[styles.headName, { color: colors.text }]}
+                numberOfLines={1}
+              >
+                {peer?.display_name ?? 'Chat'}
+              </Text>
+              {love ? (
+                <Text
+                  style={[
+                    styles.matchChip,
+                    { color: colors.primary, backgroundColor: colors.primarySoft },
+                  ]}
+                >
+                  💘 Match
+                </Text>
+              ) : null}
+            </View>
             {status ? (
               <Text
                 style={[
@@ -642,6 +671,7 @@ export function ChatThreadScreen({
           <ChatThreadSkeleton />
         ) : (
           <View style={styles.flex} {...revealHandlers}>
+            {love ? <FloatingHearts count={18} opacity={0.55} duration={11000} /> : null}
             <FlatList
               ref={listRef}
               inverted
@@ -706,6 +736,16 @@ export function ChatThreadScreen({
                   <ChatThreadSkeleton older />
                 ) : !thread.hasMore && peer ? (
                   <View style={styles.intro}>
+                    {love ? (
+                      <Text
+                        style={[
+                          styles.matchBanner,
+                          { color: colors.primary, backgroundColor: colors.primarySoft },
+                        ]}
+                      >
+                        💘 You matched via Secret Crush
+                      </Text>
+                    ) : null}
                     <Avatar
                       uri={peer.avatar_url}
                       name={peer.display_name}
@@ -788,6 +828,7 @@ export function ChatThreadScreen({
             );
           }}
           bottomInset={keyboardVisible || galleryLift ? 0 : insets.bottom}
+          initialText={draft}
         />
         {galleryLift ? <View style={{ height: galleryHeight }} /> : null}
       </KeyboardAvoidingView>
@@ -907,7 +948,25 @@ const styles = StyleSheet.create({
   headPressed: { opacity: 0.6 },
   introButton: { marginTop: 8, minWidth: 140 },
   headText: { flex: 1, minWidth: 0 },
-  headName: { fontSize: 15, fontWeight: '800' },
+  headNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headName: { fontSize: 15, fontWeight: '800', flexShrink: 1 },
+  matchChip: {
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+    overflow: 'hidden',
+  },
+  matchBanner: {
+    fontSize: 13,
+    fontWeight: '800',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: radius.full,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
   headStatus: { fontSize: 12, marginTop: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   cta: { minWidth: 200 },

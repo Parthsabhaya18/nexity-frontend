@@ -1,4 +1,4 @@
-import { Bell, Camera, Image, Mic } from 'lucide-react-native';
+import { Bell, Bluetooth, Camera, Image, MapPin, Mic } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -11,7 +11,14 @@ import {
 } from '@/features/permissions/permissions';
 import { spacing, useAppTheme } from '@/theme';
 
-const ICONS = { camera: Camera, photos: Image, microphone: Mic, notifications: Bell };
+const ICONS = {
+  camera: Camera,
+  photos: Image,
+  microphone: Mic,
+  notifications: Bell,
+  location: MapPin,
+  bluetooth: Bluetooth,
+};
 
 export function PermissionIcon({
   type,

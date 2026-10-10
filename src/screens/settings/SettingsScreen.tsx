@@ -5,6 +5,7 @@ import {
   Bell,
   ChevronRight,
   CircleHelp,
+  CreditCard,
   Crown,
   FileText,
   Headset,
@@ -13,9 +14,11 @@ import {
   LogOut,
   Mail,
   MonitorSmartphone,
+  Radar,
   Shield,
   ShieldCheck,
   User,
+  VenetianMask,
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
@@ -132,6 +135,16 @@ export function SettingsScreen() {
             value={blockedCount ? String(blockedCount) : undefined}
             onPress={() => navigation.navigate('BlockedAccounts')}
           />
+          <SettingsRow
+            icon={VenetianMask}
+            label="Blocked secret senders"
+            onPress={() => navigation.navigate('SecretBlocks')}
+          />
+          <SettingsRow
+            icon={Radar}
+            label="Nearby & location"
+            onPress={() => navigation.navigate('NearbySettings')}
+          />
         </SettingsGroup>
 
         <SettingsGroup title="Notifications">
@@ -150,10 +163,13 @@ export function SettingsScreen() {
         <SettingsGroup title="Subscription">
           <SettingsRow
             icon={Crown}
-            label="Nexity Premium"
-            sub="Exclusive features for members are coming soon"
-            value="Free"
-            onPress={() => navigation.navigate('Main', { screen: 'Premium' })}
+            label="Plans"
+            onPress={() => navigation.navigate('Plans')}
+          />
+          <SettingsRow
+            icon={CreditCard}
+            label="Subscription & billing"
+            onPress={() => navigation.navigate('Subscription')}
           />
         </SettingsGroup>
 

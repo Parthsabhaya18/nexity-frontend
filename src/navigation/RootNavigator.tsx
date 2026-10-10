@@ -26,6 +26,23 @@ import { CreateScreen } from '@/screens/create/CreateScreen';
 import { CreateStoryScreen } from '@/screens/create/CreateStoryScreen';
 import { ShareStoryScreen } from '@/screens/create/ShareStoryScreen';
 import { NotificationsScreen } from '@/screens/notifications/NotificationsScreen';
+import { MatchCelebrationScreen } from '@/screens/premium/MatchCelebrationScreen';
+import { NearbyScreen } from '@/screens/nearby/NearbyScreen';
+import { NearbySettingsScreen } from '@/screens/premium/NearbySettingsScreen';
+import { CheckoutScreen } from '@/screens/premium/checkout/CheckoutScreen';
+import { PayByQrScreen } from '@/screens/premium/checkout/PayByQrScreen';
+import { PaymentProcessingScreen } from '@/screens/premium/checkout/PaymentProcessingScreen';
+import {
+  PaymentFailedScreen,
+  PaymentPendingScreen,
+  PurchaseSuccessScreen,
+} from '@/screens/premium/checkout/PaymentResultScreens';
+import { PlansScreen } from '@/screens/premium/PlansScreen';
+import { SubscriptionScreen } from '@/screens/premium/SubscriptionScreen';
+import { SecretBlocksScreen } from '@/screens/premium/SecretBlocksScreen';
+import { SecretComposeScreen } from '@/screens/premium/SecretComposeScreen';
+import { SecretPeoplePickerScreen } from '@/screens/premium/SecretPeoplePickerScreen';
+import { SecretThreadScreen } from '@/screens/premium/SecretThreadScreen';
 import { EditProfileScreen } from '@/screens/profile/EditProfileScreen';
 import { FollowersScreen } from '@/screens/profile/FollowersScreen';
 import { FollowRequestsScreen } from '@/screens/profile/FollowRequestsScreen';
@@ -51,6 +68,7 @@ import { SettingsScreen } from '@/screens/settings/SettingsScreen';
 import { useAppTheme } from '@/theme';
 
 import { MainTabs } from './MainTabs';
+import { navigationRef } from './navigationRef';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -84,7 +102,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Stack.Navigator
         screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
       >
@@ -159,6 +177,46 @@ export function RootNavigator() {
               name="NewMessage"
               component={NewMessageScreen}
               options={{ animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen name="Plans" component={PlansScreen} />
+            <Stack.Screen name="Checkout" component={CheckoutScreen} />
+            <Stack.Screen name="PayByQr" component={PayByQrScreen} />
+            <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+            <Stack.Group screenOptions={{ gestureEnabled: false, animation: 'fade' }}>
+              <Stack.Screen
+                name="PaymentProcessing"
+                component={PaymentProcessingScreen}
+              />
+              <Stack.Screen name="PurchaseSuccess" component={PurchaseSuccessScreen} />
+              <Stack.Screen name="PaymentFailed" component={PaymentFailedScreen} />
+              <Stack.Screen name="PaymentPending" component={PaymentPendingScreen} />
+            </Stack.Group>
+            <Stack.Screen
+              name="SecretPeoplePicker"
+              component={SecretPeoplePickerScreen}
+              options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen
+              name="SecretCompose"
+              component={SecretComposeScreen}
+              options={{
+                presentation: 'fullScreenModal',
+                animation: 'slide_from_bottom',
+              }}
+            />
+            <Stack.Screen name="SecretThread" component={SecretThreadScreen} />
+            <Stack.Screen name="Nearby" component={NearbyScreen} />
+            <Stack.Screen name="NearbySettings" component={NearbySettingsScreen} />
+            <Stack.Screen name="SecretBlocks" component={SecretBlocksScreen} />
+            <Stack.Screen
+              name="MatchCelebration"
+              component={MatchCelebrationScreen}
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
+                gestureEnabled: false,
+              }}
             />
             <Stack.Screen
               name="Create"

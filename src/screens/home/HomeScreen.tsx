@@ -1,5 +1,5 @@
 import { useScrollToTop } from '@react-navigation/native';
-import { Bell, Camera, MessageCircle } from 'lucide-react-native';
+import { Bell, Camera, MessageCircle, Radar } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, type FlatListInstance, StyleSheet } from 'react-native';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
@@ -103,6 +103,12 @@ export function HomeScreen({ navigation }: TabScreenProps<'Home'>) {
         left={<BrandLogo variant="horizontal" width={112} scheme={scheme} />}
         actions={
           <>
+            <IconButton
+              onPress={() => navigation.navigate('Nearby')}
+              accessibilityLabel="People nearby"
+            >
+              <Radar size={24} color={colors.text} />
+            </IconButton>
             <IconButton
               onPress={() => navigation.navigate('Notifications')}
               accessibilityLabel="Notifications"

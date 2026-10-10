@@ -92,7 +92,7 @@ function setReduceMotion(reduce: boolean) {
   reduceListeners.forEach(listener => listener(reduce));
 }
 
-function useReduceMotion() {
+export function useReduceMotion() {
   const [reduce, setReduce] = useState(reduceMotion);
   useEffect(() => {
     reduceListeners.add(setReduce);
