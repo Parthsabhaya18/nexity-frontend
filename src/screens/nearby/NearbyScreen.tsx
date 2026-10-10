@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   radar: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
