@@ -307,7 +307,7 @@
     ['Will someone know I added them as a Secret Crush?', 'Only if they add you too — then it\'s a match. Otherwise they only see "Someone added you as a Secret Crush 👀" and never find out who.'],
     ['Does Nearby share my location?', 'No. Nearby shows people close by on the Nearby screen (Bluetooth, only while it\'s open), sends "Someone is near you on Nexity. ✨" and shows "This person was near you today." or "yesterday" in Secret Messages and Secret Crush. Never a place, map, distance, time, visit count or history — not even to administrators.'],
     ['Who can find me with Nearby?', 'Only people who also turned Nearby on, and only when both phones confirm each other. People you blocked never see you. Turn Nearby off anytime in Settings → Nearby.'],
-    ['What do Plus and Premium include?', 'Plus (₹99/month) lets you send 5 Secret Messages a month, add 3 Secret Crushes, read & reply to Secret Messages and see Nearby. Premium (₹249/month) gives unlimited Secret Messages (fair use), up to 10 Secret Crushes and a 👑 profile badge.'],
+    ['What do Plus and Premium include?', 'Plus (₹99/month) lets you send 5 Secret Messages a month, add 3 Secret Crushes, read & reply to Secret Messages and see Nearby. Premium (₹249/month) gives unlimited Secret Messages (fair use), up to 10 Secret Crushes and a Premium profile badge.'],
     ['How do I report or block someone?', 'Tap ••• on a profile, post, reel, story, chat or secret message and choose Report or Block. Anonymous senders can be blocked without revealing who they are.'],
   ];
   Screens.help = {

@@ -30,8 +30,8 @@
       limits: { secretMessages: 5, crushes: 3, readSecret: true, nearby: true }
     },
     premium: {
-      id: 'premium', name: 'Premium', description: 'More mystery, more crushes, a 👑 badge.', mrp: 399, price: 249, active: true,
-      features: ['Unlimited Secret Messages (fair use)', 'Add up to 10 Secret Crushes', 'Open & reply to Secret Messages', 'See who was near you today or yesterday', 'Premium profile badge 👑', 'Priority support'],
+      id: 'premium', name: 'Premium', description: 'More messages, more crushes and a Premium badge.', mrp: 399, price: 249, active: true,
+      features: ['Unlimited Secret Messages (fair use)', 'Add up to 10 Secret Crushes', 'Open & reply to Secret Messages', 'See who was near you today or yesterday', 'Premium profile badge', 'Priority support'],
       limits: { secretMessages: -1, crushes: 10, readSecret: true, nearby: true }
     },
   });

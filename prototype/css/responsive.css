@@ -69,7 +69,6 @@
   .app.dark-screen .sidebar .bl-light { display: none !important; }
   .app.dark-screen .sidebar .bl-dark { display: block !important; }
   .app.dark-screen .side-item:hover, .app.dark-screen .side-item.active { background: rgba(255, 255, 255, .08); }
-  .app.dark-screen .side-premium .side-ic { color: #FCD34D; }
   .app.dark-screen .badge { border-color: #070B18; }
   .reels { height: 100dvh; padding: 24px 0; scroll-padding: 24px 0; }
   .reel { height: calc(100dvh - 48px); width: min(440px, calc((100dvh - 48px) * 9 / 16)); margin: 0 auto 24px; border-radius: 18px; overflow: visible; }
@@ -88,8 +87,6 @@
   .app[data-chrome="none"] .view { max-width: 560px; }
   .auth { padding-top: 24px; }
   .done-screen { min-height: 100dvh; }
-  .secret-done { max-width: none; }
-
   .plan-grid { display: grid; grid-template-columns: repeat(3, 1fr); align-items: stretch; }
   .app[data-screen="plans"] .view { max-width: 980px; }
   .plan-card { display: flex; flex-direction: column; }

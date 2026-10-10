@@ -122,7 +122,9 @@ css/
   admin.css         Admin panel layout
 js/
   data.js, state.js Mock data, personas, persistence, business rules
-  icons.js, ui.js   Icons, logo, helpers, render components
+  icons.js, ui.js   Lucide icons, logo, helpers, render components
+scripts/
+  build-icons.mjs   Regenerates js/icons.js from Lucide (run from frontend/: node prototype/scripts/build-icons.mjs)
   toast.js, modals.js, navigation.js, app.js   Framework
   auth.js, home.js, create.js, reels.js, search.js, user.js, secret.js,
   crush.js, chat.js, subscription.js, notifications.js, settings.js,

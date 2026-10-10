@@ -102,10 +102,8 @@ details summary::-webkit-details-marker { display: none; }
 .btn-ghost-light:hover:not(:disabled) { background: rgba(255, 255, 255, .1); color: #fff; }
 .btn-glass { background: rgba(255, 255, 255, .16); color: #fff; backdrop-filter: blur(10px); border-color: rgba(255, 255, 255, .22); }
 .btn-outline-light { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .7); }
-.btn-premium { background: var(--premium-grad); color: #FFE7A8; box-shadow: 0 8px 22px rgba(30, 58, 138, .35); }
-.btn-premium:hover:not(:disabled) { filter: brightness(1.1); }
-.btn-secret { background: var(--brand-grad); color: #fff; box-shadow: var(--shadow-primary); }
-.btn-secret:hover:not(:disabled) { filter: brightness(1.05); }
+.btn-premium, .btn-secret { background: var(--button, var(--primary)); color: var(--on-primary); box-shadow: none; }
+.btn-premium:hover:not(:disabled), .btn-secret:hover:not(:disabled) { filter: brightness(.96); }
 
 .icon-btn {
   position: relative; display: inline-grid; place-items: center;
