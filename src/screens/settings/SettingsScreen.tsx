@@ -59,7 +59,7 @@ export function SettingsScreen() {
       let active = true;
       safetyApi
         .blocked()
-        .then(items => active && setBlockedCount(items.length))
+        .then(page => active && setBlockedCount(page.total))
         .catch(() => {});
       return () => {
         active = false;

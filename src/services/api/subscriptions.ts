@@ -25,7 +25,6 @@ export interface Plan {
   name: string;
   description: string;
   rank: number;
-  price_inr: number;
   mrp_inr: number;
   mrp_paise: number;
   pricing: Record<Period, PeriodPrice>;

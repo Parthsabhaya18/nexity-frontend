@@ -129,7 +129,7 @@ apiClient.interceptors.response.use(
   response => response,
   async (error: AxiosError<ErrorBody>) => {
     const config = error.config as RetriableConfig | undefined;
-    const isAuthCall = config?.url?.startsWith('/auth/');
+    const isAuthCall = (config?.url ?? '').includes('/auth/');
     if (
       error.response?.status === 401 &&
       config &&

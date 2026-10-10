@@ -240,6 +240,7 @@ RCT_EXPORT_METHOD(stop : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseR
 - (void)emit:(NSData *)bytes rssi:(NSNumber *)rssi
 {
   if (!_hasListeners || bytes.length != 16) return;
+  if (_eph != nil && [bytes isEqualToData:_eph]) return;
   NSString *encoded = [self encode:bytes];
   static NSMutableDictionary<NSString *, NSNumber *> *lastEmit;
   if (lastEmit == nil) lastEmit = [NSMutableDictionary dictionary];

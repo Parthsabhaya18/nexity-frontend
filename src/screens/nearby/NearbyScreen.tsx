@@ -66,10 +66,19 @@ export function NearbyScreen({ navigation }: ScreenProps<'Nearby'>) {
 
   const flush = useCallback(async () => {
     const batch = [...sightings.current.values()];
-    sightings.current.clear();
     if (!batch.length) return;
-    await nearbyApi.bleSightings(batch).catch(() => {});
-    await refreshPeople().catch(() => {});
+    try {
+      await nearbyApi.bleSightings(batch);
+      for (const item of batch) {
+        const current = sightings.current.get(item.eph_id);
+        if (current && current.last_seen_at <= item.last_seen_at) {
+          sightings.current.delete(item.eph_id);
+        }
+      }
+      await refreshPeople().catch(() => {});
+    } catch {
+      // Kept in `sightings` so the next flush can send them. A 429 must not drop them.
+    }
   }, [refreshPeople]);
 
   const needsLocation = useCallback(async () => {
@@ -137,7 +146,11 @@ export function NearbyScreen({ navigation }: ScreenProps<'Nearby'>) {
       return;
     }
     const tokens = await nearbyApi.bleTokens().catch(() => null);
-    const eph = tokens ? currentId(tokens) : null;
+    if (!tokens) {
+      running.current = false;
+      return;
+    }
+    const eph = currentId(tokens);
     if (!eph) {
       running.current = false;
       return;
@@ -154,7 +167,7 @@ export function NearbyScreen({ navigation }: ScreenProps<'Nearby'>) {
     }, 20_000);
     const report = setInterval(() => {
       flush().catch(() => {});
-    }, 8_000);
+    }, 20_000);
     const poll = setInterval(() => {
       refreshPeople().catch(() => {});
     }, 15_000);
@@ -179,6 +192,8 @@ export function NearbyScreen({ navigation }: ScreenProps<'Nearby'>) {
 
   useFocusEffect(
     useCallback(() => {
+      // `resume` bumps when the app returns to the foreground, so this effect runs again.
+      if (resume < 0) return;
       let cancel = () => {};
       if (settings?.enabled && settings.bluetooth_enabled) {
         prepare()
@@ -207,7 +222,7 @@ export function NearbyScreen({ navigation }: ScreenProps<'Nearby'>) {
         });
         if (!flushTimer.current) {
           const elapsed = Date.now() - flushedAt.current;
-          const wait = elapsed > 8_000 ? 400 : Math.max(400, 8_000 - elapsed);
+          const wait = elapsed > 20_000 ? 400 : Math.max(400, 20_000 - elapsed);
           flushTimer.current = setTimeout(() => {
             flushTimer.current = null;
             flushedAt.current = Date.now();
@@ -222,7 +237,7 @@ export function NearbyScreen({ navigation }: ScreenProps<'Nearby'>) {
         unlisten();
         flush().catch(() => {});
       };
-    }, [flush, prepare, resume, run, settings?.bluetooth_enabled, settings?.enabled]),
+    }, [flush, prepare, resume, run, settings]),
   );
 
   useEffect(() => {

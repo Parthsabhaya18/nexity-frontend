@@ -1,5 +1,5 @@
 import { Ban } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
@@ -16,15 +16,27 @@ import { spacing, useAppTheme } from '@/theme';
 export function BlockedAccountsScreen() {
   const { colors } = useAppTheme();
   const [items, setItems] = useState<BlockedUser[] | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const loading = useRef(false);
   useStatusBar();
 
-  const load = useCallback(() => {
-    setFailed(false);
+  const load = useCallback((next?: string) => {
+    if (loading.current) return;
+    loading.current = true;
+    if (!next) setFailed(false);
     safetyApi
-      .blocked()
-      .then(setItems)
-      .catch(() => setFailed(true));
+      .blocked(next)
+      .then(page => {
+        setItems(current => (next ? [...(current ?? []), ...page.items] : page.items));
+        setCursor(page.next_cursor);
+      })
+      .catch(() => {
+        if (!next) setFailed(true);
+      })
+      .finally(() => {
+        loading.current = false;
+      });
   }, []);
 
   useEffect(() => {
@@ -58,6 +70,10 @@ export function BlockedAccountsScreen() {
         data={items ?? []}
         keyExtractor={user => user.id}
         contentContainerStyle={styles.list}
+        onEndReached={() => {
+          if (cursor) load(cursor);
+        }}
+        onEndReachedThreshold={0.4}
         ListEmptyComponent={
           failed && !items ? (
             <EmptyState

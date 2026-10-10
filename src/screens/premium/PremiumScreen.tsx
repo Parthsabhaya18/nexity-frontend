@@ -152,8 +152,9 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
   const canRead = summary?.can_read ?? subQ.data?.limits.read_secret ?? false;
   const inboxQ = useSecretInbox(canRead);
   const sentQ = useSecretSent();
-  const plusPrice =
-    usePlans().data?.data.find(p => p.id === 'plus')?.price_inr ?? null;
+  const plusMonthly = usePlans().data?.data.find(p => p.id === 'plus')?.pricing
+    .monthly.amount_paise;
+  const plusPrice = plusMonthly ? Math.round(plusMonthly / 100) : null;
   const nearbyQ = useNearbySettings();
   const notif = usePermission('notifications');
   const loc = usePermission('location');
