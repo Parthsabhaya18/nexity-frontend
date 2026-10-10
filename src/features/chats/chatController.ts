@@ -611,7 +611,12 @@ async function deliver(original: ChatMessage) {
         ...message,
         upload: live?.upload ?? message.upload,
         status: 'failed',
-        failure: message.upload ? uploadErrorMessage(err) : undefined,
+        failure:
+          err instanceof ApiError && err.code === 'MESSAGES_RESTRICTED'
+            ? err.message
+            : message.upload
+            ? uploadErrorMessage(err)
+            : undefined,
       },
     ]);
   }

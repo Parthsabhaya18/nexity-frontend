@@ -43,7 +43,28 @@ export interface Me {
       | 'motivated'
       | null;
   };
+  privacy: {
+    show_activity_status: boolean;
+    message_privacy: MessagePrivacy;
+  };
+  notification_settings: NotificationSettings;
+  password_changed_at: string;
   created_at: string;
+}
+
+export type MessagePrivacy = 'everyone' | 'following';
+
+export interface NotificationSettings {
+  /** Pauses every in-app notification at once. */
+  paused: boolean;
+  comments: boolean;
+  story_likes: boolean;
+}
+
+export interface TokenPair {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
 }
 
 export interface Session {

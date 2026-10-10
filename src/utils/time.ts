@@ -24,6 +24,15 @@ function shortDate(ts: number) {
   return sameYear ? base : `${base} ${d.getFullYear()}`;
 }
 
+/** Always with the year: 12 Apr 1998. Date-only strings (`1998-04-12`) are read as that day, not UTC midnight. */
+export function fullDate(value: string | number) {
+  const d =
+    typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+      ? new Date(`${value}T12:00:00`)
+      : new Date(value);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 /** Chat day divider: Today, Yesterday, 12 Mar. */
 export function dayLabel(ts: number) {
   const d = new Date(ts);
