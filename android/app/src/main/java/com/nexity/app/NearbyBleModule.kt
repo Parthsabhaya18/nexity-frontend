@@ -62,8 +62,8 @@ class NearbyBleModule(private val context: ReactApplicationContext) : ReactConte
 
   @ReactMethod
   fun scanNeedsLocation(promise: Promise) {
-    val brand = Build.MANUFACTURER.lowercase()
-    promise.resolve(brand.contains("vivo") || brand.contains("iqoo"))
+    // Xiaomi, Vivo and other Android stacks return no scan results unless location is on.
+    promise.resolve(true)
   }
 
   @ReactMethod
