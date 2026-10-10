@@ -1,5 +1,6 @@
 import ImageEditor from '@react-native-community/image-editor';
 
+import { fileSize } from '@/features/media/localFiles';
 import type { LocalMedia } from '@/features/media/pickMedia';
 
 import { cropRect } from './cropMath';
@@ -27,6 +28,7 @@ export async function bakeCrop(item: DraftItem): Promise<LocalMedia> {
       size: { width: rect.width, height: rect.height },
       format: 'jpeg',
     });
+    const bytes = await fileSize(result.uri);
     return {
       ...item.media,
       uri: result.uri,
@@ -34,6 +36,8 @@ export async function bakeCrop(item: DraftItem): Promise<LocalMedia> {
       height: result.height,
       contentType: 'image/jpeg',
       fileName: item.media.fileName.replace(/\.\w+$/, '.jpg'),
+      bytes: bytes || item.media.bytes,
+      isPrecompressed: true,
     };
   } catch {
     return item.media;

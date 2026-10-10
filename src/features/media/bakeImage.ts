@@ -158,6 +158,7 @@ export async function bakeImage(
       bytes: await fileSize(uri),
       width: out.width,
       height: out.height,
+      isPrecompressed: true,
     };
   } finally {
     if (working !== source.uri) await deleteFile(working);

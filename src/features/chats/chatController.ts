@@ -480,9 +480,12 @@ function enqueueUpload(message: ChatMessage) {
 
 const PROGRESS_STEP = 0.04;
 
+/** Two album files upload at once. A retry skips files already stored. */
+const UPLOAD_CONCURRENCY = 2;
+
 /**
- * Uploads each file once, in order; a retry skips files already stored.
- * Progress is shown across all of an album's files.
+ * Uploads each file once, two at a time. A retry skips files already stored.
+ * Progress is the average across the album.
  */
 async function uploadFor(message: ChatMessage): Promise<ChatMessage> {
   const upload = message.upload;
@@ -498,32 +501,48 @@ async function uploadFor(message: ChatMessage): Promise<ChatMessage> {
       m.upload ? { ...m, upload: { ...m.upload, progress: fraction } } : m,
     );
   };
-  for (let i = 0; i < total; i++) {
-    const item = items[i]!;
-    if (item.mediaId) continue;
-    const asset = await uploadMedia(item.file, 'message', {
-      session: item.session,
-      onProgress: fraction => report((i + fraction) / total),
-    });
-    items[i] = { ...item, mediaId: asset.id };
-    const sized = (m: MessageMedia): MessageMedia => ({
-      ...m,
-      width: asset.width ?? m.width,
-      height: asset.height ?? m.height,
-      duration_ms: asset.duration_ms ?? m.duration_ms,
-    });
-    current = {
-      ...current,
-      upload: { items: items.slice(), progress: (i + 1) / total },
-      media: current.media && total === 1 ? sized(current.media) : current.media,
-      media_items: current.media_items?.map((m, j) => (j === i ? sized(m) : m)),
-    };
-    // Keep finished ids on the message, so a failure later in the album doesn't redo them.
-    const done = current.upload;
-    patchMessage(message.conversation_id, message.id, m =>
-      m.upload ? { ...m, upload: done } : m,
-    );
-  }
+
+  const fractions: number[] = items.map(item => (item.mediaId ? 1 : 0));
+  const sumFractions = () => fractions.reduce((acc, fraction) => acc + fraction, 0);
+  const pending = items.map((_, idx) => idx).filter(idx => !items[idx]?.mediaId);
+
+  const uploadWorker = async () => {
+    for (let idx = pending.shift(); idx !== undefined; idx = pending.shift()) {
+      const item = items[idx]!;
+      const asset = await uploadMedia(item.file, 'message', {
+        session: item.session,
+        onProgress: fraction => {
+          fractions[idx] = fraction;
+          report(sumFractions() / total);
+        },
+      });
+      items[idx] = { ...item, mediaId: asset.id };
+      fractions[idx] = 1;
+      const sized = (m: MessageMedia): MessageMedia => ({
+        ...m,
+        width: asset.width ?? m.width,
+        height: asset.height ?? m.height,
+        duration_ms: asset.duration_ms ?? m.duration_ms,
+      });
+      current = {
+        ...current,
+        upload: { items: items.slice(), progress: sumFractions() / total },
+        media: current.media && total === 1 ? sized(current.media) : current.media,
+        media_items: current.media_items?.map((m, j) => (j === idx ? sized(m) : m)),
+      };
+      // Keep finished ids on the message, so a failure later in the album doesn't redo them.
+      const done = current.upload;
+      patchMessage(message.conversation_id, message.id, m =>
+        m.upload ? { ...m, upload: done } : m,
+      );
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(UPLOAD_CONCURRENCY, pending.length) }, () =>
+      uploadWorker(),
+    ),
+  );
   return current;
 }
 

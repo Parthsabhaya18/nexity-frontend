@@ -37,6 +37,8 @@ export interface LocalMedia {
   width?: number;
   height?: number;
   durationMs?: number;
+  /** Already encoded (crop or canvas bake). `prepareMedia` must not compress it again. */
+  isPrecompressed?: boolean;
 }
 
 /** User-facing problem with the picked file; show `message` as-is. */

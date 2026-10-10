@@ -139,7 +139,10 @@ describe('validateMedia', () => {
     expect(() => validateMedia(at(130_000), 'post')).toThrow(
       'Videos in a post can be up to 2 minutes.',
     );
-    expect(() => validateMedia(hourLongVideo, 'message')).not.toThrow();
+    expect(() => validateMedia(at(120_000), 'message')).not.toThrow();
+    expect(() => validateMedia(hourLongVideo, 'message')).toThrow(
+      'Videos in messages can be up to 2 minutes. Choose a shorter video.',
+    );
   });
 });
 
@@ -265,13 +268,13 @@ describe('uploadMedia', () => {
     expect(progress[progress.length - 1]).toBe(1);
   });
 
-  it('compresses a 1.2 GB 4K reel to 1080p without any error', async () => {
+  it('compresses a 1.2 GB 4K reel to 720p without any error', async () => {
     const progress: number[] = [];
     await uploadMedia(longVideo, 'reel', { onProgress: f => progress.push(f) });
 
     expect(videoCompress).toHaveBeenCalledWith(
       longVideo.uri,
-      expect.objectContaining({ maxSize: 1920 }),
+      expect.objectContaining({ maxSize: 1280 }),
       expect.any(Function),
     );
     expect(api.createUpload).toHaveBeenCalledWith(
@@ -287,8 +290,13 @@ describe('uploadMedia', () => {
     expect(progress).toContain(0.2);
   });
 
-  it('compresses chat videos to 720p and allows any length', async () => {
-    await uploadMedia(hourLongVideo, 'message');
+  it('compresses chat videos to 720p and refuses anything over 2 minutes', async () => {
+    await expect(uploadMedia(hourLongVideo, 'message')).rejects.toThrow(
+      'Videos in messages can be up to 2 minutes.',
+    );
+    expect(videoCompress).not.toHaveBeenCalled();
+
+    await uploadMedia({ ...hourLongVideo, durationMs: 90_000 }, 'message');
     expect(videoCompress).toHaveBeenCalledWith(
       hourLongVideo.uri,
       expect.objectContaining({ maxSize: 1280 }),
