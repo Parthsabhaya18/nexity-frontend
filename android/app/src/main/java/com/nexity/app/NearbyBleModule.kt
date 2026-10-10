@@ -131,6 +131,7 @@ class NearbyBleModule(private val context: ReactApplicationContext) : ReactConte
     eph = bytes
     handler.post {
       if (gen != session) return@post
+      keepAlive()
       beginScan(gen)
       beginAdvertise(gen)
     }
@@ -168,6 +169,15 @@ class NearbyBleModule(private val context: ReactApplicationContext) : ReactConte
 
   @ReactMethod fun removeListeners(count: Int) {}
 
+  private fun keepAlive() {
+    val intent = Intent(context, NearbyBleService::class.java)
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
+      else context.startService(intent)
+    } catch (_: Exception) {
+    }
+  }
+
   private fun beginScan(gen: Int) {
     if (gen != session) return
     val radio = adapter()
@@ -193,11 +203,10 @@ class NearbyBleModule(private val context: ReactApplicationContext) : ReactConte
   private fun scheduleScan(gen: Int) {
     if (gen != session) return
     scanTries += 1
-    if (scanTries > 12) return
     val delay = when {
       scanTries <= 1 -> 400L
       scanTries == 2 -> 1500L
-      else -> 5000L
+      else -> 8000L
     }
     handler.postDelayed({ beginScan(gen) }, delay)
   }
@@ -231,11 +240,10 @@ class NearbyBleModule(private val context: ReactApplicationContext) : ReactConte
     if (gen != session) return
     advertiseTries += 1
     if (advertiseTries >= 2) compact = true
-    if (advertiseTries > 12) return
     val delay = when {
       advertiseTries <= 1 -> 400L
       advertiseTries == 2 -> 1500L
-      else -> 5000L
+      else -> 8000L
     }
     handler.postDelayed({ beginAdvertise(gen) }, delay)
   }
@@ -273,6 +281,10 @@ class NearbyBleModule(private val context: ReactApplicationContext) : ReactConte
   private fun stopInternal() {
     session += 1
     handler.removeCallbacksAndMessages(null)
+    try {
+      context.stopService(Intent(context, NearbyBleService::class.java))
+    } catch (_: Exception) {
+    }
     val radio = adapter()
     try {
       radio?.bluetoothLeAdvertiser?.stopAdvertising(advertiseCallback)

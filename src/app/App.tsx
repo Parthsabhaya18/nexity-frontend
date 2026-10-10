@@ -12,6 +12,7 @@ import { ChatProvider } from '@/features/chats/ChatProvider';
 import { queryClient } from '@/features/entities/entityCache';
 import { sweepUploadJournal } from '@/features/media/uploadJournal';
 import { sweepUploadCache } from '@/features/media/localFiles';
+import { NearbyBleHost } from '@/features/nearby/NearbyBleHost';
 import { NearbyLocationHost } from '@/features/nearby/NearbyLocationHost';
 import { SecretRealtime } from '@/features/secret/SecretRealtime';
 import { RootNavigator } from '@/navigation/RootNavigator';
@@ -37,6 +38,7 @@ export default function App() {
               <PermissionHost />
               <SecretRealtime />
               <NearbyLocationHost />
+              <NearbyBleHost />
             </ChatProvider>
           </ThemeProvider>
         </AuthProvider>
