@@ -3,6 +3,7 @@
 #import <UIKit/UIKit.h>
 
 static NSString *const kServiceUUID = @"6E657869-7479-4E65-6172-627900000001";
+static NSString *const kShortUUID = @"0000FFF0-0000-1000-8000-00805F9B34FB";
 static NSString *const kCharUUID = @"6E657869-7479-4E65-6172-627900000002";
 
 @interface NearbyBle : RCTEventEmitter <CBPeripheralManagerDelegate, CBCentralManagerDelegate, CBPeripheralDelegate>
@@ -172,8 +173,11 @@ RCT_EXPORT_METHOD(start : (NSString *)ephId resolver : (RCTPromiseResolveBlock)r
     _scanning = YES;
     _serviceAdded = NO;
     [self publish];
-    [self.central scanForPeripheralsWithServices:@[ [CBUUID UUIDWithString:kServiceUUID] ]
-                                         options:@{CBCentralManagerScanOptionAllowDuplicatesKey : @NO}];
+    [self.central scanForPeripheralsWithServices:@[
+      [CBUUID UUIDWithString:kShortUUID],
+      [CBUUID UUIDWithString:kServiceUUID],
+    ]
+                                         options:@{CBCentralManagerScanOptionAllowDuplicatesKey : @YES}];
     resolve(@YES);
   }];
 }
@@ -236,7 +240,14 @@ RCT_EXPORT_METHOD(stop : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseR
 - (void)emit:(NSData *)bytes rssi:(NSNumber *)rssi
 {
   if (!_hasListeners || bytes.length != 16) return;
-  [self sendEventWithName:@"NearbyBleSighting" body:@{@"ephId" : [self encode:bytes], @"rssi" : rssi ?: @(-70)}];
+  NSString *encoded = [self encode:bytes];
+  static NSMutableDictionary<NSString *, NSNumber *> *lastEmit;
+  if (lastEmit == nil) lastEmit = [NSMutableDictionary dictionary];
+  NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
+  NSNumber *previous = lastEmit[encoded];
+  if (previous != nil && now - previous.doubleValue < 1.0) return;
+  lastEmit[encoded] = @(now);
+  [self sendEventWithName:@"NearbyBleSighting" body:@{@"ephId" : encoded, @"rssi" : rssi ?: @(-70)}];
 }
 
 - (void)forget:(CBPeripheral *)peripheral
@@ -255,7 +266,12 @@ RCT_EXPORT_METHOD(stop : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseR
   if (!_scanning || error != nil) return;
   _serviceAdded = YES;
   if (peripheral.state == CBManagerStatePoweredOn && !peripheral.isAdvertising) {
-    [peripheral startAdvertising:@{CBAdvertisementDataServiceUUIDsKey : @[ [CBUUID UUIDWithString:kServiceUUID] ]}];
+    NSMutableDictionary *advert = [@{
+      CBAdvertisementDataServiceUUIDsKey : @[ [CBUUID UUIDWithString:kShortUUID] ],
+    } mutableCopy];
+    NSString *name = [self encode:_eph];
+    if (name.length > 0) advert[CBAdvertisementDataLocalNameKey] = name;
+    [peripheral startAdvertising:advert];
   }
 }
 
@@ -289,23 +305,43 @@ RCT_EXPORT_METHOD(stop : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseR
   BOOL waiting = _stateWaiters.count > 0 && [self radioKnown];
   [self flushStateWaiters];
   if (!waiting && central.state == CBManagerStatePoweredOn && _scanning) {
-    [central scanForPeripheralsWithServices:@[ [CBUUID UUIDWithString:kServiceUUID] ]
-                                    options:@{CBCentralManagerScanOptionAllowDuplicatesKey : @NO}];
+    [central scanForPeripheralsWithServices:@[
+      [CBUUID UUIDWithString:kShortUUID],
+      [CBUUID UUIDWithString:kServiceUUID],
+    ]
+                                    options:@{CBCentralManagerScanOptionAllowDuplicatesKey : @YES}];
   }
   if (central.state != CBManagerStatePoweredOn && _scanning) {
     [central stopScan];
   }
 }
 
+- (NSData *)payloadFromAdvertisement:(NSDictionary *)advertisementData
+{
+  NSDictionary *serviceData = advertisementData[CBAdvertisementDataServiceDataKey];
+  NSData *inlineData = serviceData[[CBUUID UUIDWithString:kShortUUID]];
+  if (inlineData.length == 16) return inlineData;
+  NSData *maker = advertisementData[CBAdvertisementDataManufacturerDataKey];
+  if (maker.length == 18) {
+    uint16_t company = 0;
+    [maker getBytes:&company length:sizeof(company)];
+    if (company == 0x4E58) return [maker subdataWithRange:NSMakeRange(2, 16)];
+  }
+  NSString *name = advertisementData[CBAdvertisementDataLocalNameKey];
+  if ([name isKindOfClass:[NSString class]]) {
+    NSData *named = [self decode:name];
+    if (named.length == 16) return named;
+  }
+  return nil;
+}
+
 - (void)centralManager:(CBCentralManager *)central didDiscoverPeripheral:(CBPeripheral *)peripheral advertisementData:(NSDictionary *)advertisementData RSSI:(NSNumber *)RSSI
 {
-  NSString *key = peripheral.identifier.UUIDString;
-  if ([_reading containsObject:key]) return;
-  [_reading addObject:key];
-  _found[key] = peripheral;
-  _rssi[key] = RSSI ?: @(-70);
-  peripheral.delegate = self;
-  [central connectPeripheral:peripheral options:nil];
+  NSData *inlineData = [self payloadFromAdvertisement:advertisementData];
+  if (inlineData.length == 16) {
+    [self emit:inlineData rssi:RSSI ?: @(-70)];
+    return;
+  }
 }
 
 - (void)centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral
