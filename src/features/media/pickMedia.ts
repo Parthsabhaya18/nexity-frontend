@@ -61,6 +61,7 @@ const VIDEO_LABEL: Record<MediaPurpose, string> = {
   reel: 'Reels',
   story: 'Story videos',
   message: 'Videos in messages',
+  support: 'Videos',
 };
 
 export function tooLongMessage(purpose: MediaPurpose) {

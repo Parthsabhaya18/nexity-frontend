@@ -51,8 +51,19 @@ import { UserProfileScreen } from '@/screens/profile/UserProfileScreen';
 import { PostDetailScreen } from '@/screens/posts/PostDetailScreen';
 import { PostViewerScreen } from '@/screens/posts/PostViewerScreen';
 import { SavedPostsScreen } from '@/screens/posts/SavedPostsScreen';
-import { AppearanceScreen } from '@/screens/settings/AppearanceScreen';
+import { AccountInfoScreen } from '@/screens/settings/AccountInfoScreen';
 import { BlockedAccountsScreen } from '@/screens/settings/BlockedAccountsScreen';
+import { ChangePasswordScreen } from '@/screens/settings/ChangePasswordScreen';
+import {
+  ContactSentScreen,
+  ContactUsScreen,
+} from '@/screens/settings/ContactUsScreen';
+import { HelpCenterScreen } from '@/screens/settings/HelpCenterScreen';
+import { LegalScreen } from '@/screens/settings/LegalScreen';
+import { LoginSecurityScreen } from '@/screens/settings/LoginSecurityScreen';
+import { SupportTicketScreen } from '@/screens/settings/SupportTicketScreen';
+import { NotificationSettingsScreen } from '@/screens/settings/NotificationSettingsScreen';
+import { PrivacySettingsScreen } from '@/screens/settings/PrivacySettingsScreen';
 import { SettingsScreen } from '@/screens/settings/SettingsScreen';
 import { useAppTheme } from '@/theme';
 
@@ -118,7 +129,35 @@ export function RootNavigator() {
               name="BlockedAccounts"
               component={BlockedAccountsScreen}
             />
-            <Stack.Screen name="Appearance" component={AppearanceScreen} />
+            <Stack.Screen name="AccountInfo" component={AccountInfoScreen} />
+            <Stack.Screen
+              name="PrivacySettings"
+              component={PrivacySettingsScreen}
+            />
+            <Stack.Screen
+              name="NotificationSettings"
+              component={NotificationSettingsScreen}
+            />
+            <Stack.Screen
+              name="ChangePassword"
+              component={ChangePasswordScreen}
+            />
+            <Stack.Screen
+              name="LoginSecurity"
+              component={LoginSecurityScreen}
+            />
+            <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+            <Stack.Screen name="ContactUs" component={ContactUsScreen} />
+            <Stack.Screen
+              name="ContactSent"
+              component={ContactSentScreen}
+              options={{ animation: 'fade', gestureEnabled: false }}
+            />
+            <Stack.Screen
+              name="SupportTicket"
+              component={SupportTicketScreen}
+            />
+            <Stack.Screen name="Legal" component={LegalScreen} />
             <Stack.Screen name="PostDetail" component={PostDetailScreen} />
             <Stack.Screen name="PostViewer" component={PostViewerScreen} />
             <Stack.Screen name="SavedPosts" component={SavedPostsScreen} />
