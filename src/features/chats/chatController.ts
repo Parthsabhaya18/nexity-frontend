@@ -345,8 +345,40 @@ function resync() {
   subscribePresence();
 }
 
+type ExtraHandler = (payload: unknown) => void;
+const extraHandlers = new Map<string, Set<ExtraHandler>>();
+const connectHandlers = new Set<() => void>();
+
+/** Listens to a server event on the shared socket (kept across reconnects and sign-ins). */
+export function onSocketEvent(event: string, handler: ExtraHandler) {
+  let handlers = extraHandlers.get(event);
+  if (!handlers) {
+    const created = new Set<ExtraHandler>();
+    handlers = created;
+    extraHandlers.set(event, created);
+    socket?.on(event, (p: unknown) => created.forEach(h => h(p)));
+  }
+  const registered = handlers;
+  registered.add(handler);
+  return () => {
+    registered.delete(handler);
+  };
+}
+
+/** Runs after every (re)connect, so screens can refetch what they may have missed. */
+export function onSocketReconnect(handler: () => void) {
+  connectHandlers.add(handler);
+  return () => {
+    connectHandlers.delete(handler);
+  };
+}
+
 function attachSocket(s: Socket) {
+  extraHandlers.forEach((handlers, event) => {
+    s.on(event, (p: unknown) => handlers.forEach(h => h(p)));
+  });
   s.on('connect', () => {
+    connectHandlers.forEach(h => h());
     set(st => ({ ...st, connected: true }));
     resync();
   });

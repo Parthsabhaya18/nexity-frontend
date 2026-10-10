@@ -227,7 +227,19 @@ function NotificationRow({ item }: { item: AppNotification }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const lead = leadFor(item.type, colors);
   const open = () => {
-    if (item.postId) navigation.navigate('PostDetail', { postId: item.postId });
+    if (item.crushMatchId) {
+      navigation.navigate('MatchCelebration', { matchId: item.crushMatchId });
+    } else if (item.type === 'crush') {
+      navigation.popTo('Main', { screen: 'Premium', params: { section: 'crush' } });
+    } else if (item.type === 'subscription') {
+      navigation.navigate('Subscription');
+    } else if (item.conversationId) {
+      navigation.navigate('ChatThread', { conversationId: item.conversationId });
+    } else if (item.secretThreadId) {
+      navigation.navigate('SecretThread', { threadId: item.secretThreadId });
+    } else if (item.nearby) {
+      navigation.popTo('Main', { screen: 'Premium' });
+    } else if (item.postId) navigation.navigate('PostDetail', { postId: item.postId });
     else if (item.reelId) {
       focusReelId(item.reelId);
       navigation.popTo('Main', { screen: 'Reels' });

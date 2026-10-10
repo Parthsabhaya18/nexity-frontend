@@ -322,6 +322,39 @@ export function resolveTheme(
   return { scheme, colors, gradient, choice, mood };
 }
 
+/** Romantic palette for dark appearance (no white surfaces). */
+const loveDark: ThemeColors = {
+  ...darkTheme,
+  background: '#16070F',
+  surface: '#221019',
+  primary: '#F472B6',
+  button: '#DB2777',
+  text: '#FCE7F3',
+  textSecondary: '#D29BB7',
+  border: '#46202F',
+  inputBackground: '#2C1421',
+  primarySoft: 'rgba(244, 114, 182, 0.18)',
+  primarySofter: 'rgba(244, 114, 182, 0.09)',
+  surfaceAlt: '#2C1421',
+  bubbleOutgoing: '#DB2777',
+  bubbleIncoming: '#33182A',
+  surfaceElevated: '#2A1220',
+  skeleton: '#33182A',
+  skeletonHighlight: '#46202F',
+};
+
+/** Scoped "love" chat theme for Secret Crush matches; the rest of the app keeps its theme. */
+export function loveTheme(base: AppTheme): AppTheme {
+  const dark = base.scheme === 'dark' && !base.mood;
+  const palette = dark ? loveDark : moodColors('romantic');
+  return {
+    ...base,
+    scheme: dark ? 'dark' : 'light',
+    colors: palette,
+    gradient: [palette.primary, palette.button],
+  };
+}
+
 type Listener = () => void;
 const listeners = new Set<Listener>();
 let snapshot: AppTheme = resolveTheme('system', null, 'light');

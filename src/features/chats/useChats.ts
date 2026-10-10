@@ -108,7 +108,12 @@ export function useChats(): ChatsState {
         const live = presenceOf(c.peer, presence);
         return {
           id: c.id,
-          kind: 'normal',
+          kind:
+            c.origin === 'secret_crush_match'
+              ? 'match'
+              : c.origin === 'secret_message'
+              ? 'revealed'
+              : 'normal',
           peer: c.peer ?? FALLBACK_PEER,
           lastMessage: previewText(last, last.sender_id === meId),
           lastMessageAt: Date.parse(last.created_at),

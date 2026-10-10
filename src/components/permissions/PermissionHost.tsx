@@ -19,7 +19,13 @@ import { ThemeScope } from '@/theme/ThemeProvider';
 
 import { PermissionSheet } from './PermissionSheet';
 
-const TYPES: PermissionType[] = ['camera', 'photos', 'microphone', 'notifications'];
+const TYPES: PermissionType[] = [
+  'camera',
+  'photos',
+  'microphone',
+  'notifications',
+  'location',
+];
 
 /**
  * Render once at the app root. Shows the permission sheet for `usePermission().request`

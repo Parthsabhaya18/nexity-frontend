@@ -8,7 +8,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 export type MainTabParamList = {
   Home: undefined;
   Search: undefined;
-  Premium: undefined;
+  Premium: { section?: 'messages' | 'crush' } | undefined;
   Reels: undefined;
 };
 
@@ -67,8 +67,32 @@ export type RootStackParamList = {
   BlockedAccounts: undefined;
   Notifications: undefined;
   Chats: undefined;
-  ChatThread: { conversationId: string };
+  /** `draft` prefills the composer (e.g. "Hi 👋" after a match). */
+  ChatThread: { conversationId: string; draft?: string };
   NewMessage: undefined;
+  /** `reason` picks the headline (what the user tried to do). */
+  Plans:
+    | { reason?: 'secret-read' | 'secret-send' | 'limit' | 'nearby' | 'crush' }
+    | undefined;
+  /** Payments (razorpay-payments.md §3). Ids only; never deep-linked. */
+  Checkout: {
+    planId: 'plus' | 'premium';
+    period?: 'monthly' | 'quarterly' | 'yearly';
+  };
+  PaymentProcessing: { checkoutId: string };
+  PurchaseSuccess: { checkoutId: string };
+  PaymentFailed: { checkoutId: string };
+  PaymentPending: { checkoutId: string };
+  PayByQr: { checkoutId: string };
+  Subscription: undefined;
+  SecretPeoplePicker: { intent?: 'message' | 'crush' } | undefined;
+  /** Fullscreen "It's a match 💘" celebration. */
+  MatchCelebration: { matchId: string };
+  SecretCompose: { username: string };
+  SecretThread: { threadId: string };
+  Nearby: undefined;
+  NearbySettings: undefined;
+  SecretBlocks: undefined;
   /** Dev builds only: shared component gallery. */
   DevComponents: undefined;
 };

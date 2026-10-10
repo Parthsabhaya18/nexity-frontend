@@ -129,6 +129,13 @@ export interface ConversationDto {
   last_read_message_id: string | null;
   peer_last_read_message_id: string | null;
   is_muted: boolean;
+  /**
+   * `secret_message`: opened by a Secret Message reveal ("💌 Revealed" tag).
+   * `secret_crush_match`: opened by a mutual Secret Crush ("💘 Match" tag).
+   */
+  origin?: 'secret_message' | 'secret_crush_match' | null;
+  /** `love`: the match chat uses the romantic palette with hearts. */
+  theme?: 'love' | null;
   created_at: string;
   updated_at: string;
 }

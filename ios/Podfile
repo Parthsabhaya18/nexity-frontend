@@ -19,7 +19,16 @@ node_require('react-native-permissions/scripts/setup.rb')
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-setup_permissions(['Camera', 'Microphone', 'Notifications', 'PhotoLibrary'])
+setup_permissions([
+  'Bluetooth',
+  'Camera',
+  'LocationAccuracy',
+  'LocationWhenInUse',
+  'Microphone',
+  'Notifications',
+  'PhotoLibrary',
+  'PhotoLibraryAddOnly',
+])
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil

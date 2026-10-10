@@ -28,7 +28,22 @@ export type AppNotification = {
   actor: NotificationActor | null;
   postId: string | null;
   reelId: string | null;
+  secretThreadId: string | null;
+  crushMatchId: string | null;
+  conversationId: string | null;
+  nearby: boolean;
 };
+
+const typeOf = (t: string): NotificationType =>
+  t === 'crush_added'
+    ? 'crush'
+    : t === 'crush_match'
+    ? 'match'
+    : t.startsWith('secret_') || t === 'nearby_encounter'
+    ? 'secret'
+    : t.startsWith('subscription_') || t.startsWith('payment_')
+    ? 'subscription'
+    : 'comment';
 
 type NotificationsState = {
   items: readonly AppNotification[];
@@ -56,13 +71,17 @@ export async function refreshNotifications() {
     unreadCount: unread.notifications,
     items: page.items.map(item => ({
       id: item.id,
-      type: 'comment',
+      type: typeOf(item.type),
       text: item.text,
       createdAt: new Date(item.created_at).getTime(),
       read: item.read,
       postId: item.post_id,
       reelId: item.reel_id,
-      actor: item.actor,
+      secretThreadId: item.secret_thread_id ?? null,
+      crushMatchId: item.crush_match_id ?? null,
+      conversationId: item.conversation_id ?? null,
+      nearby: item.type === 'nearby_encounter',
+      actor: item.anonymous ? null : item.actor,
     })),
   });
 }

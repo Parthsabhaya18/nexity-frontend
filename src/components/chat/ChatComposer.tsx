@@ -47,6 +47,8 @@ type Props = {
   onCancelEdit?: () => void;
   onInputFocus?: () => void;
   bottomInset: number;
+  /** Prefilled and focused once (e.g. "Hi 👋" after a match). */
+  initialText?: string;
 };
 
 /** Pinned message bar: camera, growing input, voice / photo / GIF, or send once there's text. */
@@ -65,15 +67,24 @@ export function ChatComposer({
   onCancelEdit,
   onInputFocus,
   bottomInset,
+  initialText,
 }: Props) {
   const { scheme, colors } = useAppTheme();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(initialText ?? '');
   const [recording, setRecording] = useState(false);
   const inputRef = useRef<TextInputInstance>(null);
   const draftBeforeEdit = useRef('');
   const latestText = useRef(text);
   latestText.current = text;
   const canSend = text.trim().length > 0;
+
+  const prefilled = useRef(Boolean(initialText));
+  useEffect(() => {
+    if (!prefilled.current) return;
+    prefilled.current = false;
+    const timer = setTimeout(() => inputRef.current?.focus(), 350);
+    return () => clearTimeout(timer);
+  }, []);
 
   const replyId = reply?.id;
   useEffect(() => {

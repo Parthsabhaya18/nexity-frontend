@@ -1,11 +1,14 @@
 import { Platform } from 'react-native';
 import {
   check,
+  checkMultiple,
   checkNotifications,
   openSettings,
   PERMISSIONS,
   request,
+  requestMultiple,
   requestNotifications,
+  RESULTS,
 } from 'react-native-permissions';
 
 import { openPermissionSettings } from '@/features/media/permissionPrompt';
@@ -17,7 +20,13 @@ import {
   selectMorePhotos,
 } from '@/services/media/photoPermission';
 
-export type PermissionType = 'camera' | 'photos' | 'microphone' | 'notifications';
+export type PermissionType =
+  | 'camera'
+  | 'photos'
+  | 'microphone'
+  | 'notifications'
+  | 'location'
+  | 'bluetooth';
 
 /**
  * `limited`: only some photos are shared (iOS Limited Photos, Android 14 partial).
@@ -53,6 +62,19 @@ export const PERMISSION_COPY: Record<
     reason: 'Get notified about likes, follows and messages',
     offTitle: 'Notifications are off',
   },
+  location: {
+    name: 'Location',
+    title: 'Allow location while using Nexity',
+    reason:
+      'Know when someone was near you today. Your place is never shown to anyone',
+    offTitle: 'Location is off',
+  },
+  bluetooth: {
+    name: 'Nearby devices',
+    title: 'Allow Bluetooth',
+    reason: 'Find people around you who also turned on Nearby. Other devices are ignored',
+    offTitle: 'Bluetooth is off',
+  },
 };
 
 export const isUsable = (status: PermissionStatus | undefined) =>
@@ -87,6 +109,81 @@ const MICROPHONE = Platform.select({
   default: PERMISSIONS.ANDROID.RECORD_AUDIO,
 });
 
+const ANDROID_LOCATION = [
+  PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
+  PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION,
+] as const;
+
+/** Approximate-only location (Android) is `limited`: usable, but less accurate. */
+function fromAndroidLocation(
+  results: Record<(typeof ANDROID_LOCATION)[number], string>,
+): PermissionStatus {
+  const fine = results[PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION];
+  const coarse = results[PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION];
+  if (fine === RESULTS.GRANTED) return 'granted';
+  if (coarse === RESULTS.GRANTED) return 'limited';
+  if (fine === RESULTS.BLOCKED || coarse === RESULTS.BLOCKED) return 'blocked';
+  return fromResult(fine ?? coarse ?? RESULTS.DENIED);
+}
+
+const ANDROID_BLUETOOTH = [
+  PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
+  PERMISSIONS.ANDROID.BLUETOOTH_ADVERTISE,
+  PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
+] as const;
+
+function fromAndroidBluetooth(
+  results: Record<(typeof ANDROID_BLUETOOTH)[number], string>,
+): PermissionStatus {
+  const values = ANDROID_BLUETOOTH.map(name => results[name]);
+  if (values.every(value => value === RESULTS.GRANTED)) return 'granted';
+  if (values.some(value => value === RESULTS.BLOCKED)) return 'blocked';
+  return fromResult(values.find(value => value !== RESULTS.GRANTED) ?? RESULTS.DENIED);
+}
+
+async function checkBluetooth() {
+  if (Platform.OS === 'ios') {
+    return fromResult(await check(PERMISSIONS.IOS.BLUETOOTH));
+  }
+  if (Number(Platform.Version) < 31) return 'granted';
+  return fromAndroidBluetooth(await checkMultiple([...ANDROID_BLUETOOTH]));
+}
+
+async function requestBluetooth() {
+  if (Platform.OS === 'ios') {
+    return fromResult(await request(PERMISSIONS.IOS.BLUETOOTH));
+  }
+  if (Number(Platform.Version) < 31) return 'granted';
+  return fromAndroidBluetooth(await requestMultiple([...ANDROID_BLUETOOTH]));
+}
+
+/** iOS Precise Location off is `limited`: Nearby cannot use a city-sized reading. */
+async function withIosAccuracy(status: PermissionStatus): Promise<PermissionStatus> {
+  if (Platform.OS !== 'ios' || status !== 'granted') return status;
+  try {
+    const geo = require('react-native-nitro-geolocation') as typeof import('react-native-nitro-geolocation');
+    const details = await geo.getPermissionDetails();
+    if (details.accuracy === 'reduced') return 'limited';
+  } catch {
+    // The When-In-Use grant still stands if the accuracy read fails.
+  }
+  return status;
+}
+
+async function checkLocation() {
+  if (Platform.OS === 'ios') {
+    return withIosAccuracy(fromResult(await check(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE)));
+  }
+  return fromAndroidLocation(await checkMultiple([...ANDROID_LOCATION]));
+}
+
+async function requestLocation() {
+  if (Platform.OS === 'ios') {
+    return withIosAccuracy(fromResult(await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE)));
+  }
+  return fromAndroidLocation(await requestMultiple([...ANDROID_LOCATION]));
+}
+
 /** Current status. Never shows a popup. */
 async function checkNative(type: PermissionType): Promise<PermissionStatus> {
   switch (type) {
@@ -98,6 +195,10 @@ async function checkNative(type: PermissionType): Promise<PermissionStatus> {
       return fromResult(await check(CAMERA));
     case 'microphone':
       return fromResult(await check(MICROPHONE));
+    case 'location':
+      return checkLocation();
+    case 'bluetooth':
+      return checkBluetooth();
   }
 }
 
@@ -114,6 +215,10 @@ async function requestNative(type: PermissionType): Promise<PermissionStatus> {
       return fromResult(await request(CAMERA));
     case 'microphone':
       return fromResult(await request(MICROPHONE));
+    case 'location':
+      return requestLocation();
+    case 'bluetooth':
+      return requestBluetooth();
   }
 }
 
@@ -169,6 +274,10 @@ export async function requestPermission(type: PermissionType) {
 export async function openSettingsFor(type: PermissionType) {
   if (type === 'notifications') {
     await openSettings('notifications').catch(() => openSettings());
+    return;
+  }
+  if (type === 'bluetooth') {
+    await openSettings();
     return;
   }
   await openPermissionSettings(type);

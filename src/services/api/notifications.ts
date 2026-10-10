@@ -9,10 +9,24 @@ export interface ActivityActor {
 
 export interface ActivityItem {
   id: string;
-  type: 'comment_post' | 'comment_reel';
+  type:
+    | 'comment_post'
+    | 'comment_reel'
+    | 'secret_message_received'
+    | 'secret_message_followup'
+    | 'secret_message_reply'
+    | 'secret_message_revealed'
+    | 'nearby_encounter'
+    | 'crush_added'
+    | 'crush_match';
   text: string;
   post_id: string | null;
   reel_id: string | null;
+  secret_thread_id?: string | null;
+  crush_match_id?: string | null;
+  conversation_id?: string | null;
+  /** The actor is hidden on purpose (sealed Secret Messages, Nearby). */
+  anonymous?: boolean;
   read: boolean;
   created_at: string;
   actor: ActivityActor | null;

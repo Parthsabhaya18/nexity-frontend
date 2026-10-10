@@ -24,8 +24,33 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.nexity.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>nexity</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>upi</string>
+		<string>tez</string>
+		<string>gpay</string>
+		<string>phonepe</string>
+		<string>paytmmp</string>
+		<string>paytm</string>
+		<string>bhim</string>
+		<string>credpay</string>
+		<string>amazonpay</string>
+		<string>mobikwik</string>
+		<string>freecharge</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 	  <!-- Do not change NSAllowsArbitraryLoads to true, or you will risk app rejection! -->
@@ -34,8 +59,19 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Nexity uses Bluetooth to find people nearby who also turned on Nearby. Your location is never shown.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Nexity uses Bluetooth to find people nearby who also turned on Nearby. Your location is never shown.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Nexity uses your location only while you use Nearby. Your place is never shown to anyone.</string>
+	<string>Nexity uses your location only for Nearby notifications you turned on. Your place is never shown to anyone.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>NearbyPrecise</key>
+		<string>Nexity needs precise location for a moment so Nearby can notice people around you. Your place is never shown.</string>
+	</dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Nexity saves photos you choose, such as a payment QR, to your photo library.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Nexity uses your camera so you can take photos and videos for posts, stories, reels and your profile.</string>
 	<key>NSMicrophoneUsageDescription</key>

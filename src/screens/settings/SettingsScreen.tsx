@@ -2,9 +2,13 @@ import { useNavigation } from '@react-navigation/native';
 import {
   Ban,
   ChevronRight,
+  CreditCard,
+  Crown,
   LayoutGrid,
   LogOut,
   Palette,
+  Radar,
+  VenetianMask,
 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
@@ -122,6 +126,72 @@ export function SettingsScreen() {
           <Ban size={20} color={colors.text} />
           <Text style={[styles.logoutText, { color: colors.text, flex: 1 }]}>
             Blocked accounts
+          </Text>
+          <ChevronRight size={18} color={colors.textSecondary} />
+        </Pressable>
+        {[
+          {
+            label: 'Blocked secret senders',
+            icon: <VenetianMask size={20} color={colors.text} />,
+            go: () => navigation.navigate('SecretBlocks'),
+          },
+          {
+            label: 'Nearby & location',
+            icon: <Radar size={20} color={colors.text} />,
+            go: () => navigation.navigate('NearbySettings'),
+          },
+        ].map(item => (
+          <Pressable
+            key={item.label}
+            onPress={item.go}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.card,
+              styles.logout,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              pressed && styles.pressed,
+            ]}
+          >
+            {item.icon}
+            <Text style={[styles.logoutText, { color: colors.text, flex: 1 }]}>
+              {item.label}
+            </Text>
+            <ChevronRight size={18} color={colors.textSecondary} />
+          </Pressable>
+        ))}
+
+        <Text style={[styles.section, { color: colors.textSecondary }]}>
+          Premium
+        </Text>
+        <Pressable
+          onPress={() => navigation.navigate('Plans')}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.card,
+            styles.logout,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Crown size={20} color={colors.primary} />
+          <Text style={[styles.logoutText, { color: colors.text, flex: 1 }]}>
+            Plans
+          </Text>
+          <ChevronRight size={18} color={colors.textSecondary} />
+        </Pressable>
+        <Pressable
+          onPress={() => navigation.navigate('Subscription')}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.card,
+            styles.logout,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            pressed && styles.pressed,
+          ]}
+        >
+          <CreditCard size={20} color={colors.text} />
+          <Text style={[styles.logoutText, { color: colors.text, flex: 1 }]}>
+            Subscription & billing
           </Text>
           <ChevronRight size={18} color={colors.textSecondary} />
         </Pressable>

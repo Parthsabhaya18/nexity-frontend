@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
   Share2,
   UserX,
+  VenetianMask,
   WifiOff,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -36,6 +37,7 @@ import {
   WebsiteLink,
 } from '@/components/profile/ProfileParts';
 import { ReportSheet } from '@/components/safety/ReportSheet';
+import { CrushHeartButton } from '@/components/secret/CrushHeartButton';
 import { ShareSheet } from '@/components/share/ShareSheet';
 import { ProfileSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { ActionSheet } from '@/components/ui/ActionSheet';
@@ -53,6 +55,7 @@ import {
   useFollowStatus,
 } from '@/features/follows/followStore';
 import { profileLink } from '@/features/profile/schemas';
+import { useStartSecret } from '@/features/secret/useStartSecret';
 import { ApiError } from '@/services/api/client';
 import { followsApi, type Profile } from '@/services/api/follows';
 import { postsApi } from '@/services/api/posts';
@@ -314,6 +317,7 @@ function ProfileBody({ profile }: { profile: Profile }) {
             onMessage={message}
             messageLoading={opening}
           />
+          <CrushHeartButton user={profile} />
         </View>
       </View>
 
@@ -396,6 +400,7 @@ function MoreMenu({ profile }: { profile: Profile }) {
   const [open, setOpen] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const secret = useStartSecret();
   // Waits for the options sheet to finish closing; two modals can't animate at once on iOS.
   const share = () => setTimeout(() => setSharing(true), 250);
 
@@ -438,6 +443,13 @@ function MoreMenu({ profile }: { profile: Profile }) {
         onClose={() => setOpen(false)}
         options={[
           {
+            label: 'Send Secret Message',
+            icon: <VenetianMask size={22} color={colors.text} />,
+            onPress: () => {
+              secret.toUser(profile);
+            },
+          },
+          {
             label: 'Share profile',
             icon: <Share2 size={22} color={colors.text} />,
             onPress: share,
@@ -472,6 +484,7 @@ function MoreMenu({ profile }: { profile: Profile }) {
         }
         onClose={() => setSharing(false)}
       />
+      {secret.limitDialog}
     </>
   );
 }
