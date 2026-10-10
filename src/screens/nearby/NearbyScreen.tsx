@@ -210,7 +210,6 @@ export function NearbyScreen({ navigation }: ScreenProps<'Nearby'>) {
     queryClient.invalidateQueries({ queryKey: secretKeys.nearbyUsers }).catch(() => {});
   };
 
-  const ring = 132;
   const searching = people.length === 0;
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -218,58 +217,43 @@ export function NearbyScreen({ navigation }: ScreenProps<'Nearby'>) {
       {phase === 'off' || (settings && !settings.enabled) ? (
         <EmptyState
           icon={<Bluetooth size={28} color={colors.primary} />}
-          title="Find people around you"
-          text="Nearby looks for other Nexity people who turned this on, even when the app is in the background. No map and no distance."
-          actionLabel="Turn on Nearby"
+          title="Nearby"
+          actionLabel="Turn on"
           onAction={turnOn}
         />
-      ) : (
+      ) : searching ? (
         <View style={styles.stage}>
           <View style={[styles.orbit, { borderColor: colors.border }]}>
-            <SearchRadar active={searching} color={colors.primary} />
+            <SearchRadar active color={colors.primary} />
             <View style={[styles.me, { backgroundColor: colors.primarySoft }]}>
               <Radar size={22} color={colors.primary} />
-              <Text style={[styles.meText, { color: colors.primary }]}>You</Text>
             </View>
-            {people.map((person: Person, index: number) => {
-              const angle = (Math.PI * 2 * index) / people.length - Math.PI / 2;
-              return (
-                <Pressable
-                  key={person.user.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${person.user.display_name}, this person is near you`}
-                  onPress={() => navigation.navigate('UserProfile', { username: person.user.username })}
-                  style={[
-                    styles.bubble,
-                    {
-                      left: 150 + Math.cos(angle) * ring - 36,
-                      top: 150 + Math.sin(angle) * ring - 36,
-                    },
-                  ]}
-                >
-                  <Avatar uri={person.user.avatar_url} name={person.user.display_name} size={72} ring="unseen" />
-                  <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-                    {person.is_premium ? '👑 ' : ''}
-                    {person.user.display_name}
-                  </Text>
-                  <Text style={[styles.near, { color: colors.textSecondary }]}>This person is near you</Text>
-                  <Button
-                    title={person.follow_state === 'accepted' ? 'Following' : person.follow_state === 'pending' ? 'Requested' : 'Follow'}
-                    variant="secondary"
-                    disabled={person.follow_state !== 'none'}
-                    onPress={() => followsApi.follow(person.user.id).then(refreshPeople)}
-                    style={styles.follow}
-                  />
-                </Pressable>
-              );
-            })}
           </View>
-          <Text style={[styles.looking, { color: searching ? colors.primary : colors.textSecondary }]}>
-            {searching ? 'Searching around you…' : `${people.length} ${people.length === 1 ? 'person' : 'people'} nearby`}
-          </Text>
-          <Text style={[styles.fine, { color: colors.textSecondary }]}>
-            Nearby stays on when you leave Nexity. Phones do not connect to each other. Only people who turned Nearby on can appear.
-          </Text>
+        </View>
+      ) : (
+        <View style={styles.list}>
+          {people.map((person: Person) => (
+            <Pressable
+              key={person.user.id}
+              accessibilityRole="button"
+              accessibilityLabel={person.user.display_name}
+              onPress={() => navigation.navigate('UserProfile', { username: person.user.username })}
+              style={[styles.row, { borderBottomColor: colors.border }]}
+            >
+              <Avatar uri={person.user.avatar_url} name={person.user.display_name} size={48} ring="unseen" />
+              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+                {person.is_premium ? '👑 ' : ''}
+                {person.user.display_name}
+              </Text>
+              <Button
+                title={person.follow_state === 'accepted' ? 'Following' : person.follow_state === 'pending' ? 'Requested' : 'Follow'}
+                variant="secondary"
+                disabled={person.follow_state !== 'none'}
+                onPress={() => followsApi.follow(person.user.id).then(refreshPeople)}
+                style={styles.follow}
+              />
+            </Pressable>
+          ))}
         </View>
       )}
     </SafeAreaView>
@@ -313,11 +297,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  meText: { fontSize: 12, fontWeight: '800', marginTop: 2 },
-  bubble: { position: 'absolute', width: 120, alignItems: 'center' },
-  name: { fontSize: 13, fontWeight: '800', marginTop: 4, maxWidth: 110 },
-  near: { fontSize: 11, textAlign: 'center', marginTop: 2 },
-  follow: { marginTop: 6, minHeight: 32 },
-  looking: { marginTop: spacing.lg, fontSize: 15, fontWeight: '700' },
-  fine: { marginTop: spacing.md, marginHorizontal: spacing.lg, textAlign: 'center', fontSize: 12, lineHeight: 17 },
+  list: { flex: 1 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  name: { flex: 1, fontSize: 16, fontWeight: '700' },
+  follow: { minHeight: 36, paddingHorizontal: spacing.md },
 });
