@@ -168,6 +168,8 @@ export function NearbyScreen({ navigation }: ScreenProps<'Nearby'>) {
 
   useFocusEffect(
     useCallback(() => {
+      // `resume` bumps when the app returns to the foreground, so this effect runs again.
+      if (resume < 0) return;
       if (!settings) return;
       if (!settings.enabled || !settings.bluetooth_enabled) {
         setPhase('off');
@@ -287,7 +289,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   radar: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },

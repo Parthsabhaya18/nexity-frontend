@@ -29,7 +29,9 @@ export async function waitForBluetooth(timeoutMs = 20000) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     if (await nearbyBle.adapterOn()) return true;
-    await new Promise(resolve => setTimeout(resolve, 400));
+    await new Promise<void>(resolve => {
+      setTimeout(resolve, 400);
+    });
   }
   return false;
 }

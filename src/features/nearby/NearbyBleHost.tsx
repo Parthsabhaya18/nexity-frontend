@@ -27,7 +27,10 @@ const currentId = (items: Token[]) => {
   return soonest?.eph_id ?? null;
 };
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number) =>
+  new Promise<void>(resolve => {
+    setTimeout(() => resolve(), ms);
+  });
 
 /**
  * Keeps Bluetooth Nearby running for the whole sign-in, including when Nexity

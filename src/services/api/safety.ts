@@ -32,9 +32,13 @@ export const safetyApi = {
   async unmute(userId: string) {
     await apiClient.delete(`/users/${userId}/mute`);
   },
-  async blocked() {
-    const { data } = await apiClient.get<{ items: BlockedUser[] }>('/users/me/blocked');
-    return data.items;
+  async blocked(cursor?: string) {
+    const { data } = await apiClient.get<{
+      items: BlockedUser[];
+      next_cursor: string | null;
+      total: number;
+    }>('/users/me/blocked', { params: { cursor, limit: 30 } });
+    return data;
   },
   async report(input: {
     target_type: ReportTarget;
