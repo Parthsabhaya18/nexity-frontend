@@ -76,7 +76,7 @@ window.App = window.App || {};
     return `<span class="plan-chip free">Free</span>`;
   };
 
-  window.premiumBadge = (u) => (u && u.plan === 'premium' && !NX.isRemoved(u.id) ? '<span class="crown-badge" title="Premium member" aria-label="Premium member">👑</span>' : '');
+  window.premiumBadge = (u) => (u && u.plan === 'premium' && !NX.isRemoved(u.id) ? `<span class="crown-badge" title="Premium member" aria-label="Premium member">${Icon('crown', 14)}</span>` : '');
 
   /* Locked chips never carry the day: the plan decides whether "today" / "yesterday" is shown at all. */
   window.nearbyChip = (state, opts = {}) => {

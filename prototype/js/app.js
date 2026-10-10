@@ -134,8 +134,8 @@
       ${S.me.plan === 'premium' ? '' : `
       <div class="rail-card rail-promo">
         <p class="eyebrow">${Icon('sparkles', 14)} ${S.me.plan === 'free' ? 'Unlock your secret side' : 'Go unlimited'}</p>
-        <p>${S.me.plan === 'free' ? 'Send Secret Messages, add Secret Crushes and see who was near you.' : 'Unlimited Secret Messages, up to 10 Crushes and a 👑 badge with Premium.'}</p>
-        <button class="btn btn-sm btn-light" data-go="plans">${S.me.plan === 'free' ? `See plans · from ${inr(S.plans.plus.price)}` : 'Upgrade to Premium'}</button>
+        <p>${S.me.plan === 'free' ? 'Send Secret Messages, add Secret Crushes and see who was near you.' : 'Unlimited Secret Messages, up to 10 Crushes and a Premium badge.'}</p>
+        <button class="btn btn-sm btn-primary" data-go="plans">${S.me.plan === 'free' ? `See plans · from ${inr(S.plans.plus.price)}` : 'Upgrade to Premium'}</button>
       </div>`}
       ${sugg.length ? `<div class="rail-section"><div class="rail-head"><h3>Suggested for you</h3></div>
         ${sugg.map(u => userRow(u, followBtn(u), { size: 36, sub: 'Suggested for you' })).join('')}</div>` : ''}
