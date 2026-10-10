@@ -75,6 +75,7 @@ export function PostGrid({
               onPress={() =>
                 navigation.navigate('PostViewer', {
                   postId: item.id,
+                  isReel: Boolean(item.reel),
                   ...from,
                 })
               }

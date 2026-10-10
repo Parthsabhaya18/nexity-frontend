@@ -20,7 +20,8 @@ import { useSavedEngagementSync } from '@/features/posts/postEvents';
 import type { ScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { ApiError } from '@/services/api/client';
-import { type Post, postsApi } from '@/services/api/posts';
+import { type Post, postsApi, reelAsPost } from '@/services/api/posts';
+import { reelsApi } from '@/services/api/reels';
 import { useAppTheme } from '@/theme';
 
 const MAX_PAGES_TO_FIND = 12;
@@ -34,7 +35,7 @@ export function PostViewerScreen({
   route,
   navigation,
 }: ScreenProps<'PostViewer'>) {
-  const { postId, source, userId } = route.params;
+  const { postId, source, userId, isReel = false } = route.params;
   const { colors } = useAppTheme();
   const [items, setItems] = useState<Post[]>([]);
   const [startIndex, setStartIndex] = useState<number | null>(null);
@@ -65,18 +66,22 @@ export function PostViewerScreen({
     setStartIndex(null);
     jumped.current = false;
     try {
+      const isTapped = (p: Post) => p.id === postId && Boolean(p.reel) === isReel;
       let all: Post[] = [];
       let next: string | null = null;
       for (let i = 0; i < MAX_PAGES_TO_FIND; i += 1) {
         const page = await fetchPage(next);
         all = all.concat(page.items);
         next = page.next_cursor;
-        if (all.some(p => p.id === postId) || !next) break;
+        if (all.some(isTapped) || !next) break;
       }
-      let at = all.findIndex(p => p.id === postId);
+      let at = all.findIndex(isTapped);
       if (at < 0) {
-        // Opened from somewhere the list doesn't reach; show the post alone first.
-        all = [await postsApi.get(postId), ...all];
+        // Opened from somewhere the list doesn't reach; show the item alone first.
+        const tapped = isReel
+          ? reelAsPost(await reelsApi.get(postId))
+          : await postsApi.get(postId);
+        all = [tapped, ...all];
         at = 0;
       }
       cursor.current = next;
@@ -88,7 +93,7 @@ export function PostViewerScreen({
         err instanceof ApiError ? err.message : 'This post is unavailable.',
       );
     }
-  }, [fetchPage, postId]);
+  }, [fetchPage, postId, isReel]);
 
   useEffect(() => {
     load();

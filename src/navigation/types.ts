@@ -48,6 +48,8 @@ export type RootStackParamList = {
     postId: string;
     source: 'user' | 'saved';
     userId?: string;
+    /** The tapped tile is a saved reel, so `postId` is a reel id. */
+    isReel?: boolean;
   };
   SavedPosts: undefined;
   Appearance: undefined;

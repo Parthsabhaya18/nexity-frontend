@@ -59,7 +59,7 @@ const SECOND = 1000;
 /** Device metadata rounds durations, so a 3:00 reel may report 3:00.4. */
 export const DURATION_TOLERANCE_MS = SECOND;
 
-/** Posts, reels and stories all stop at 2 minutes. */
+/** Posts, reels, stories and chat videos all stop at 2 minutes. */
 export const VIDEO_MAX_MS = 120 * SECOND;
 
 export const IMAGE_MAX_BYTES = 10 * MB;
@@ -90,7 +90,7 @@ export const MEDIA_RULES: Record<
   },
   message: {
     image: IMAGE,
-    video: video(null),
+    video: video(VIDEO_MAX_MS),
     audio: { maxBytes: VOICE_MAX_BYTES, maxDurationMs: VOICE_MAX_MS },
   },
 };
@@ -120,12 +120,12 @@ export const IMAGE_MAX_EDGE: Record<MediaPurpose, number> = {
   message: 1600,
 };
 
-/** Longest video edge after compression: 1080p like Instagram, 720p in chats. */
+/** Longest video edge after compression: 720p for every purpose. */
 export const VIDEO_MAX_EDGE: Record<MediaPurpose, number> = {
-  avatar: 1920,
-  post: 1920,
-  story: 1920,
-  reel: 1920,
+  avatar: 1280,
+  post: 1280,
+  story: 1280,
+  reel: 1280,
   message: 1280,
 };
 

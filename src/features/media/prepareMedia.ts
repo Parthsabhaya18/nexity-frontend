@@ -70,7 +70,7 @@ async function prepareImage(
   };
 }
 
-/** Re-encodes to a 1080p MP4 like Instagram (720p for chats); length is kept. */
+/** Re-encodes to a 720p MP4. Length is kept. */
 async function prepareVideo(
   media: LocalMedia,
   purpose: MediaPurpose,
@@ -138,14 +138,17 @@ export async function prepareMedia(
   if (isTooLong(media, purpose)) throw new MediaError(tooLongMessage(purpose));
 
   let prepared = media;
-  try {
-    if (media.kind === 'image') prepared = await prepareImage(media, purpose);
-    else if (media.kind === 'video') {
-      prepared = await prepareVideo(media, purpose, onProgress, opts.signal);
+  // A crop or canvas bake is already a JPEG. Compressing it again only adds delay.
+  if (!(media.kind === 'image' && media.isPrecompressed)) {
+    try {
+      if (media.kind === 'image') prepared = await prepareImage(media, purpose);
+      else if (media.kind === 'video') {
+        prepared = await prepareVideo(media, purpose, onProgress, opts.signal);
+      }
+    } catch (err) {
+      if (opts.signal?.aborted) throw err;
+      console.warn('Media compression failed, uploading the original', err);
     }
-  } catch (err) {
-    if (opts.signal?.aborted) throw err;
-    console.warn('Media compression failed, uploading the original', err);
   }
   onProgress(1);
 

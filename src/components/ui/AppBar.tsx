@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -29,7 +29,20 @@ export function AppBar({ title, subtitle, left, actions, back, tint }: Props) {
     <View style={styles.bar}>
       {back ? (
         <IconButton
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+              return;
+            }
+            // Opened with nothing underneath (deep link, notification, reset): fall back to the stack's home.
+            const state = navigation.getState();
+            const home = state?.routeNames[0];
+            if (home && state.routes[state.index]?.name !== home) {
+              navigation.dispatch(
+                CommonActions.reset({ index: 0, routes: [{ name: home }] }),
+              );
+            }
+          }}
           accessibilityLabel="Go back"
         >
           <ArrowLeft size={24} color={color} />

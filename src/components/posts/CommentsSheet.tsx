@@ -24,7 +24,8 @@ import { reelsApi } from '@/services/api/reels';
 import { spacing, useAppTheme } from '@/theme';
 import { timeAgo } from '@/utils/time';
 
-const MAX_COMMENT = 500;
+/** Matches the API's comment limit. */
+const MAX_COMMENT = 1000;
 
 export type CommentTarget = {
   kind: 'post' | 'reel';
