@@ -1,4 +1,10 @@
-export type MediaPurpose = 'avatar' | 'post' | 'story' | 'reel' | 'message';
+export type MediaPurpose =
+  | 'avatar'
+  | 'post'
+  | 'story'
+  | 'reel'
+  | 'message'
+  | 'support';
 export type MediaKind = 'image' | 'video' | 'audio';
 
 export const CONTENT_TYPES: Record<string, MediaKind> = {
@@ -67,6 +73,8 @@ export const VIDEO_MAX_BYTES = 200 * MB;
 /** Story photos share the video ceiling. */
 export const STORY_IMAGE_MAX_BYTES = 200 * MB;
 export const VOICE_MAX_BYTES = 10 * MB;
+/** Contact us screenshots. */
+export const SUPPORT_IMAGE_MAX_BYTES = 5 * MB;
 /** Longest voice message, like Instagram. */
 export const VOICE_MAX_MS = 60 * SECOND;
 
@@ -93,6 +101,7 @@ export const MEDIA_RULES: Record<
     video: video(VIDEO_MAX_MS),
     audio: { maxBytes: VOICE_MAX_BYTES, maxDurationMs: VOICE_MAX_MS },
   },
+  support: { image: { maxBytes: SUPPORT_IMAGE_MAX_BYTES } },
 };
 
 export function maxBytesFor(purpose: MediaPurpose, kind: MediaKind) {
@@ -106,6 +115,7 @@ export const MAX_ITEMS: Record<MediaPurpose, number> = {
   reel: 1,
   story: 10,
   message: 10,
+  support: 4,
 };
 
 /** Videos smaller than this are uploaded as they are. */
@@ -118,6 +128,7 @@ export const IMAGE_MAX_EDGE: Record<MediaPurpose, number> = {
   story: 1920,
   reel: 1920,
   message: 1600,
+  support: 1600,
 };
 
 /** Longest video edge after compression: 720p for every purpose. */
@@ -127,6 +138,7 @@ export const VIDEO_MAX_EDGE: Record<MediaPurpose, number> = {
   story: 1280,
   reel: 1280,
   message: 1280,
+  support: 1280,
 };
 
 export function maxDurationMs(purpose: MediaPurpose) {

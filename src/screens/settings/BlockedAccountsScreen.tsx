@@ -16,13 +16,15 @@ import { spacing, useAppTheme } from '@/theme';
 export function BlockedAccountsScreen() {
   const { colors } = useAppTheme();
   const [items, setItems] = useState<BlockedUser[] | null>(null);
+  const [failed, setFailed] = useState(false);
   useStatusBar();
 
   const load = useCallback(() => {
+    setFailed(false);
     safetyApi
       .blocked()
       .then(setItems)
-      .catch(() => setItems([]));
+      .catch(() => setFailed(true));
   }, []);
 
   useEffect(() => {
@@ -57,7 +59,15 @@ export function BlockedAccountsScreen() {
         keyExtractor={user => user.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          items ? (
+          failed && !items ? (
+            <EmptyState
+              icon={<Ban size={34} color={colors.primary} />}
+              title="Couldn't load blocked accounts"
+              text="Check your connection and try again."
+              actionLabel="Try again"
+              onAction={load}
+            />
+          ) : items ? (
             <EmptyState
               icon={<Ban size={34} color={colors.primary} />}
               title="No blocked accounts"

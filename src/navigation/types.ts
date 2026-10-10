@@ -5,6 +5,8 @@ import type {
 } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import type { SupportTicket } from '@/services/api/support';
+
 export type MainTabParamList = {
   Home: undefined;
   Search: undefined;
@@ -52,7 +54,6 @@ export type RootStackParamList = {
     isReel?: boolean;
   };
   SavedPosts: undefined;
-  Appearance: undefined;
   Profile: undefined;
   EditProfile: undefined;
   UserProfile: { username: string };
@@ -64,6 +65,16 @@ export type RootStackParamList = {
   };
   FollowRequests: undefined;
   Settings: undefined;
+  AccountInfo: undefined;
+  PrivacySettings: undefined;
+  NotificationSettings: undefined;
+  ChangePassword: undefined;
+  LoginSecurity: undefined;
+  HelpCenter: undefined;
+  ContactUs: undefined;
+  ContactSent: { ticket: SupportTicket };
+  SupportTicket: { ticket: SupportTicket };
+  Legal: { doc: 'terms' | 'privacy' };
   BlockedAccounts: undefined;
   Notifications: undefined;
   Chats: undefined;
