@@ -135,7 +135,8 @@ const ANDROID_BLUETOOTH = [
 function fromAndroidBluetooth(
   results: Record<(typeof ANDROID_BLUETOOTH)[number], string>,
 ): PermissionStatus {
-  const values = ANDROID_BLUETOOTH.map(name => results[name]);
+  const values = ANDROID_BLUETOOTH.map(name => results[name]).filter(value => value !== RESULTS.UNAVAILABLE);
+  if (values.length === 0) return 'unavailable';
   if (values.every(value => value === RESULTS.GRANTED)) return 'granted';
   if (values.some(value => value === RESULTS.BLOCKED)) return 'blocked';
   return fromResult(values.find(value => value !== RESULTS.GRANTED) ?? RESULTS.DENIED);

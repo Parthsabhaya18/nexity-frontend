@@ -1,26 +1,20 @@
 package com.nexity.app
 
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
-import android.bluetooth.BluetoothGattCharacteristic
-import android.bluetooth.BluetoothGattServer
-import android.bluetooth.BluetoothGattServerCallback
-import android.bluetooth.BluetoothGattService
-import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothProfile
+import android.location.LocationManager
+import android.os.Build
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
-import android.bluetooth.le.BluetoothLeAdvertiser
-import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.os.ParcelUuid
+import android.provider.Settings
 import android.util.Base64
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -31,30 +25,30 @@ import com.facebook.react.modules.core.DeviceEventManagerModule
 import java.util.UUID
 
 /**
- * Advertises and scans only Nexity's service. Android puts the rotating id in the advert.
- * iPhone cannot, so this phone also serves that id on a readable characteristic and reads it
- * from phones that do not include it in the advert. No name, MAC or user id is used.
+ * Broadcasts the rotating id inside the advert and reads other phones' ids from their adverts.
+ * Phones never connect, pair, or open a GATT link. Vivo and other OEM stacks often reject the
+ * first scan or advert, so both are retried until they stick.
  */
 class NearbyBleModule(private val context: ReactApplicationContext) : ReactContextBaseJavaModule(context) {
-  private val serviceId: UUID = UUID.fromString("6e657869-7479-4e65-6172-627900000001")
-  private val charId: UUID = UUID.fromString("6e657869-7479-4e65-6172-627900000002")
-  private val serviceUuid = ParcelUuid(serviceId)
-  private var advertiser: BluetoothLeAdvertiser? = null
-  private var scanner: BluetoothLeScanner? = null
-  private var gattServer: BluetoothGattServer? = null
-  private var characteristic: BluetoothGattCharacteristic? = null
+  private val shortId: UUID = UUID.fromString("0000fff0-0000-1000-8000-00805f9b34fb")
+  private val shortUuid = ParcelUuid(shortId)
+  private val legacyId: UUID = UUID.fromString("6e657869-7479-4e65-6172-627900000001")
+  private val legacyUuid = ParcelUuid(legacyId)
+  private val handler = Handler(Looper.getMainLooper())
   private var eph = ByteArray(0)
-  private var advertising = false
+  private var session = 0
   private var scanning = false
-  private val reading = HashSet<String>()
+  private var advertising = false
+  private var scanTries = 0
+  private var advertiseTries = 0
+  private var compact = false
+  private var connectable = false
+  private val seenAt = HashMap<String, Long>()
 
   override fun getName() = NAME
 
   private fun adapter(): BluetoothAdapter? =
-    context.getSystemService(BluetoothManager::class.java)?.adapter
-
-  private fun manager(): BluetoothManager? =
-    context.getSystemService(BluetoothManager::class.java)
+    context.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter
 
   @ReactMethod
   fun supported(promise: Promise) {
@@ -67,30 +61,79 @@ class NearbyBleModule(private val context: ReactApplicationContext) : ReactConte
   }
 
   @ReactMethod
+  fun scanNeedsLocation(promise: Promise) {
+    val brand = Build.MANUFACTURER.lowercase()
+    promise.resolve(brand.contains("vivo") || brand.contains("iqoo"))
+  }
+
+  @ReactMethod
+  fun locationOff(promise: Promise) {
+    try {
+      val manager = context.getSystemService(LocationManager::class.java)
+      val on = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        manager?.isLocationEnabled == true
+      } else {
+        manager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true ||
+          manager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
+      }
+      promise.resolve(!on)
+    } catch (_: Exception) {
+      promise.resolve(false)
+    }
+  }
+
+  @ReactMethod
+  fun openLocationSettings(promise: Promise) {
+    val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    try {
+      val activity = context.currentActivity
+      if (activity != null) activity.startActivity(intent) else context.startActivity(intent)
+      promise.resolve(true)
+    } catch (_: Exception) {
+      promise.resolve(false)
+    }
+  }
+
+  @ReactMethod
   fun requestEnable(promise: Promise) {
-    val intent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    context.startActivity(intent)
-    promise.resolve(true)
+    val enable = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+    val activity = context.currentActivity
+    try {
+      if (activity != null) activity.startActivity(enable)
+      else context.startActivity(enable.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+      promise.resolve(true)
+    } catch (_: Exception) {
+      try {
+        val settings = Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (activity != null) activity.startActivity(settings)
+        else context.startActivity(settings)
+        promise.resolve(true)
+      } catch (_: Exception) {
+        promise.resolve(false)
+      }
+    }
   }
 
   @ReactMethod
   fun start(ephId: String, promise: Promise) {
     val radio = adapter()
     val bytes = decode(ephId)
-    if (radio == null || !radio.isEnabled || bytes == null || bytes.size != 16) {
+    if (radio == null || bytes == null || bytes.size != 16) {
+      promise.resolve(false)
+      return
+    }
+    if (!radio.isEnabled) {
       promise.resolve(false)
       return
     }
     stopInternal()
+    val gen = session
     eph = bytes
-    openServer()
-    advertiser = radio.bluetoothLeAdvertiser
-    scanner = radio.bluetoothLeScanner
-    advertiser?.startAdvertising(advertiseSettings(), advertiseData(), advertiseCallback)
-    val filters = listOf(ScanFilter.Builder().setServiceUuid(serviceUuid).build())
-    val scanSettings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_BALANCED).build()
-    scanner?.startScan(filters, scanSettings, scanCallback)
-    scanning = true
+    handler.post {
+      if (gen != session) return@post
+      beginScan(gen)
+      beginAdvertise(gen)
+    }
     promise.resolve(true)
   }
 
@@ -101,15 +144,17 @@ class NearbyBleModule(private val context: ReactApplicationContext) : ReactConte
       promise.resolve(false)
       return
     }
-    if (!scanning) {
+    if (session == 0) {
       start(ephId, promise)
       return
     }
     eph = bytes
-    characteristic?.value = bytes
-    advertiser?.stopAdvertising(advertiseCallback)
-    advertising = false
-    advertiser?.startAdvertising(advertiseSettings(), advertiseData(), advertiseCallback)
+    seenAt.clear()
+    val gen = session
+    handler.post {
+      if (gen != session) return@post
+      restartAdvertise(gen)
+    }
     promise.resolve(true)
   }
 
@@ -123,55 +168,152 @@ class NearbyBleModule(private val context: ReactApplicationContext) : ReactConte
 
   @ReactMethod fun removeListeners(count: Int) {}
 
+  private fun beginScan(gen: Int) {
+    if (gen != session) return
+    val radio = adapter()
+    val scanner = radio?.bluetoothLeScanner
+    if (radio == null || !radio.isEnabled || scanner == null) {
+      scheduleScan(gen)
+      return
+    }
+    try {
+      if (scanning) scanner.stopScan(scanCallback)
+    } catch (_: Exception) {
+    }
+    try {
+      scanner.startScan(filters(), scanSettings(), scanCallback)
+      scanning = true
+      scanTries = 0
+    } catch (_: Exception) {
+      scanning = false
+      scheduleScan(gen)
+    }
+  }
+
+  private fun scheduleScan(gen: Int) {
+    if (gen != session) return
+    scanTries += 1
+    if (scanTries > 12) return
+    val delay = when {
+      scanTries <= 1 -> 400L
+      scanTries == 2 -> 1500L
+      else -> 5000L
+    }
+    handler.postDelayed({ beginScan(gen) }, delay)
+  }
+
+  private fun beginAdvertise(gen: Int) {
+    if (gen != session || eph.size != 16) return
+    val radio = adapter()
+    val advertiser = radio?.bluetoothLeAdvertiser
+    if (radio == null || !radio.isEnabled || advertiser == null) {
+      scheduleAdvertise(gen)
+      return
+    }
+    try {
+      advertiser.stopAdvertising(advertiseCallback)
+    } catch (_: Exception) {
+    }
+    advertising = false
+    try {
+      advertiser.startAdvertising(advertiseSettings(), advertiseData(), advertiseCallback)
+    } catch (_: Exception) {
+      scheduleAdvertise(gen)
+    }
+  }
+
+  private fun restartAdvertise(gen: Int) {
+    advertiseTries = 0
+    beginAdvertise(gen)
+  }
+
+  private fun scheduleAdvertise(gen: Int) {
+    if (gen != session) return
+    advertiseTries += 1
+    if (advertiseTries >= 2) compact = true
+    if (advertiseTries > 12) return
+    val delay = when {
+      advertiseTries <= 1 -> 400L
+      advertiseTries == 2 -> 1500L
+      else -> 5000L
+    }
+    handler.postDelayed({ beginAdvertise(gen) }, delay)
+  }
+
+  private fun filters(): List<ScanFilter> = listOf(
+    ScanFilter.Builder().setServiceUuid(shortUuid).build(),
+    ScanFilter.Builder().setServiceUuid(legacyUuid).build(),
+    ScanFilter.Builder().setManufacturerData(MANUFACTURER_ID, byteArrayOf(0), byteArrayOf(0)).build(),
+  )
+
+  private fun scanSettings(): ScanSettings = ScanSettings.Builder()
+    .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+    .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+    .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+    .setReportDelay(0)
+    .build()
+
   private fun advertiseSettings() = AdvertiseSettings.Builder()
-    .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
-    .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
-    .setConnectable(true)
+    .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+    .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+    .setConnectable(connectable)
+    .setTimeout(0)
     .build()
 
-  /** Service UUID only. A 16-byte id plus this UUID does not fit in one advert, so the id is read from the characteristic. */
-  private fun advertiseData() = AdvertiseData.Builder()
-    .addServiceUuid(serviceUuid)
-    .setIncludeDeviceName(false)
-    .setIncludeTxPowerLevel(false)
-    .build()
-
-  private fun openServer() {
-    val server = manager()?.openGattServer(context, serverCallback) ?: return
-    val service = BluetoothGattService(serviceId, BluetoothGattService.SERVICE_TYPE_PRIMARY)
-    val ch = BluetoothGattCharacteristic(
-      charId,
-      BluetoothGattCharacteristic.PROPERTY_READ,
-      BluetoothGattCharacteristic.PERMISSION_READ,
-    )
-    ch.value = eph
-    service.addCharacteristic(ch)
-    server.addService(service)
-    gattServer = server
-    characteristic = ch
+  /** 16-bit UUID plus the 16-byte id fits in one advert, so a connection is never required. */
+  private fun advertiseData(): AdvertiseData {
+    val data = AdvertiseData.Builder()
+      .setIncludeDeviceName(false)
+      .setIncludeTxPowerLevel(false)
+    data.addManufacturerData(MANUFACTURER_ID, eph)
+    if (!compact) data.addServiceUuid(shortUuid)
+    return data.build()
   }
 
   private fun stopInternal() {
-    if (advertiser != null) advertiser?.stopAdvertising(advertiseCallback)
-    if (scanning) scanner?.stopScan(scanCallback)
-    gattServer?.close()
-    gattServer = null
-    characteristic = null
+    session += 1
+    handler.removeCallbacksAndMessages(null)
+    val radio = adapter()
+    try {
+      radio?.bluetoothLeAdvertiser?.stopAdvertising(advertiseCallback)
+    } catch (_: Exception) {
+    }
+    try {
+      if (scanning) radio?.bluetoothLeScanner?.stopScan(scanCallback)
+    } catch (_: Exception) {
+    }
     advertising = false
     scanning = false
-    reading.clear()
+    scanTries = 0
+    advertiseTries = 0
+    compact = false
+    connectable = false
+    seenAt.clear()
   }
 
-  private fun finishRead(gatt: BluetoothGatt, value: ByteArray?, status: Int, address: String, rssi: Int) {
-    if (!reading.remove(address)) return
-    if (status == BluetoothGatt.GATT_SUCCESS && value != null) emit(value, rssi)
-    gatt.close()
+  private fun payloadOf(result: ScanResult): ByteArray? {
+    val record = result.scanRecord ?: return null
+    val service = record.getServiceData(shortUuid)
+    if (service != null && service.size == 16) return service
+    val maker = record.getManufacturerSpecificData(MANUFACTURER_ID)
+    if (maker != null && maker.size == 16) return maker
+    val name = record.deviceName
+    if (!name.isNullOrEmpty()) {
+      val named = decode(name)
+      if (named != null && named.size == 16) return named
+    }
+    return null
   }
 
   private fun emit(bytes: ByteArray, rssi: Int) {
-    if (bytes.size != 16) return
+    if (bytes.size != 16 || bytes.contentEquals(eph)) return
+    val encoded = encode(bytes)
+    val now = android.os.SystemClock.elapsedRealtime()
+    val previous = seenAt[encoded]
+    if (previous != null && now - previous < 1000L) return
+    seenAt[encoded] = now
     val payload = Arguments.createMap()
-    payload.putString("ephId", encode(bytes))
+    payload.putString("ephId", encoded)
     payload.putInt("rssi", rssi)
     context
       .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
@@ -181,61 +323,34 @@ class NearbyBleModule(private val context: ReactApplicationContext) : ReactConte
   private val advertiseCallback = object : AdvertiseCallback() {
     override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
       advertising = true
+      advertiseTries = 0
     }
+
     override fun onStartFailure(errorCode: Int) {
       advertising = false
-    }
-  }
-
-  private val serverCallback = object : BluetoothGattServerCallback() {
-    override fun onCharacteristicReadRequest(
-      device: BluetoothDevice,
-      requestId: Int,
-      offset: Int,
-      characteristic: BluetoothGattCharacteristic,
-    ) {
-      val value = if (offset == 0) eph else eph.copyOfRange(offset.coerceAtMost(eph.size), eph.size)
-      gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
+      val gen = session
+      if (errorCode == ADVERTISE_FAILED_ALREADY_STARTED) return
+      if (errorCode == ADVERTISE_FAILED_DATA_TOO_LARGE) compact = true
+      if (errorCode == ADVERTISE_FAILED_FEATURE_UNSUPPORTED) connectable = true
+      handler.post { scheduleAdvertise(gen) }
     }
   }
 
   private val scanCallback = object : ScanCallback() {
     override fun onScanResult(callbackType: Int, result: ScanResult) {
-      val inline = result.scanRecord?.getServiceData(serviceUuid)
-      if (inline != null && inline.size == 16) {
-        emit(inline, result.rssi)
-        return
-      }
-      val address = result.device.address ?: return
-      if (!reading.add(address)) return
-      result.device.connectGatt(context, false, object : BluetoothGattCallback() {
-        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-          if (newState == BluetoothProfile.STATE_CONNECTED) gatt.discoverServices()
-          else {
-            reading.remove(address)
-            gatt.close()
-          }
-        }
-        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-          val ch = gatt.getService(serviceId)?.getCharacteristic(charId)
-          if (ch == null || !gatt.readCharacteristic(ch)) {
-            reading.remove(address)
-            gatt.close()
-          }
-        }
-        override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
-          finishRead(gatt, characteristic.value, status, address, result.rssi)
-        }
+      val bytes = payloadOf(result) ?: return
+      emit(bytes, result.rssi)
+    }
 
-        override fun onCharacteristicRead(
-          gatt: BluetoothGatt,
-          characteristic: BluetoothGattCharacteristic,
-          value: ByteArray,
-          status: Int,
-        ) {
-          finishRead(gatt, value, status, address, result.rssi)
-        }
-      }, BluetoothDevice.TRANSPORT_LE)
+    override fun onBatchScanResults(results: MutableList<ScanResult>) {
+      for (result in results) onScanResult(ScanSettings.CALLBACK_TYPE_ALL_MATCHES, result)
+    }
+
+    override fun onScanFailed(errorCode: Int) {
+      scanning = false
+      val gen = session
+      if (errorCode == SCAN_FAILED_ALREADY_STARTED) return
+      handler.post { scheduleScan(gen) }
     }
   }
 
@@ -250,5 +365,6 @@ class NearbyBleModule(private val context: ReactApplicationContext) : ReactConte
 
   companion object {
     const val NAME = "NearbyBle"
+    private const val MANUFACTURER_ID = 0x4E58
   }
 }
