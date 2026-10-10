@@ -59,6 +59,11 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+		<string>bluetooth-peripheral</string>
+	</array>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Nexity uses Bluetooth to find people nearby who also turned on Nearby. Your location is never shown.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>

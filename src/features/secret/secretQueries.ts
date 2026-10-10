@@ -16,6 +16,7 @@ export const secretKeys = {
   subscription: ['subscription'] as const,
   plans: ['plans'] as const,
   nearby: ['nearby', 'settings'] as const,
+  nearbyUsers: ['nearby', 'users'] as const,
 };
 
 export const useSubscription = () =>
@@ -61,6 +62,14 @@ export const useNearbySettings = (enabled = true) =>
   useQuery({
     queryKey: secretKeys.nearby,
     queryFn: enabled ? nearbyApi.settings : skipToken,
+  });
+
+export const useNearbyPeople = (enabled: boolean) =>
+  useQuery({
+    queryKey: secretKeys.nearbyUsers,
+    queryFn: enabled ? nearbyApi.nearbyUsers : skipToken,
+    refetchInterval: enabled ? 8000 : false,
+    staleTime: 0,
   });
 
 export function refreshSecret() {

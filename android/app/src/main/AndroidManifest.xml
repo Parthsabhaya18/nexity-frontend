@@ -22,8 +22,9 @@
     <!-- Added by react-native-blob-util; uploads only use the app cache, which needs none. -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
     <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" tools:node="remove" />
-    <!-- Added by react-native-nitro-geolocation's background module; Nearby only reads location in the foreground. -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <!-- Nearby Bluetooth keeps a connected-device notification so discovery continues after you leave Nexity. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" tools:node="remove" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />
@@ -62,6 +63,11 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
+      <service
+        android:name=".NearbyBleService"
+        android:exported="false"
+        android:foregroundServiceType="connectedDevice"
+        android:stopWithTask="false" />
       <service android:name="com.margelo.nitro.nitrogeolocation.background.NitroBackgroundLocationService" tools:node="remove" />
       <service android:name="com.margelo.nitro.nitrogeolocation.background.NitroBackgroundHeadlessTaskService" tools:node="remove" />
       <service android:name="com.margelo.nitro.nitrogeolocation.background.NitroBootRestoreJobService" tools:node="remove" />
