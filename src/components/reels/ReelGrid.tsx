@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Clapperboard } from 'lucide-react-native';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Video, { type VideoRef } from 'react-native-video';
+import { createVideoThumbnail } from 'react-native-compressor';
 
 import { PostGridSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { focusReel } from '@/features/reels/reelFocus';
@@ -20,30 +20,57 @@ import { reelsApi } from '@/services/api/reels';
 import { useAppTheme } from '@/theme';
 
 const GAP = 2;
+const thumbs = new Map<string, string>();
+
+function thumbUri(path: string) {
+  if (
+    path.startsWith('file://') ||
+    path.startsWith('content://') ||
+    path.startsWith('http')
+  ) {
+    return path;
+  }
+  return `file://${path}`;
+}
 
 export function ReelCover({ reel }: { reel: Reel }) {
-  const video = useRef<VideoRef>(null);
-  if (reel.cover_url) {
+  const { colors } = useAppTheme();
+  const [uri, setUri] = useState<string | null>(
+    reel.cover_url || thumbs.get(reel.video_url) || null,
+  );
+
+  useEffect(() => {
+    if (reel.cover_url) {
+      setUri(reel.cover_url);
+      return;
+    }
+    const cached = thumbs.get(reel.video_url);
+    if (cached) {
+      setUri(cached);
+      return;
+    }
+    let live = true;
+    createVideoThumbnail(reel.video_url)
+      .then(result => {
+        const next = thumbUri(result.path);
+        thumbs.set(reel.video_url, next);
+        if (live) setUri(next);
+      })
+      .catch(() => {
+        if (live) setUri(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [reel.cover_url, reel.video_url]);
+
+  if (!uri) {
     return (
-      <Image
-        source={{ uri: reel.cover_url }}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surfaceAlt }]} />
     );
   }
   return (
-    <Video
-      ref={video}
-      source={{ uri: reel.video_url }}
-      style={StyleSheet.absoluteFill}
-      resizeMode="cover"
-      paused
-      muted
-      onLoad={() => {
-        if (reel.cover_time_ms) video.current?.seek(reel.cover_time_ms / 1000);
-      }}
-    />
+    <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
   );
 }
 
@@ -119,7 +146,7 @@ export function ReelGrid({
 
 const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
-  tile: {},
+  tile: { overflow: 'hidden' },
   shade: {
     position: 'absolute',
     left: 6,

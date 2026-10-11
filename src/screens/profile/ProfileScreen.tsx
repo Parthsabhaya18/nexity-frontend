@@ -22,6 +22,7 @@ import {
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { AvatarPreview } from '@/components/profile/AvatarPreview';
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { ShareSheet } from '@/components/share/ShareSheet';
 import {
   Stat,
@@ -38,6 +39,7 @@ import { ReelGrid } from '@/components/reels/ReelGrid';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSubscription } from '@/features/secret/secretQueries';
 import { profileLink } from '@/features/profile/schemas';
 import { postsApi } from '@/services/api/posts';
 import type { ScreenProps } from '@/navigation/types';
@@ -49,6 +51,9 @@ type ProfileTab = (typeof PROFILE_TABS)[number];
 
 export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
   const { user, refreshUser } = useAuth();
+  const subscription = useSubscription();
+  const plan =
+    subscription.data?.status === 'active' ? subscription.data.plan : null;
   const { colors } = useAppTheme();
   const [tab, setTab] = useState<ProfileTab>('posts');
   const [refreshing, setRefreshing] = useState(false);
@@ -117,6 +122,7 @@ export function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
             >
               {user.username}
             </Text>
+            <PlanBadge plan={plan} />
           </View>
         }
         actions={

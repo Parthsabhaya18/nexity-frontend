@@ -24,6 +24,8 @@ export interface Comment {
     avatar_url: string | null;
   } | null;
   created_at: string;
+  likes_count: number;
+  liked_by_me: boolean;
   replies: Comment[];
 }
 
@@ -225,6 +227,22 @@ export const postsApi = {
 
   async deleteComment(id: string) {
     await apiClient.delete(`/comments/${id}`);
+  },
+
+  async setCommentLike(id: string, liked: boolean) {
+    const { data } = await apiClient.request<{ liked: boolean; likes_count: number }>({
+      url: `/comments/${id}/like`,
+      method: liked ? 'PUT' : 'DELETE',
+    });
+    return data;
+  },
+
+  async likers(id: string, cursor?: string | null, signal?: AbortSignal) {
+    const { data } = await apiClient.get<Page<UserSummary>>(`/posts/${id}/likers`, {
+      params: cursor ? { cursor } : {},
+      signal,
+    });
+    return data;
   },
 
   async searchPlaces(q: string, signal?: AbortSignal) {

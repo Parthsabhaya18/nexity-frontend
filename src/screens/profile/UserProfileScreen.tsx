@@ -28,6 +28,7 @@ import {
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { FollowButton } from '@/components/follows/FollowButton';
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { AvatarPreview } from '@/components/profile/AvatarPreview';
 import {
   Stat,
@@ -133,7 +134,20 @@ export function UserProfileScreen({
   const header = (
     <AppBar
       back
-      title={username}
+      title={load.state === 'ready' ? undefined : username}
+      left={
+        load.state === 'ready' ? (
+          <View style={styles.nameRow}>
+            <Text
+              style={{ color: colors.text, fontSize: 19, fontWeight: '800' }}
+              numberOfLines={1}
+            >
+              {load.profile.username}
+            </Text>
+            <PlanBadge plan={load.profile.plan_badge} />
+          </View>
+        ) : undefined
+      }
       actions={
         load.state === 'ready' ? <MoreMenu profile={load.profile} /> : undefined
       }
@@ -288,6 +302,7 @@ function ProfileBody({ profile }: { profile: Profile }) {
             <Text style={[styles.name, { color: colors.text }]}>
               {profile.display_name}
             </Text>
+            <PlanBadge plan={profile.plan_badge} />
             {profile.is_private ? (
               <Lock size={14} color={colors.textSecondary} strokeWidth={2.4} />
             ) : null}

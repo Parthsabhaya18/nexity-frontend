@@ -32,6 +32,8 @@ export interface Profile {
   muted?: boolean;
   /** False for a private account the viewer doesn't follow. */
   can_view_content: boolean;
+  /** Active paid plan. Null on Free. */
+  plan_badge?: 'plus' | 'premium' | null;
 }
 
 export interface Page<T> {
