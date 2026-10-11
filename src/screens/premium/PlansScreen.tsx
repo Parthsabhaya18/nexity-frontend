@@ -251,11 +251,6 @@ export function PlansScreen({ navigation, route }: ScreenProps<'Plans'>) {
                       </>
                     ) : null}
                   </View>
-                  {monthly ? (
-                    <Text style={[styles.yearly, { color: colors.textSecondary }]}>
-                      or {inr(plan.pricing.yearly.per_month_paise)}/mo billed yearly (save {plan.pricing.yearly.save_pct}%)
-                    </Text>
-                  ) : null}
                   {plan.features.map(f => (
                     <View key={f} style={styles.feature}>
                       <Check size={16} color={colors.success} strokeWidth={2.6} />
@@ -409,7 +404,6 @@ const styles = StyleSheet.create({
   mrp: { fontSize: 13, textDecorationLine: 'line-through', marginLeft: 6 },
   save: { borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2, marginLeft: 6 },
   saveText: { fontSize: 11.5, fontWeight: '800' },
-  yearly: { fontSize: 12.5, marginTop: -4 },
   feature: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   featureText: { flex: 1, fontSize: 14, lineHeight: 20 },
   off: { textDecorationLine: 'line-through' },

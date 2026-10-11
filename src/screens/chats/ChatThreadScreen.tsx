@@ -73,6 +73,7 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { useKeyboardVisible } from '@/components/chat/useKeyboardVisible';
 import { useNow } from '@/components/chat/useNow';
 import { FloatingHearts } from '@/components/celebration/Celebration';
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -619,6 +620,7 @@ function ChatThreadContent({
               >
                 {peer?.display_name ?? 'Chat'}
               </Text>
+              <PlanBadge plan={peer?.plan_badge} />
               {love ? (
                 <Text
                   style={[
@@ -751,9 +753,12 @@ function ChatThreadContent({
                       name={peer.display_name}
                       size={76}
                     />
-                    <Text style={[styles.introName, { color: colors.text }]}>
-                      {peer.display_name}
-                    </Text>
+                    <View style={styles.headNameRow}>
+                      <Text style={[styles.introName, { color: colors.text }]}>
+                        {peer.display_name}
+                      </Text>
+                      <PlanBadge plan={peer.plan_badge} />
+                    </View>
                     <Text
                       style={[
                         styles.introMeta,

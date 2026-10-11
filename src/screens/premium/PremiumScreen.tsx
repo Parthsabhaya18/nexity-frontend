@@ -7,7 +7,6 @@ import {
   Ellipsis,
   Heart,
   Inbox,
-  Infinity as InfinityIcon,
   Lock,
   Mail,
   MailOpen,
@@ -42,6 +41,7 @@ import {
   PlanPill,
   Tile,
 } from '@/components/secret/SecretUI';
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { AppBar } from '@/components/ui/AppBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -287,9 +287,12 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
           <AvatarBadge kind="check" />
         </View>
         <View style={styles.rowBody}>
-          <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
-            {u?.display_name ?? 'Nexity user'}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
+              {u?.display_name ?? 'Nexity user'}
+            </Text>
+            <PlanBadge plan={u?.plan_badge} />
+          </View>
           <Text style={[styles.rowSub, { color: colors.textSecondary }]}>
             Unsealed · now a chat
           </Text>
@@ -360,9 +363,12 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
           <AvatarBadge kind={revealed ? 'check' : 'mask'} />
         </View>
         <View style={styles.rowBody}>
-          <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
-            To {u?.display_name ?? 'Nexity user'}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
+              To {u?.display_name ?? 'Nexity user'}
+            </Text>
+            <PlanBadge plan={u?.plan_badge} />
+          </View>
           <Text
             style={[
               styles.rowSub,
@@ -573,9 +579,9 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
         <View
           style={[styles.usage, { backgroundColor: colors.surface, borderColor: colors.border }]}
         >
-          <Tile size={40}>
-            <InfinityIcon size={22} color={colors.primary} />
-          </Tile>
+          <View style={[styles.unlimitedMark, { backgroundColor: colors.primarySoft }]}>
+            <Text style={[styles.unlimitedText, { color: colors.primary }]}>Unlimited</Text>
+          </View>
           <View style={styles.rowBody}>
             <Text style={[styles.rowTitle, { color: colors.text }]}>
               Unlimited Secret Messages with Premium
@@ -998,7 +1004,8 @@ const styles = StyleSheet.create({
   },
   lockedMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowBody: { flex: 1, minWidth: 0 },
-  rowTitle: { fontSize: 15, fontWeight: '700' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  rowTitle: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
   rowSub: { fontSize: 13, marginTop: 2 },
   rowSide: { alignItems: 'flex-end', gap: 6 },
   day: { fontSize: 12 },
@@ -1025,6 +1032,14 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headTitle: { fontSize: 15, fontWeight: '800' },
   headCount: { fontSize: 13, fontWeight: '700' },
+  unlimitedMark: {
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unlimitedText: { fontSize: 12, fontWeight: '800' },
   usage: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -9,6 +9,7 @@ export type ChatPeer = {
   username: string;
   display_name: string;
   avatar_url?: string | null;
+  plan_badge?: 'plus' | 'premium' | null;
 };
 
 export type ChatKind = 'normal' | 'match' | 'revealed';

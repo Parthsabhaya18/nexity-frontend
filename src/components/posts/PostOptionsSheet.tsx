@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { SheetScrollView } from '@/components/ui/sheetDrag';
 import { Button } from '@/components/ui/Button';
 import { CAPTION_MAX } from '@/features/posts/caption';
 import { emitPostEvent } from '@/features/posts/postEvents';
@@ -49,6 +50,7 @@ const errorText = (err: unknown) =>
 export function PostOptionsSheet({ target, onClose, onDeleted }: Props) {
   const { colors } = useAppTheme();
   const [mode, setMode] = useState<'menu' | 'edit' | null>(null);
+  const editRef = useRef<ScrollView>(null);
   // Keep the last target while the sheet slides away.
   const last = useRef<OptionsTarget | null>(target);
   if (target) last.current = target;
@@ -216,7 +218,8 @@ export function PostOptionsSheet({ target, onClose, onDeleted }: Props) {
         <Text style={[styles.title, { color: colors.text }]}>
           Edit description
         </Text>
-        <ScrollView
+        <SheetScrollView
+          listRef={editRef}
           keyboardShouldPersistTaps="handled"
           style={styles.editScroll}
           contentContainerStyle={styles.edit}
@@ -229,7 +232,7 @@ export function PostOptionsSheet({ target, onClose, onDeleted }: Props) {
             maxLength={CAPTION_MAX}
             accessibilityLabel="Description"
           />
-        </ScrollView>
+        </SheetScrollView>
         {editError ? (
           <Text style={[styles.error, { color: colors.danger }]}>{editError}</Text>
         ) : null}

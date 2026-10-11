@@ -257,6 +257,20 @@ export function GallerySheet({
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const mediaRef = useRef<FlatList<Media>>(null);
+  const albumRef = useRef<FlatList<AlbumOption>>(null);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const listAtTop = useRef(true);
+  const dragging = useRef(false);
+  const [canScroll, setCanScroll] = useState(false);
+  const onListScroll = (y: number) => {
+    const top = y <= 1;
+    listAtTop.current = top;
+    if (dragging.current) return;
+    const allow = geometry.current.snap === 'expanded' && !top;
+    setCanScroll(prev => (prev === allow ? prev : allow));
+  };
   const pan = useMemo(() => {
     let start = 0;
     const clamp = (v: number) => Math.min(Math.max(v, 0), geometry.current.full);
@@ -267,17 +281,47 @@ export function GallerySheet({
       else animateTo(next);
     };
     return PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+      onMoveShouldSetPanResponderCapture: (_, g) => {
+        const vertical = Math.abs(g.dy) > 4 && Math.abs(g.dy) > Math.abs(g.dx);
+        if (!vertical) return false;
+        return geometry.current.snap !== 'expanded' || listAtTop.current;
+      },
+      onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
+        dragging.current = true;
         translate.stopAnimation();
         const { snap: s, collapsedY: c } = geometry.current;
         start = s === 'expanded' ? 0 : c;
       },
-      onPanResponderMove: (_, g) => translate.setValue(clamp(start + g.dy)),
-      onPanResponderRelease: (_, g) => settle(g.dy, g.vy),
-      onPanResponderTerminate: (_, g) => settle(g.dy, g.vy),
+      onPanResponderMove: (_, g) => {
+        if (geometry.current.snap === 'expanded' && g.dy < 0) {
+          const y = -g.dy;
+          const list = viewRef.current === 'albums' ? albumRef.current : mediaRef.current;
+          list?.scrollToOffset({ offset: y, animated: false });
+          listAtTop.current = y <= 1;
+          return;
+        }
+        translate.setValue(clamp(start + g.dy));
+      },
+      onPanResponderRelease: (_, g) => {
+        dragging.current = false;
+        if (geometry.current.snap === 'expanded' && g.dy < 0) {
+          setCanScroll(listAtTop.current === false);
+          return;
+        }
+        settle(g.dy, g.vy);
+      },
+      onPanResponderTerminate: (_, g) => {
+        dragging.current = false;
+        if (geometry.current.snap === 'expanded' && g.dy < 0) return;
+        settle(g.dy, g.vy);
+      },
     });
   }, [animateTo, translate]);
+
+  useEffect(() => {
+    if (snap !== 'expanded') setCanScroll(false);
+  }, [snap]);
 
   const footerShift = useMemo(() => Animated.multiply(translate, -1), [translate]);
 
@@ -449,7 +493,13 @@ export function GallerySheet({
     body = (
       <FlatList
         key="albums"
+        ref={albumRef}
         data={albums ?? []}
+        scrollEnabled={canScroll}
+        bounces={false}
+        overScrollMode="never"
+        scrollEventThrottle={16}
+        onScroll={e => onListScroll(e.nativeEvent.contentOffset.y)}
         keyExtractor={a => a.key}
         numColumns={COLUMNS}
         columnWrapperStyle={styles.albumRow}
@@ -515,7 +565,13 @@ export function GallerySheet({
     body = (
       <FlatList
         key="media"
+        ref={mediaRef}
         data={items}
+        scrollEnabled={canScroll}
+        bounces={false}
+        overScrollMode="never"
+        scrollEventThrottle={16}
+        onScroll={e => onListScroll(e.nativeEvent.contentOffset.y)}
         keyExtractor={p => p.id}
         numColumns={COLUMNS}
         columnWrapperStyle={styles.gridRow}
@@ -591,12 +647,13 @@ export function GallerySheet({
       onLayout={e => setFull(Math.round(e.nativeEvent.layout.height))}
     >
       <Animated.View
+        {...pan.panHandlers}
         style={[
           styles.sheet,
           { backgroundColor: colors.background, transform: [{ translateY: translate }] },
         ]}
       >
-        <View {...pan.panHandlers} style={styles.header}>
+        <View style={styles.header}>
           <Pressable
             onPress={() => animateTo(snap === 'expanded' ? 'collapsed' : 'expanded')}
             hitSlop={10}

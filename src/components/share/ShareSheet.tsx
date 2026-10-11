@@ -8,13 +8,12 @@ import {
   Search,
   Share2,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Keyboard,
   LayoutAnimation,
   Linking,
-  PanResponder,
   Platform,
   Pressable,
   Share,
@@ -27,9 +26,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import { PeopleGridSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { SheetFlatList, SheetHandle } from '@/components/ui/sheetDrag';
 import { Button } from '@/components/ui/Button';
 import { showToast } from '@/components/ui/Toast';
 import { errorText } from '@/features/entities/optimistic';
@@ -64,10 +65,6 @@ const HEADER_HEIGHT = 84;
 const FOOTER_HEIGHT = 112;
 const SEARCH_DEBOUNCE_MS = 250;
 const WHATSAPP = '#25D366';
-const DRAG = 12;
-/** Handle + search row, measured from the top of the sheet. */
-const GRAB_HEIGHT = 76;
-const FLING = 0.5;
 const COPIED_MS = 3000;
 
 /** WhatsApp's logo (white phone in a speech bubble). */
@@ -168,33 +165,7 @@ export function ShareSheet({
       : Math.min(collapsedHeight, height - insets.top - spacing.sm);
   const keyboardInset = Math.max(0, keyboard - insets.bottom - spacing.sm);
 
-  const listOffset = useRef(0);
-  const latest = useRef({ expanded, resize, onClose, sheetTop: height - sheetHeight });
-  latest.current = { expanded, resize, onClose, sheetTop: height - sheetHeight };
-  const drag = useMemo(
-    () =>
-      PanResponder.create({
-        // Capture so the drag wins over the people list, the search box and the buttons.
-        onMoveShouldSetPanResponderCapture: (evt, g) => {
-          if (Math.abs(g.dy) <= DRAG || Math.abs(g.dy) <= Math.abs(g.dx)) return false;
-          const now = latest.current;
-          if (!now.expanded) return true;
-          // Full height: the list scrolls, so only pull down from its top or from the handle/search.
-          const onGrab = evt.nativeEvent.pageY - now.sheetTop < GRAB_HEIGHT;
-          return g.dy > 0 && (onGrab || listOffset.current <= 0);
-        },
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderRelease: (_, g) => {
-          const now = latest.current;
-          if (g.dy < -DRAG * 2 || g.vy < -FLING) now.resize(true);
-          else if (g.dy > DRAG * 3 || g.vy > FLING) {
-            if (now.expanded) now.resize(false);
-            else now.onClose();
-          }
-        },
-      }),
-    [],
-  );
+  const listRef = useRef<FlatList<ChatUser>>(null);
 
   useEffect(() => () => clearTimeout(copiedTimer.current), []);
   useEffect(() => {
@@ -293,11 +264,19 @@ export function ShareSheet({
       onClose={onClose}
       hideHandle
       style={{ height: sheetHeight }}
+      contentScrolls={expanded}
+      onDragDown={() => {
+        if (expanded || keyboard > 0) {
+          Keyboard.dismiss();
+          resize(false);
+        } else onClose();
+      }}
+      onDragUp={() => resize(true)}
     >
-      <View style={[styles.fill, { paddingBottom: keyboardInset }]} {...drag.panHandlers}>
-        <View style={styles.handleZone}>
+      <View style={[styles.fill, { paddingBottom: keyboardInset }]}>
+        <SheetHandle style={styles.handleZone}>
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
-        </View>
+        </SheetHandle>
         <View style={styles.searchRow}>
           <View style={[styles.search, { backgroundColor: colors.inputBackground }]}>
             <Search size={18} color={colors.textSecondary} />
@@ -318,15 +297,11 @@ export function ShareSheet({
         {people === null ? (
           <PeopleGridSkeleton avatar={AVATAR} rowHeight={ROW_HEIGHT} />
         ) : (
-          <FlatList
+          <SheetFlatList
+            listRef={listRef}
             data={people}
             keyExtractor={u => u.id}
             numColumns={3}
-            scrollEnabled={expanded}
-            onScroll={e => {
-              listOffset.current = e.nativeEvent.contentOffset.y;
-            }}
-            scrollEventThrottle={16}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.grid}
             ListEmptyComponent={
@@ -357,9 +332,12 @@ export function ShareSheet({
                       </View>
                     ) : null}
                   </View>
-                  <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>
-                    {item.display_name}
-                  </Text>
+                  <View style={styles.nameRow}>
+                    <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>
+                      {item.display_name}
+                    </Text>
+                    <PlanBadge plan={item.plan_badge} />
+                  </View>
                 </Pressable>
               );
             }}
@@ -443,7 +421,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  name: { fontSize: 12.5, textAlign: 'center', paddingHorizontal: 4 },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingHorizontal: 2,
+  },
+  name: { fontSize: 12.5, textAlign: 'center', flexShrink: 1 },
   empty: { textAlign: 'center', marginTop: spacing.lg, paddingHorizontal: spacing.lg },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.sm },
   actions: {

@@ -2,6 +2,7 @@ import { ChevronRight, CloudOff, Heart, Users, VenetianMask, X } from 'lucide-re
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { AppBar } from '@/components/ui/AppBar';
 import { Avatar } from '@/components/ui/Avatar';
@@ -165,9 +166,12 @@ export function SecretPeoplePickerScreen({
             >
               <Avatar uri={item.avatar_url} name={item.display_name} size={46} />
               <View style={styles.rowText}>
-                <Text style={[styles.username, { color: colors.text }]} numberOfLines={1}>
-                  {item.username}
-                </Text>
+                <View style={styles.nameRow}>
+                  <Text style={[styles.username, { color: colors.text }]} numberOfLines={1}>
+                    {item.username}
+                  </Text>
+                  <PlanBadge plan={item.plan_badge} />
+                </View>
                 <Text style={[styles.name, { color: colors.textSecondary }]} numberOfLines={1}>
                   {item.display_name}
                 </Text>
@@ -236,7 +240,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   rowText: { flex: 1, minWidth: 0 },
-  username: { fontSize: 15, fontWeight: '700' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  username: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
   name: { fontSize: 13, marginTop: 1 },
   tag: { borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 3 },
   tagText: { fontSize: 11.5, fontWeight: '800' },

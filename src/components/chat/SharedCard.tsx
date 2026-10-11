@@ -2,6 +2,7 @@ import { Clapperboard, Lock, Play } from 'lucide-react-native';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Video from 'react-native-video';
 
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import type { SharedRef } from '@/services/api/chat';
 import { useAppTheme } from '@/theme';
@@ -59,9 +60,12 @@ export function SharedCard({ shared, failed }: { shared: SharedRef; failed?: boo
         <View style={styles.profileHeader}>
           <Avatar uri={shared.author.avatar_url} name={shared.author.username} size={40} />
           <View style={styles.profileNames}>
-            <Text style={[styles.username, { color: colors.text }]} numberOfLines={1}>
-              {shared.author.username}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text style={[styles.username, { color: colors.text }]} numberOfLines={1}>
+                {shared.author.username}
+              </Text>
+              <PlanBadge plan={shared.author.plan_badge} />
+            </View>
             {profile?.display_name ? (
               <Text style={[styles.displayName, { color: colors.textSecondary }]} numberOfLines={1}>
                 {profile.display_name}
@@ -161,6 +165,7 @@ export function SharedCard({ shared, failed }: { shared: SharedRef; failed?: boo
 const styles = StyleSheet.create({
   failed: { opacity: 0.75 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   username: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
   light: { color: '#FFFFFF' },
   post: { width: POST_WIDTH, borderRadius: 18, overflow: 'hidden' },

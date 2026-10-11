@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SheetScrollProvider, useSheetDrag, useSheetHandle } from '@/components/ui/sheetDrag';
 import { radius, spacing, useAppTheme } from '@/theme';
 
 type Props = {
@@ -24,6 +25,17 @@ type Props = {
   style?: ViewStyle;
   /** Hide the grab handle when the content draws its own (e.g. to make it draggable). */
   hideHandle?: boolean;
+  /**
+   * Inner list offset. A downward drag closes only while this is at the top,
+   * so a scrolled list can still move back up.
+   */
+  scrollOffset?: RefObject<number>;
+  /** False when the inner list is not scrolling (a half-open share sheet). */
+  contentScrolls?: boolean;
+  /** Downward drag from the top. Defaults to `onClose`. Share uses this to drop to half. */
+  onDragDown?: () => void;
+  /** Upward drag while the sheet is not full. Share uses this to open fully. */
+  onDragUp?: () => void;
 };
 
 /**
@@ -37,6 +49,9 @@ export function BottomSheet({
   avoidKeyboard,
   style,
   hideHandle,
+  contentScrolls = true,
+  onDragDown,
+  onDragUp,
 }: Props) {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -69,6 +84,11 @@ export function BottomSheet({
     inputRange: [0, 1],
     outputRange: [height * 0.5, 0],
   });
+  const drag = useSheetDrag({ onClose, onDragDown, onDragUp, contentScrolls });
+  const shift = Animated.add(translateY, drag.dragY);
+  useEffect(() => {
+    if (visible) drag.dragY.setValue(0);
+  }, [visible, drag.dragY]);
 
   const Wrapper = avoidKeyboard ? KeyboardAvoidingView : View;
 
@@ -100,23 +120,33 @@ export function BottomSheet({
         style={styles.anchor}
       >
         <Animated.View
+          {...drag.panHandlers}
           style={[
             styles.sheet,
             {
               backgroundColor: colors.surfaceElevated,
               paddingBottom: insets.bottom + spacing.sm,
-              transform: [{ translateY }],
+              transform: [{ translateY: shift }],
             },
             style,
           ]}
         >
-          {hideHandle ? null : (
-            <View style={[styles.handle, { backgroundColor: colors.border }]} />
-          )}
-          {children}
+          <SheetScrollProvider value={drag.value}>
+            {hideHandle ? null : <SheetHandle color={colors.border} />}
+            {children}
+          </SheetScrollProvider>
         </Animated.View>
       </Wrapper>
     </Modal>
+  );
+}
+
+function SheetHandle({ color }: { color: string }) {
+  const handle = useSheetHandle();
+  return (
+    <View {...handle} style={styles.handleZone}>
+      <View style={[styles.handle, { backgroundColor: color }]} />
+    </View>
   );
 }
 
@@ -128,11 +158,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.lg,
     paddingTop: spacing.sm,
   },
+  handleZone: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: spacing.sm },
   handle: {
-    alignSelf: 'center',
     width: 36,
     height: 4,
     borderRadius: 2,
-    marginBottom: spacing.sm,
   },
 });

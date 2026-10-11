@@ -28,6 +28,8 @@ import { type GifItem, type GifKind, chatApi } from '@/services/api/chat';
 import { ApiError } from '@/services/api/client';
 import { radius, useAppTheme } from '@/theme';
 
+import { SheetScrollView } from '@/components/ui/sheetDrag';
+
 import { BottomSheet } from './BottomSheet';
 
 const SEARCH_DEBOUNCE_MS = 350;
@@ -211,13 +213,12 @@ export function GifSheet({ visible, onClose, onPick }: Props) {
             />
           </View>
         ) : (
-          <ScrollView
-            ref={scroller}
+          <SheetScrollView
+            listRef={scroller}
             contentContainerStyle={styles.grid}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             onScroll={onScroll}
-            scrollEventThrottle={100}
           >
             {kind === 'sticker' ? (
               <View style={styles.stickerGrid}>
@@ -260,7 +261,7 @@ export function GifSheet({ visible, onClose, onPick }: Props) {
             <Text style={[styles.attribution, { color: colors.textSecondary }]}>
               Powered by GIPHY
             </Text>
-          </ScrollView>
+          </SheetScrollView>
         )}
       </View>
 

@@ -302,7 +302,6 @@ function ProfileBody({ profile }: { profile: Profile }) {
             <Text style={[styles.name, { color: colors.text }]}>
               {profile.display_name}
             </Text>
-            <PlanBadge plan={profile.plan_badge} />
             {profile.is_private ? (
               <Lock size={14} color={colors.textSecondary} strokeWidth={2.4} />
             ) : null}

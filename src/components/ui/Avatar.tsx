@@ -46,7 +46,7 @@ export function Avatar({
   return (
     <View
       style={[
-        { width: size, height: size, borderRadius: size / 2 },
+        { width: size, height: size, borderRadius: size / 2, overflow: 'hidden' },
         ring && styles.center,
         ring === 'seen' && { backgroundColor: colors.border },
         style,

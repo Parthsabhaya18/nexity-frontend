@@ -100,6 +100,7 @@ export function BlockedAccountsScreen() {
               display_name: item.display_name,
               avatar_url: item.avatar_url,
               is_private: false,
+              plan_badge: item.plan_badge,
             }}
             onPress={() => {}}
             trailing={

@@ -50,7 +50,7 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
       ? { text: 'Payment due', bg: colors.dangerSoft, fg: colors.danger }
       : !razorpay
         ? { text: 'Test plan', bg: colors.surfaceAlt, fg: colors.textSecondary }
-        : b?.autopay
+        : b?.autopay || b?.days_remaining == null || b.days_remaining > 5
           ? { text: 'Active', bg: colors.successSoft, fg: colors.success }
           : { text: 'Ends soon', bg: colors.primarySoft, fg: colors.primary };
 
@@ -192,7 +192,11 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
             <Text style={[styles.cardTitle, { color: colors.text }]}>This month</Text>
             <View style={styles.usage}>
               <Usage
-                value={sub.usage.secret_messages_left == null ? '∞' : String(sub.usage.secret_messages_left)}
+                value={
+                  sub.usage.secret_messages_left == null
+                    ? 'Unlimited'
+                    : String(sub.usage.secret_messages_left)
+                }
                 label="Secret Messages left"
               />
               <Usage value={crush ? String(crush.spots.left) : '—'} label="Crush spots left" />
@@ -321,7 +325,17 @@ function Usage({ value, label }: { value: string; label: string }) {
   const { colors } = useAppTheme();
   return (
     <View style={styles.usageItem}>
-      <Text style={[styles.usageValue, { color: colors.text }]}>{value}</Text>
+      <Text
+        style={[
+          styles.usageValue,
+          value.length > 3 && styles.usageWord,
+          { color: colors.text },
+        ]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        {value}
+      </Text>
       <Text style={[styles.usageLabel, { color: colors.textSecondary }]}>{label}</Text>
     </View>
   );
@@ -348,6 +362,7 @@ const styles = StyleSheet.create({
   usage: { flexDirection: 'row', gap: 8 },
   usageItem: { flex: 1, alignItems: 'center', gap: 2 },
   usageValue: { fontSize: 22, fontWeight: '800' },
+  usageWord: { fontSize: 14 },
   usageLabel: { fontSize: 11.5, textAlign: 'center' },
   actions: { gap: 8 },
   section: { fontSize: 16, fontWeight: '800', marginTop: 8 },

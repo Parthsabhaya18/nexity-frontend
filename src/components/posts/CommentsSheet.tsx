@@ -11,17 +11,21 @@ import {
   View,
 } from 'react-native';
 
+import { PlanBadge } from '@/components/profile/PlanBadge';
+import { StoryRingAvatar, useStoryRings } from '@/components/stories/StoryRingAvatar';
+import { StoryViewer } from '@/components/stories/StoryViewer';
 import { ReportSheet } from '@/components/safety/ReportSheet';
 import { ShareSheet, type ShareTarget } from '@/components/share/ShareSheet';
 import { CommentListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { ActionSheet } from '@/components/ui/ActionSheet';
-import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { SheetFlatList } from '@/components/ui/sheetDrag';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { emitPostEvent } from '@/features/posts/postEvents';
 import { ApiError } from '@/services/api/client';
 import { type Comment, postsApi } from '@/services/api/posts';
+import type { StoryGroup } from '@/services/api/stories';
 import { reelsApi } from '@/services/api/reels';
 import { safetyApi } from '@/services/api/safety';
 import { spacing, useAppTheme } from '@/theme';
@@ -66,6 +70,8 @@ export function CommentsSheet({ target, onClose }: Props) {
   const sendingRef = useRef(false);
   const count = useRef(0);
   const list = useRef<FlatList<Comment>>(null);
+  const { stories, reload: reloadStories, markSeen } = useStoryRings(!!target);
+  const [watching, setWatching] = useState<StoryGroup | null>(null);
   const key = target ? `${target.kind}:${target.id}` : null;
   const kind = target?.kind;
   const id = target?.id;
@@ -249,6 +255,7 @@ export function CommentsSheet({ target, onClose }: Props) {
   const ready = !!text.trim() && !sending;
 
   return (
+    <>
     <BottomSheet
       visible={!!target}
       onClose={onClose}
@@ -271,8 +278,8 @@ export function CommentsSheet({ target, onClose }: Props) {
           />
         </View>
       ) : (
-        <FlatList
-          ref={list}
+        <SheetFlatList
+          listRef={list}
           data={items}
           keyExtractor={c => c.id}
           style={styles.flex}
@@ -294,6 +301,8 @@ export function CommentsSheet({ target, onClose }: Props) {
             <View>
               <CommentRow
                 comment={item}
+                story={item.author ? stories.get(item.author.id) : undefined}
+                onOpenStory={setWatching}
                 onLike={() => toggleLike(item)}
                 onReply={
                   target?.kind === 'post' && !target.commentsDisabled
@@ -309,6 +318,8 @@ export function CommentsSheet({ target, onClose }: Props) {
                 <View key={r.id} style={styles.reply}>
                   <CommentRow
                     comment={r}
+                    story={r.author ? stories.get(r.author.id) : undefined}
+                    onOpenStory={setWatching}
                     onLike={() => toggleLike(r)}
                     onMenu={() => setMenu(r)}
                   />
@@ -467,36 +478,62 @@ export function CommentsSheet({ target, onClose }: Props) {
       />
       <ShareSheet target={sharing} onClose={() => setSharing(null)} />
     </BottomSheet>
+    <StoryViewer
+      groups={watching ? [watching] : []}
+      startIndex={watching ? 0 : null}
+      onClose={() => {
+        const id = watching?.user.id;
+        setWatching(null);
+        if (id) markSeen(id);
+        reloadStories();
+      }}
+    />
+    </>
   );
 }
 
 function CommentRow({
   comment,
+  story,
+  onOpenStory,
   onLike,
   onReply,
   onMenu,
 }: {
   comment: Comment;
+  story?: StoryGroup;
+  onOpenStory: (group: StoryGroup) => void;
   onLike: () => void;
   onReply?: () => void;
   onMenu: () => void;
 }) {
   const { colors } = useAppTheme();
   const likes = comment.likes_count ?? 0;
+  const authorName = comment.author?.display_name ?? '?';
   return (
     <Pressable style={styles.row} onLongPress={onMenu} delayLongPress={280}>
-      <Avatar
+      <StoryRingAvatar
+        story={story}
         uri={comment.author?.avatar_url}
-        name={comment.author?.display_name ?? '?'}
+        name={authorName}
         size={36}
+        onPress={story ? () => onOpenStory(story) : undefined}
+        label={
+          story
+            ? `View @${comment.author?.username ?? 'user'}'s story`
+            : `${authorName}'s profile photo`
+        }
       />
       <View style={styles.body}>
-        <Text style={{ color: colors.text, fontSize: 14 }}>
-          <Text style={{ fontWeight: '700' }}>
-            {comment.author?.username ?? 'user'}{' '}
+        <View style={styles.commentLine}>
+          <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>
+            {comment.author?.username ?? 'user'}
           </Text>
-          {comment.body}
-        </Text>
+          <PlanBadge plan={comment.author?.plan_badge} />
+          {comment.body ? (
+            <Text style={{ color: colors.text, fontSize: 14 }}>{comment.body}</Text>
+          ) : null}
+        </View>
         <View style={styles.meta}>
           <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
             {timeAgo(new Date(comment.created_at).getTime())}
@@ -547,6 +584,7 @@ const styles = StyleSheet.create({
   empty: { textAlign: 'center', marginTop: spacing.lg, paddingHorizontal: spacing.md },
   row: { flexDirection: 'row', gap: 10, paddingVertical: 8, alignItems: 'flex-start' },
   body: { flex: 1 },
+  commentLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
   heart: { paddingTop: 4 },
   meta: { flexDirection: 'row', gap: 14, marginTop: 4, alignItems: 'center' },
   reply: { marginLeft: 42 },

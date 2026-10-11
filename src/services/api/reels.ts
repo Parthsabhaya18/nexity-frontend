@@ -21,6 +21,8 @@ export interface Reel {
   trim_end_ms: number | null;
   /** Null while the owner hides the like count. */
   likes_count: number | null;
+  /** Distinct people who started this reel. */
+  plays_count?: number;
   comments_count: number;
   hide_like_count: boolean;
   comments_disabled: boolean;
@@ -102,6 +104,11 @@ export const reelsApi = {
       params: cursor ? { cursor } : {},
       signal,
     });
+    return data;
+  },
+
+  async play(id: string) {
+    const { data } = await apiClient.post<{ plays_count: number }>(`/reels/${id}/play`);
     return data;
   },
 

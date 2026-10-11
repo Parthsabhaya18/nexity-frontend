@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/Avatar';
 import type { ReactionGroup } from '@/services/api/chat';
 import { useAppTheme } from '@/theme';
+
+import { SheetScrollView } from '@/components/ui/sheetDrag';
 
 import { BottomSheet } from './BottomSheet';
 
@@ -48,6 +50,7 @@ export function ReactionDetailsSheet({
 }: Props) {
   const { colors } = useAppTheme();
   const [filter, setFilter] = useState<string | null>(null);
+  const listRef = useRef<ScrollView>(null);
   const activeFilter =
     filter && reactions.some(g => g.emoji === filter) ? filter : null;
   const rows = reactionRows(reactions, meId, activeFilter);
@@ -88,7 +91,7 @@ export function ReactionDetailsSheet({
           )}
         </ScrollView>
       ) : null}
-      <ScrollView contentContainerStyle={styles.list}>
+      <SheetScrollView listRef={listRef} contentContainerStyle={styles.list}>
         {rows.map(({ userId, emoji }) => {
           const mine = userId === meId;
           const person = people[userId];
@@ -142,7 +145,7 @@ export function ReactionDetailsSheet({
             </Pressable>
           );
         })}
-      </ScrollView>
+      </SheetScrollView>
     </BottomSheet>
   );
 }
