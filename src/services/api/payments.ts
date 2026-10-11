@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import type { Period, PlanId, Subscription } from './subscriptions';
 
+
 export type PayMethod = 'upi' | 'qr' | 'card' | 'netbanking' | 'wallet';
 
 export interface Quote {
@@ -8,7 +9,7 @@ export interface Quote {
   period: Period;
   months: number;
   autopay: boolean;
-  kind: 'new' | 'renew' | 'upgrade' | 'resume';
+  kind: 'new' | 'renew' | 'upgrade' | 'downgrade' | 'resume';
   mrp_paise: number;
   base_paise: number;
   launch_off_paise: number;
@@ -21,6 +22,14 @@ export interface Quote {
   ends_at: string | null;
   renews_on: string | null;
   currency: 'INR';
+  consumed_days: number;
+  period_days: number;
+  consumed_paise: number;
+  unused_paise: number;
+  extra_days: number;
+  rounding_adjustment_paise: number;
+  gateway_topup_paise: number;
+  target_period_days: number;
 }
 
 export type CheckoutStatus =
@@ -39,6 +48,8 @@ export interface Checkout {
   plan_id: PlanId;
   period: Period;
   autopay: boolean;
+  /** Set when this Razorpay account cannot create AutoPay plans, so the charge is one-time. */
+  autopay_fallback?: boolean;
   method: PayMethod | null;
   amount_paise: number;
   expires_at: string;
@@ -111,6 +122,30 @@ export const paymentsApi = {
     const { data } = await apiClient.post<Checkout>('/payments/checkout', input, {
       headers: { 'Idempotency-Key': key },
     });
+    return data;
+  },
+  async previewChange(input: { plan_id: PlanId; period: Period }) {
+    const { data } = await apiClient.post<Quote>('/payments/change/preview', input);
+    return data;
+  },
+  async confirmChange(input: {
+    plan_id: PlanId;
+    period: Period;
+    expected_amount_paise: number;
+    expected_extra_days: number;
+  }) {
+    const { data } = await apiClient.post<{ subscription: Subscription; quote: Quote }>(
+      '/payments/change/confirm',
+      input,
+    );
+    return data;
+  },
+  async requestRefund(input: { payment_id: string; reason: string }, key: string) {
+    const { data } = await apiClient.post<{ id: string; status: string; amount_paise: number }>(
+      '/payments/refunds',
+      input,
+      { headers: { 'Idempotency-Key': key } },
+    );
     return data;
   },
   async resumeAutopay(key: string) {

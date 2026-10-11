@@ -33,7 +33,8 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
   const historyQ = useQuery({ queryKey: ['payments', 'history'], queryFn: paymentsApi.history });
   const runner = usePayRunner();
   const [confirmCancel, setConfirmCancel] = useState(false);
-  const [busy, setBusy] = useState<'cancel' | 'resume' | null>(null);
+  const [refundId, setRefundId] = useState<string | null>(null);
+  const [busy, setBusy] = useState<'cancel' | 'resume' | 'refund' | null>(null);
 
   const paid = !!sub && sub.status === 'active' && sub.plan !== 'free';
   const b = sub?.billing ?? null;
@@ -73,6 +74,29 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
       await runner.run(c, null, null);
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : "Couldn't turn on AutoPay.", 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const refund = async () => {
+    if (!refundId) return;
+    setBusy('refund');
+    try {
+      const result = await paymentsApi.requestRefund(
+        { payment_id: refundId, reason: 'Requested from Subscription' },
+        uuidv4(),
+      );
+      setRefundId(null);
+      showToast(
+        result.status === 'processed'
+          ? 'Refund completed.'
+          : 'Refund requested. It stays pending until Razorpay confirms it.',
+        'success',
+      );
+      historyQ.refetch();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Couldn't request that refund.", 'error');
     } finally {
       setBusy(null);
     }
@@ -131,6 +155,8 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
             {paid ? (
               <View style={styles.rows}>
                 <Row label={b?.autopay ? 'Renews on' : 'Active until'} value={day(end)} />
+                {b?.period_started_at ? <Row label="Started" value={day(b.period_started_at)} /> : null}
+                {b?.days_remaining != null ? <Row label="Days remaining" value={String(b.days_remaining)} /> : null}
                 {b?.period ? <Row label="Billing" value={PERIOD_LABEL[b.period]} /> : null}
                 {priceText ? <Row label="Price" value={priceText} /> : null}
                 {razorpay ? (
@@ -236,6 +262,9 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
                   </Text>
                 </View>
                 <View style={styles.billRight}>
+                  {item.status === 'paid' ? (
+                    <Button title="Refund" variant="ghost" onPress={() => setRefundId(item.id)} style={styles.refundBtn} />
+                  ) : null}
                   <Text style={[styles.billAmount, { color: colors.text }]}>{inr(item.amount_paise)}</Text>
                   <Text
                     style={[
@@ -254,13 +283,24 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
       <ConfirmDialog
         visible={confirmCancel}
         title="Cancel AutoPay?"
-        message={`You'll keep ${planName} until ${day(end)}. After that you'll move to Free and lose access to Secret features.`}
+        message={`You'll keep ${planName} until ${day(end)}. This turns off AutoPay at the end of the paid period. It is not a cash refund. After that date you'll move to Free.`}
         confirmLabel="Cancel AutoPay"
         cancelLabel="Keep AutoPay"
         destructive
         loading={busy === 'cancel'}
         onConfirm={cancel}
         onCancel={() => setConfirmCancel(false)}
+      />
+      <ConfirmDialog
+        visible={!!refundId}
+        title="Request a refund?"
+        message="This asks Razorpay to return this payment. It stays pending until Razorpay confirms it. A plan downgrade is separate and does not refund cash. A full refund can end the plan."
+        confirmLabel="Request refund"
+        cancelLabel="Keep payment"
+        destructive
+        loading={busy === 'refund'}
+        onConfirm={refund}
+        onCancel={() => setRefundId(null)}
       />
       {runner.element}
     </SafeAreaView>
@@ -315,6 +355,7 @@ const styles = StyleSheet.create({
   billTitle: { fontSize: 14, fontWeight: '700' },
   billSub: { fontSize: 12, marginTop: 2 },
   billRight: { alignItems: 'flex-end' },
+  refundBtn: { minHeight: 32, marginBottom: 4 },
   billAmount: { fontSize: 14.5, fontWeight: '800' },
   billStatus: { fontSize: 11.5, fontWeight: '800', marginTop: 2 },
 });

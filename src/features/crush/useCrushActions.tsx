@@ -14,6 +14,7 @@ import { secretCrushApi } from '@/services/api/secretCrush';
 import { spacing, useAppTheme } from '@/theme';
 
 import { openCelebration } from './celebration';
+import { dismissPeoplePickerAction } from './pickerDismiss';
 import { refreshCrush, useCrushSummary } from './crushQueries';
 
 export type CrushTarget = {
@@ -84,8 +85,11 @@ export function useCrushActions(opts?: { replace?: boolean }) {
       setConfirm(null);
       refreshCrush().catch(() => {});
       if (res.matched && res.match) {
-        if (opts?.replace) navigation.goBack();
         openCelebration(res.match.id);
+        if (opts?.replace) {
+          const closePicker = dismissPeoplePickerAction(navigation.getState());
+          if (closePicker) navigation.dispatch(closePicker);
+        }
       } else {
         showToast('Added to Secret Crush 👀', 'success');
         if (opts?.replace) navigation.goBack();

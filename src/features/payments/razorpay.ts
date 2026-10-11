@@ -12,35 +12,6 @@ export type OpenResult =
   | { kind: 'cancelled' }
   | { kind: 'failed'; description: string };
 
-/** Puts the method picked on our Checkout screen first in Razorpay's sheet; the rest stay available. */
-function displayConfig(method: PayMethod | null, upiApp: UpiApp | null) {
-  let instrument: Record<string, unknown> | null = null;
-  let name = 'Pay with UPI';
-  if (method === 'upi') {
-    instrument =
-      upiApp && upiApp !== 'upi_id'
-        ? { method: 'upi', flows: ['intent'], apps: [upiApp] }
-        : { method: 'upi', flows: upiApp === 'upi_id' ? ['collect'] : ['intent', 'collect', 'qr'] };
-  } else if (method === 'card') {
-    instrument = { method: 'card' };
-    name = 'Pay with card';
-  } else if (method === 'netbanking') {
-    instrument = { method: 'netbanking' };
-    name = 'Pay with net banking';
-  } else if (method === 'wallet') {
-    instrument = { method: 'wallet' };
-    name = 'Pay with wallet';
-  }
-  if (!instrument) return undefined;
-  return {
-    display: {
-      blocks: { preferred: { name, instruments: [instrument] } },
-      sequence: ['block.preferred'],
-      preferences: { show_default_blocks: true },
-    },
-  };
-}
-
 /** Reads Razorpay's error payload (its `description` is often a JSON string). */
 function parseError(err: unknown): OpenResult {
   return classifyRazorpayError(err);
@@ -65,13 +36,11 @@ export async function openRazorpay(
     prefill: {
       email: r.prefill.email,
       contact: r.prefill.contact,
-      ...(opts.method && opts.method !== 'qr' ? { method: opts.method } : {}),
     },
     notes: { checkout_id: c.checkout_id },
     theme: { color: opts.color },
     retry: { enabled: true, max_count: 3 },
     timeout: 900,
-    ...(displayConfig(opts.method, opts.upiApp) ? { config: displayConfig(opts.method, opts.upiApp) } : {}),
   };
   try {
     const data = (await RazorpayCheckout.open(options)) as Partial<RazorpayResult>;

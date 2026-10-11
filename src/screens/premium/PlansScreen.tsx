@@ -103,10 +103,20 @@ export function PlansScreen({ navigation, route }: ScreenProps<'Plans'>) {
       );
     }
     if (plan.rank < myRank) {
+      if (plan.id === 'free' || !data?.checkout_available || !paid) {
+        return (
+          <Text style={[styles.note, { color: colors.textSecondary }]}>
+            {plan.id === 'free' ? 'Included in every plan' : `Included in ${byId[myPlan]?.name ?? 'your plan'}`}
+          </Text>
+        );
+      }
       return (
-        <Text style={[styles.note, { color: colors.textSecondary }]}>
-          {plan.id === 'free' ? 'Included in every plan' : `Included in ${byId[myPlan]?.name ?? 'your plan'}`}
-        </Text>
+        <Button
+          title={`Downgrade to ${plan.name}`}
+          variant="secondary"
+          onPress={() => navigation.navigate('Checkout', { planId: plan.id as 'plus' | 'premium' })}
+          style={styles.button}
+        />
       );
     }
     if (!data?.checkout_available) {
