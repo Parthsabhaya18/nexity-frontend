@@ -35,8 +35,10 @@ import Video from 'react-native-video';
 import { UserRow } from '@/components/follows/UserRow';
 import { ReportSheet } from '@/components/safety/ReportSheet';
 import { StoryStage } from '@/components/stories/StoryStage';
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { SheetFlatList } from '@/components/ui/sheetDrag';
 import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import type { StoryOverlay } from '@/features/stories/overlay';
 import { markOwnStorySeen } from '@/features/stories/storyEvents';
@@ -95,6 +97,7 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
   const [typing, setTyping] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [viewersOpen, setViewersOpen] = useState(false);
+  const viewersRef = useRef<FlatList<StoryViewerRow>>(null);
   const [viewers, setViewers] = useState<StoryViewerRow[] | null>(null);
   const [appActive, setAppActive] = useState(true);
   const [loaded, setLoaded] = useState(false);
@@ -482,6 +485,7 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
               <Text style={styles.name} numberOfLines={1}>
                 {group.user.username}
               </Text>
+              <PlanBadge plan={group.user.plan_badge} />
               <Text style={styles.time}>
                 {timeAgo(new Date(item.created_at).getTime())}
               </Text>
@@ -627,7 +631,11 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
       </Animated.View>
       </View>
 
-      <BottomSheet visible={viewersOpen} onClose={() => setViewersOpen(false)} style={styles.viewers}>
+      <BottomSheet
+        visible={viewersOpen}
+        onClose={() => setViewersOpen(false)}
+        style={styles.viewers}
+      >
         <View style={styles.sheetHead}>
           <Eye size={18} color={colors.text} />
           <Text style={[styles.sheetTitle, { color: colors.text }]}>
@@ -637,7 +645,8 @@ export function StoryViewer({ groups, startIndex, onClose, onChanged }: Props) {
         {viewers === null ? (
           <UserListSkeleton rows={5} />
         ) : (
-          <FlatList
+          <SheetFlatList
+            listRef={viewersRef}
             data={viewers}
             keyExtractor={u => u.id}
             renderItem={({ item: u }) => (

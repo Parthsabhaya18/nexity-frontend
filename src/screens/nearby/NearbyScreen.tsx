@@ -3,6 +3,7 @@ import { Bluetooth, Radar } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, AppState, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { AppBar } from '@/components/ui/AppBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -241,10 +242,12 @@ export function NearbyScreen({ navigation }: ScreenProps<'Nearby'>) {
               style={[styles.row, { borderBottomColor: colors.border }]}
             >
               <Avatar uri={person.user.avatar_url} name={person.user.display_name} size={48} ring="unseen" />
-              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-                {person.is_premium ? '👑 ' : ''}
-                {person.user.display_name}
-              </Text>
+              <View style={styles.nameRow}>
+                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+                  {person.user.display_name}
+                </Text>
+                <PlanBadge plan={person.user.plan_badge} />
+              </View>
               <Button
                 title={person.follow_state === 'accepted' ? 'Following' : person.follow_state === 'pending' ? 'Requested' : 'Follow'}
                 variant="secondary"
@@ -306,6 +309,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  name: { flex: 1, fontSize: 16, fontWeight: '700' },
+  nameRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0 },
+  name: { flexShrink: 1, fontSize: 16, fontWeight: '700' },
   follow: { minHeight: 36, paddingHorizontal: spacing.md },
 });

@@ -1,20 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { Crown, Gift, Lock, Sparkles } from 'lucide-react-native';
+import { Crown, Lock, Sparkles } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import {
-  Keyboard,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppBar } from '@/components/ui/AppBar';
 import { Banner } from '@/components/ui/Banner';
-import { Button, LinkButton } from '@/components/ui/Button';
+import { LinkButton } from '@/components/ui/Button';
 import { GradientFill } from '@/components/ui/GradientFill';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
@@ -22,71 +13,37 @@ import { showToast } from '@/components/ui/Toast';
 import { Toggle } from '@/components/ui/Toggle';
 import { day, inr, PERIOD_LABEL, PERIOD_UNIT, PLAN_NAME } from '@/features/payments/format';
 import { usePayRunner } from '@/features/payments/usePayRunner';
-import { applySubscription, usePlans } from '@/features/secret/secretQueries';
+import { applySubscription } from '@/features/secret/secretQueries';
 import type { ScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { ApiError } from '@/services/api/client';
 import { paymentsApi } from '@/services/api/payments';
-import type { Period } from '@/services/api/subscriptions';
 import { radius, spacing, useAppTheme } from '@/theme';
 import { uuidv4 } from '@/utils/uuid';
 
-const PERIODS: Period[] = ['monthly', 'quarterly', 'yearly'];
+const period = 'monthly' as const;
 
 export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
   const { colors, gradient } = useAppTheme();
   useStatusBar();
   const { planId } = route.params;
-  const [period, setPeriod] = useState<Period>(route.params.period ?? 'monthly');
   const [autopay, setAutopay] = useState(true);
-  const [couponText, setCouponText] = useState('');
-  const [coupon, setCoupon] = useState<string | null>(null);
-  const [couponError, setCouponError] = useState<string | null>(null);
-  const [applying, setApplying] = useState(false);
-  const [payByQr, setPayByQr] = useState(false);
   const [paying, setPaying] = useState(false);
   const attemptKey = useRef<string | null>(null);
   const runner = usePayRunner();
-  const plans = usePlans().data;
-  const plan = plans?.data.find(p => p.id === planId);
 
   // Any change makes a new attempt (a retry of the same inputs reuses the key).
   useEffect(() => {
     attemptKey.current = null;
-  }, [period, autopay, coupon, payByQr]);
-
-  useEffect(() => {
-    if (autopay) setPayByQr(false);
   }, [autopay]);
 
   const quoteQ = useQuery({
-    queryKey: ['payments', 'quote', planId, period, autopay, coupon],
-    queryFn: () =>
-      paymentsApi.quote({ plan_id: planId, period, autopay, coupon_code: coupon }),
+    queryKey: ['payments', 'quote', planId, period, autopay],
+    queryFn: () => paymentsApi.quote({ plan_id: planId, period, autopay, coupon_code: null }),
     retry: (count, err) => !(err instanceof ApiError && err.status && err.status < 500) && count < 2,
   });
   const q = quoteQ.data;
   const blocked = quoteQ.error instanceof ApiError && quoteQ.error.status === 409 ? quoteQ.error : null;
-
-  const applyCoupon = async () => {
-    const code = couponText.trim().toUpperCase();
-    if (!code) {
-      setCouponError('Enter a coupon code.');
-      return;
-    }
-    Keyboard.dismiss();
-    setApplying(true);
-    setCouponError(null);
-    try {
-      const res = await paymentsApi.quote({ plan_id: planId, period, autopay, coupon_code: code });
-      setCoupon(code);
-      showToast(`Coupon applied — ${res.coupon?.pct ?? ''}% off 🎉`, 'success');
-    } catch (err) {
-      setCouponError(err instanceof ApiError ? err.message : "Couldn't check that code. Try again.");
-    } finally {
-      setApplying(false);
-    }
-  };
 
   const pay = async () => {
     if (!q || paying) return;
@@ -111,15 +68,11 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
         return;
       }
       const c = await paymentsApi.checkout(
-        { plan_id: planId, period, autopay, coupon_code: coupon, method: payByQr ? 'qr' : null },
+        { plan_id: planId, period, autopay, coupon_code: null, method: null },
         attemptKey.current,
       );
       if (c.autopay_fallback) {
         showToast('AutoPay is not on for this Razorpay account yet. This payment is one-time.', 'info');
-      }
-      if (payByQr) {
-        navigation.replace('PayByQr', { checkoutId: c.checkout_id });
-        return;
       }
       const outcome = await runner.run(c, null, null);
       if (outcome === 'cancelled') attemptKey.current = null;
@@ -130,10 +83,6 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
           navigation.replace('PaymentProcessing', { checkoutId: id });
           return;
         }
-      }
-      if (err instanceof ApiError && err.code?.startsWith('COUPON_')) {
-        setCoupon(null);
-        setCouponError(err.message);
       }
       showToast(
         err instanceof ApiError
@@ -165,47 +114,10 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
               <Text style={[styles.orderTitle, { color: colors.text }]}>Nexity {PLAN_NAME[planId]}</Text>
               <Text style={[styles.orderSub, { color: colors.textSecondary }]}>
                 {autopay
-                  ? `${PERIOD_LABEL[period]} plan · renews automatically · cancel anytime`
+                  ? 'Monthly plan · renews automatically · cancel anytime'
                   : 'One-time · no auto-renew'}
               </Text>
             </View>
-          </View>
-
-          <View style={styles.periods} accessibilityRole="radiogroup" accessibilityLabel="Billing period">
-            {PERIODS.map(p => {
-              const price = plan?.pricing[p];
-              const active = p === period;
-              return (
-                <Pressable
-                  key={p}
-                  onPress={() => setPeriod(p)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: active }}
-                  style={[
-                    styles.period,
-                    {
-                      borderColor: active ? colors.primary : colors.border,
-                      backgroundColor: active ? colors.primarySofter : colors.surface,
-                    },
-                  ]}
-                >
-                  {price?.save_pct ? (
-                    <View style={[styles.periodSave, { backgroundColor: colors.success }]}>
-                      <Text style={[styles.periodSaveText, { color: colors.onButton }]}>
-                        Save {price.save_pct}%
-                      </Text>
-                    </View>
-                  ) : null}
-                  <Text style={[styles.periodName, { color: colors.text }]}>{PERIOD_LABEL[p]}</Text>
-                  <Text style={[styles.periodPrice, { color: colors.text }]}>
-                    {price ? inr(price.amount_paise) : '—'}
-                  </Text>
-                  <Text style={[styles.periodPer, { color: colors.textSecondary }]}>
-                    {price && price.months > 1 ? `${inr(price.per_month_paise)}/mo` : 'per month'}
-                  </Text>
-                </Pressable>
-              );
-            })}
           </View>
 
           <View style={[styles.autopay, { borderColor: colors.border }]}>
@@ -214,7 +126,7 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
               <Text style={[styles.autopayText, { color: colors.textSecondary }]}>
                 {autopay
                   ? 'No need to pay again every month. Cancel anytime in Subscription.'
-                  : `Pay once for ${period === 'monthly' ? '1 month' : period === 'quarterly' ? '3 months' : '1 year'}. We'll remind you before it ends.`}
+                  : "Pay once for 1 month. We'll remind you before it ends."}
               </Text>
             </View>
             <Toggle value={autopay} onChange={setAutopay} accessibilityLabel="Auto-renew with AutoPay" />
@@ -235,9 +147,6 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
               {q.period_off_paise ? (
                 <Row label={`${PERIOD_LABEL[period]} saving`} value={`−${inr(q.period_off_paise)}`} discount />
               ) : null}
-              {q.coupon ? (
-                <Row label={`Coupon ${q.coupon.code}`} value={`−${inr(q.coupon.off_paise)}`} discount />
-              ) : null}
               {q.credit_paise ? (
                 <Row label="Credit from your current plan" value={`−${inr(q.credit_paise)}`} discount />
               ) : null}
@@ -255,58 +164,6 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
               </Text>
             </View>
           )}
-
-          {coupon ? (
-            <View style={[styles.couponOn, { backgroundColor: colors.successSoft }]}>
-              <Gift size={16} color={colors.success} />
-              <Text style={[styles.couponOnText, { color: colors.text }]}>
-                <Text style={styles.bold}>{coupon}</Text> applied
-              </Text>
-              <LinkButton
-                title="Remove"
-                onPress={() => {
-                  setCoupon(null);
-                  setCouponText('');
-                }}
-              />
-            </View>
-          ) : (
-            <View>
-              <View style={styles.couponRow}>
-                <TextInput
-                  value={couponText}
-                  onChangeText={t => {
-                    setCouponText(t);
-                    setCouponError(null);
-                  }}
-                  placeholder="Have a coupon code?"
-                  placeholderTextColor={colors.textSecondary}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                  onSubmitEditing={applyCoupon}
-                  accessibilityLabel="Coupon code"
-                  style={[
-                    styles.couponInput,
-                    { color: colors.text, borderColor: couponError ? colors.danger : colors.border, backgroundColor: colors.background },
-                  ]}
-                />
-                <Button
-                  title="Apply"
-                  variant="secondary"
-                  loading={applying}
-                  disabled={applying}
-                  onPress={applyCoupon}
-                  style={styles.applyBtn}
-                />
-              </View>
-              {couponError ? (
-                <Text style={[styles.couponError, { color: colors.danger }]} accessibilityRole="alert">
-                  {couponError}
-                </Text>
-              ) : null}
-            </View>
-          )}
         </View>
 
         {q?.kind === 'downgrade' ? (
@@ -320,34 +177,7 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
                 : ''}
             </Text>
           </View>
-        ) : (
-          <>
-            <Text style={[styles.section, { color: colors.text }]} accessibilityRole="header">
-              Payment
-            </Text>
-            <View style={[styles.method, { backgroundColor: colors.surface, borderColor: colors.primary, padding: 14 }]}>
-              <Text style={[styles.methodLabel, { color: colors.text }]}>Razorpay</Text>
-              <Text style={[styles.methodSub, { color: colors.textSecondary }]}>
-                Razorpay Checkout opens next and shows the methods this account can use: UPI, cards, net banking and wallets. Nexity does not store card or UPI details.
-              </Text>
-            </View>
-            {!autopay ? (
-              <Pressable
-                onPress={() => setPayByQr(v => !v)}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: payByQr }}
-                style={[styles.method, { backgroundColor: colors.surface, borderColor: payByQr ? colors.primary : colors.border, padding: 14 }]}
-              >
-                <Text style={[styles.methodLabel, { color: colors.text }]}>
-                  {payByQr ? 'Scan QR selected' : 'Or pay by UPI QR'}
-                </Text>
-                <Text style={[styles.methodSub, { color: colors.textSecondary }]}>
-                  A one-time QR for another phone. AutoPay stays off.
-                </Text>
-              </Pressable>
-            ) : null}
-          </>
-        )}
+        ) : null}
 
         <Pressable
           onPress={pay}
@@ -402,34 +232,12 @@ function Row({ label, value, discount }: { label: string; value: string; discoun
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   flex: { flex: 1 },
-  bold: { fontWeight: '800' },
   content: { padding: spacing.md, gap: 12, paddingBottom: spacing.xl },
   card: { borderWidth: 1, borderRadius: radius.lg, padding: spacing.md, gap: 14 },
   orderHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   planIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   orderTitle: { fontSize: 17, fontWeight: '800' },
   orderSub: { fontSize: 12.5, marginTop: 2 },
-  periods: { flexDirection: 'row', gap: 8 },
-  period: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderRadius: radius.md,
-    paddingTop: 18,
-    paddingBottom: 10,
-    alignItems: 'center',
-    gap: 2,
-  },
-  periodSave: {
-    position: 'absolute',
-    top: -9,
-    borderRadius: radius.full,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  periodSaveText: { fontSize: 10.5, fontWeight: '800' },
-  periodName: { fontSize: 13, fontWeight: '700' },
-  periodPrice: { fontSize: 17, fontWeight: '800' },
-  periodPer: { fontSize: 11.5 },
   autopay: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -453,20 +261,6 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 15.5, fontWeight: '800' },
   totalValue: { fontSize: 18, fontWeight: '800' },
   fine: { fontSize: 12, lineHeight: 17 },
-  couponRow: { flexDirection: 'row', gap: 8 },
-  couponInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    fontSize: 14.5,
-    minHeight: 46,
-  },
-  applyBtn: { minHeight: 46 },
-  couponError: { fontSize: 12.5, marginTop: 6 },
-  couponOn: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: radius.md, padding: 10 },
-  couponOnText: { flex: 1, fontSize: 13.5 },
-  section: { fontSize: 16, fontWeight: '800', marginTop: 6 },
   methods: { gap: 8 },
   method: { borderWidth: 1.5, borderRadius: radius.md, overflow: 'hidden' },
   methodRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, minHeight: 60 },

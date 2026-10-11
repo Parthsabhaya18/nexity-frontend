@@ -53,7 +53,7 @@ export function PurchaseSuccessScreen({ navigation, route }: ScreenProps<'Purcha
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
-      <Fireworks colors={[...gradient, colors.success]} />
+      <Fireworks colors={[...gradient, colors.success]} hearts={false} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.bigIcon, { backgroundColor: colors.success }]}>
           <Check size={48} color={colors.onButton} strokeWidth={3} />

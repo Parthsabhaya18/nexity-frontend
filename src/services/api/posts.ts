@@ -22,6 +22,7 @@ export interface Comment {
     username: string;
     display_name: string;
     avatar_url: string | null;
+    plan_badge?: 'plus' | 'premium' | null;
   } | null;
   created_at: string;
   likes_count: number;

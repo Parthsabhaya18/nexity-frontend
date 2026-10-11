@@ -27,7 +27,7 @@ export interface Plan {
   rank: number;
   mrp_inr: number;
   mrp_paise: number;
-  pricing: Record<Period, PeriodPrice>;
+  pricing: { monthly: PeriodPrice };
   features: string[];
   /** Crossed-out lines ("what this plan does not include"). */
   missing_features: string[];

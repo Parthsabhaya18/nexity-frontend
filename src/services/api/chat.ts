@@ -7,6 +7,7 @@ export interface ChatUser {
   avatar_url: string | null;
   last_active_at: string | null;
   is_online?: boolean;
+  plan_badge?: 'plus' | 'premium' | null;
 }
 
 export type MessageType =
@@ -65,7 +66,12 @@ export interface SharedRef {
   kind: 'post' | 'reel' | 'profile';
   id: string;
   available: boolean;
-  author: { id: string; username: string; avatar_url: string | null } | null;
+  author: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+    plan_badge?: 'plus' | 'premium' | null;
+  } | null;
   caption: string;
   image_url: string | null;
   video_url: string | null;

@@ -23,6 +23,7 @@ import {
 
 import { FilterFrame } from '@/components/create/FilterFrame';
 import { formatCount } from '@/components/profile/ProfileParts';
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { ReportSheet } from '@/components/safety/ReportSheet';
 import { ShareSheet } from '@/components/share/ShareSheet';
 import { Avatar } from '@/components/ui/Avatar';
@@ -192,9 +193,12 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
             size={34}
           />
           <View style={styles.flex}>
-            <Text style={[styles.username, { color: colors.text }]}>
-              {post.author.username}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text style={[styles.username, { color: colors.text }]} numberOfLines={1}>
+                {post.author.username}
+              </Text>
+              <PlanBadge plan={post.author.plan_badge} />
+            </View>
             {post.location_name ? (
               <Text
                 style={[styles.location, { color: colors.text }]}
@@ -453,6 +457,9 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
       />
       <LikesSheet
         open={likesOpen}
+        kind={kind}
+        likesCount={post.likes_count}
+        playsCount={kind === 'reel' ? (post.reel?.plays_count ?? 0) : null}
         load={loadLikers}
         onClose={() => setLikesOpen(false)}
       />
@@ -519,7 +526,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   author: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  username: { fontSize: 14, fontWeight: '700' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  username: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
   location: { fontSize: 12 },
   counter: {
     position: 'absolute',

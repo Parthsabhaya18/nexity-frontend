@@ -17,6 +17,7 @@ export type NotificationActor = {
   username: string;
   display_name: string;
   avatar_url?: string | null;
+  plan_badge?: 'plus' | 'premium' | null;
 };
 
 export type AppNotification = {

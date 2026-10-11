@@ -1,6 +1,7 @@
 import { X } from 'lucide-react-native';
-import type { ReactNode } from 'react';
+import { type ReactNode, type RefObject, useEffect } from 'react';
 import {
+  Animated,
   Modal,
   Pressable,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/ui/IconButton';
+import { SheetScrollProvider, useSheetDrag, useSheetHandle } from '@/components/ui/sheetDrag';
 import { useAppTheme } from '@/theme';
 
 type Props = {
@@ -24,6 +26,13 @@ type Props = {
   /** Fraction of the window height; omit to size to content. */
   height?: number;
   children: ReactNode;
+  /** Inner list offset. A downward drag closes only while this is at the top. */
+  scrollOffset?: RefObject<number>;
+  /** Downward drag from the top. Defaults to `onClose`. */
+  onDragDown?: () => void;
+  /** Upward drag while the sheet is not full. */
+  onDragUp?: () => void;
+  contentScrolls?: boolean;
 };
 
 /** Slide-up modal sheet used by chat pickers and menus. */
@@ -35,11 +44,18 @@ export function BottomSheet({
   headerRight,
   height,
   children,
+  onDragDown,
+  onDragUp,
+  contentScrolls = true,
 }: Props) {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const showHead = Boolean(title || header);
+  const drag = useSheetDrag({ onClose, onDragDown, onDragUp, contentScrolls });
+  useEffect(() => {
+    if (visible) drag.dragY.setValue(0);
+  }, [visible, drag.dragY]);
 
   return (
     <Modal
@@ -57,19 +73,22 @@ export function BottomSheet({
           accessibilityRole="button"
           accessibilityLabel="Close"
         />
-        <View
+        <Animated.View
+          {...drag.panHandlers}
           style={[
             styles.sheet,
             {
               backgroundColor: colors.surfaceElevated,
               paddingBottom: insets.bottom,
+              transform: [{ translateY: drag.dragY }],
             },
             height
               ? { height: Math.round(window.height * height) }
               : { maxHeight: window.height - insets.top - 24 },
           ]}
         >
-          <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+          <SheetScrollProvider value={drag.value}>
+          <SheetGrabber color={colors.border} />
           {showHead ? (
             <View style={[styles.head, { borderBottomColor: colors.border }]}>
               {header ?? (
@@ -91,9 +110,19 @@ export function BottomSheet({
             </View>
           ) : null}
           {children}
-        </View>
+          </SheetScrollProvider>
+        </Animated.View>
       </View>
     </Modal>
+  );
+}
+
+function SheetGrabber({ color }: { color: string }) {
+  const handle = useSheetHandle();
+  return (
+    <View {...handle} style={styles.grabberZone}>
+      <View style={[styles.grabber, { backgroundColor: color }]} />
+    </View>
   );
 }
 
@@ -104,12 +133,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     overflow: 'hidden',
   },
+  grabberZone: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: 10 },
   grabber: {
     width: 40,
     height: 5,
     borderRadius: 4,
-    alignSelf: 'center',
-    marginTop: 8,
   },
   head: {
     minHeight: 52,

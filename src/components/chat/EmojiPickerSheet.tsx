@@ -39,6 +39,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SheetFlatList, SheetHandle, SheetScrollProvider, useSheetDrag } from '@/components/ui/sheetDrag';
+
 import { IconButton } from '@/components/ui/IconButton';
 import {
   DEFAULT_REACTIONS,
@@ -372,8 +374,8 @@ export function EmojiPickerSheet({ visible, onClose, onPick, current }: Props) {
         ) : null}
       </View>
       {mounted ? (
-        <FlatList
-          ref={listRef}
+        <SheetFlatList
+          listRef={listRef}
           data={rows}
           keyExtractor={keyOf}
           renderItem={renderRow}
@@ -477,6 +479,17 @@ function InlineSheet({
   }, []);
 
   const lift = visible ? keyboard : 0;
+  const drag = useSheetDrag({ onClose });
+  useEffect(() => {
+    if (visible) drag.dragY.setValue(0);
+  }, [visible, drag.dragY]);
+  const shift = Animated.add(
+    progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [sheetHeight + insets.bottom + 40, 0],
+    }),
+    drag.dragY,
+  );
 
   return (
     <View
@@ -499,6 +512,7 @@ function InlineSheet({
         />
       </Animated.View>
       <Animated.View
+        {...drag.panHandlers}
         style={[
           styles.sheet,
           {
@@ -506,18 +520,14 @@ function InlineSheet({
             bottom: lift,
             paddingBottom: lift ? undefined : insets.bottom,
             backgroundColor: colors.surfaceElevated,
-            transform: [
-              {
-                translateY: progress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [sheetHeight + insets.bottom + 40, 0],
-                }),
-              },
-            ],
+            transform: [{ translateY: shift }],
           },
         ]}
       >
-        <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+        <SheetScrollProvider value={drag.value}>
+        <SheetHandle style={styles.grabberZone}>
+          <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+        </SheetHandle>
         <View style={[styles.sheetHead, { borderBottomColor: colors.border }]}>
           <Text
             style={[styles.sheetTitle, { color: colors.text }]}
@@ -529,6 +539,7 @@ function InlineSheet({
           <View style={styles.sheetRight}>{headerRight}</View>
         </View>
         {children}
+        </SheetScrollProvider>
       </Animated.View>
     </View>
   );
@@ -583,12 +594,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     overflow: 'hidden',
   },
+  grabberZone: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: 10 },
   grabber: {
     width: 40,
     height: 5,
     borderRadius: 4,
-    alignSelf: 'center',
-    marginTop: 8,
   },
   sheetHead: {
     minHeight: 52,

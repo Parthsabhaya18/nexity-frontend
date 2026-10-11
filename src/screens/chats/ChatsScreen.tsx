@@ -27,6 +27,7 @@ import { useToast } from '@/components/chat/Toast';
 import { useNow } from '@/components/chat/useNow';
 import { ChatListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { AppBar } from '@/components/ui/AppBar';
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -291,6 +292,7 @@ function ChatRow({
           >
             {chat.peer.display_name}
           </Text>
+          <PlanBadge plan={chat.peer.plan_badge} />
           {chat.kind === 'match' ? (
             <Text
               style={[

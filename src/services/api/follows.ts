@@ -11,6 +11,7 @@ export interface UserSummary {
   is_private: boolean;
   is_self: boolean;
   follow_status: FollowStatus;
+  plan_badge?: 'plus' | 'premium' | null;
 }
 
 export interface Profile {

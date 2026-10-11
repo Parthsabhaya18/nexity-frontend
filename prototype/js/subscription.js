@@ -55,7 +55,7 @@
         ${appbar({ title: 'Plans', back: Nav.stack.length > 1 })}
         <div class="page plans">
           ${r ? `<div class="reason-banner"><span class="px-tile" aria-hidden="true">${Icon(r.icon, 22)}</span><div><b>${r.title}</b><p>${r.text}</p></div></div>` : `
-            <div class="plans-head"><h2>Unlock your secret side</h2><p>Simple plans. Save up to ${S.offers ? S.offers.yearly : 25}% when you pay yearly.</p></div>`}
+            <div class="plans-head"><h2>Unlock your secret side</h2><p>Simple monthly plans. Cancel anytime.</p></div>`}
           <div class="current-plan">${Icon('info', 16)} You're on <b>${esc(NX.plan().name)}</b>${NX.isPaid() ? ` · active until ${fmtDate(S.me.planExpiry)}` : ''}</div>
           <div class="plan-grid">${plans.map(planCard).join('')}</div>
           <section class="compare card">
@@ -75,7 +75,7 @@
               </tbody>
             </table></div>
           </section>
-          <div class="trust-row"><span>${Icon('repeat', 16)} Monthly, 3-month or yearly</span><span>${Icon('x', 16)} Cancel anytime</span><span>${Icon('shieldCheck', 16)} Secure payment</span></div>
+          <div class="trust-row"><span>${Icon('repeat', 16)} Billed monthly</span><span>${Icon('x', 16)} Cancel anytime</span><span>${Icon('shieldCheck', 16)} Secure payment</span></div>
         </div>`;
     }
   };
@@ -115,8 +115,7 @@
       </div>`;
   }
 
-  const PERIODS = [[1, 'Monthly'], [3, '3 months'], [12, 'Yearly']];
-  const periodPct = (m) => { const o = S.offers || { quarterly: 10, yearly: 25 }; return m === 12 ? o.yearly : m === 3 ? o.quarterly : 0; };
+  const periodPct = () => 0;
   const hasPaidBefore = () => S.transactions.some(t => t.userId === 'me' && t.status === 'success');
   /* Price breakdown for the current checkout: plan × period, period saving, then coupon. */
   function quote(plan, c) {
@@ -134,20 +133,14 @@
       const plan = S.plans[p.plan] || S.plans.plus;
       if (!App.checkout || App.checkout.plan !== plan.id) App.checkout = { plan: plan.id, period: 1, coupon: null, method: 'upi', upiApp: 'Google Pay', upiId: '', cardNo: '', exp: '', cvv: '', cardName: '', bank: '', wallet: '' };
       const c = App.checkout;
+      c.period = 1;
       const q = quote(plan, c);
-      const label = c.period === 1 ? 'Monthly' : c.period === 3 ? '3-month' : 'Yearly';
+      const label = 'Monthly';
       return `
         ${appbar({ title: 'Checkout' })}
         <div class="page checkout">
           <section class="order card plan-${plan.id}">
             <div class="order-head"><span class="pc-ic">${Icon(plan.id === 'premium' ? 'crown' : 'sparkles', 20)}</span><div><b>Nexity ${esc(plan.name)}</b><small>${label} plan · renews automatically · cancel anytime</small></div></div>
-            <div class="period-pick" role="radiogroup" aria-label="Billing period">
-              ${PERIODS.map(([m, l]) => { const pct = periodPct(m); const t = quote(plan, { period: m, coupon: null }).total; return `
-                <button type="button" class="period ${c.period === m ? 'active' : ''}" role="radio" aria-checked="${c.period === m}" data-action="pickPeriod" data-m="${m}">
-                  ${pct ? `<span class="period-save">Save ${pct}%</span>` : ''}
-                  <b>${l}</b><span>${inr(t)}</span><small>${m > 1 ? `${inr(Math.round(t / m))}/mo` : 'per month'}</small>
-                </button>`; }).join('')}
-            </div>
             <dl class="order-rows">
               <div><dt>${esc(plan.name)} × ${q.m} month${q.m > 1 ? 's' : ''}</dt><dd>${inr(q.mrpBase)}</dd></div>
               ${q.launchOff ? `<div class="disc"><dt>Launch discount</dt><dd>−${inr(q.launchOff)}</dd></div>` : ''}
@@ -180,7 +173,6 @@
         </div>`;
     }
   };
-  Actions.pickPeriod = (el) => { App.checkout.period = Number(el.dataset.m); App.refresh(); };
   Inputs.couponInput = () => { const e = $('#couponErr'); if (e) e.textContent = ''; };
   Actions.applyCoupon = () => {
     const code = ($('#couponInput').value || '').trim().toUpperCase();
@@ -328,6 +320,10 @@
       const paid = NX.isPaid();
       const txns = S.transactions.filter(t => t.userId === 'me');
       const l = plan.limits;
+      const daysLeft = S.me.planExpiry
+        ? Math.ceil((new Date(S.me.planExpiry).getTime() - Date.now()) / 86400000)
+        : null;
+      const endsSoon = !S.me.autoRenew && daysLeft != null && daysLeft <= 5;
       return `
         ${appbar({ title: 'Subscription' })}
         <div class="page">
@@ -335,7 +331,7 @@
             <div class="sub-top">
               <span class="pc-ic">${Icon(plan.id === 'premium' ? 'crown' : plan.id === 'plus' ? 'sparkles' : 'user', 22)}</span>
               <div><p class="eyebrow">Current plan</p><h2>${esc(plan.name)}</h2></div>
-              ${paid ? `<span class="chip ${S.me.autoRenew ? 'chip-ok' : 'chip-warn'}">${S.me.planSource === 'admin' ? 'Gifted' : S.me.autoRenew ? 'Active' : 'Ends soon'}</span>` : ''}
+              ${paid ? `<span class="chip ${endsSoon ? 'chip-warn' : 'chip-ok'}">${S.me.planSource === 'admin' ? 'Gifted' : endsSoon ? 'Ends soon' : 'Active'}</span>` : ''}
             </div>
             ${paid ? `
               <dl class="sub-rows">
@@ -348,8 +344,8 @@
           <section class="card usage-card">
             <h3>This month</h3>
             <div class="usage-grid">
-              <div><b>${l.secretMessages < 0 ? '∞' : Math.max(0, l.secretMessages - S.usage.secretSent)}</b><span>Secret Messages left</span></div>
-              <div><b>${l.crushes < 0 ? '∞' : Math.max(0, l.crushes - S.crushes.length)}</b><span>Crush spots left</span></div>
+              <div><b>${l.secretMessages < 0 ? 'Unlimited' : Math.max(0, l.secretMessages - S.usage.secretSent)}</b><span>Secret Messages left</span></div>
+              <div><b>${l.crushes < 0 ? 'Unlimited' : Math.max(0, l.crushes - S.crushes.length)}</b><span>Crush spots left</span></div>
               <div><b>${l.nearby ? '✓' : '—'}</b><span>Nearby hints</span></div>
             </div>
           </section>` : ''}

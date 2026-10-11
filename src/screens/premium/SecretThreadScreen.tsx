@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSecretSafety } from '@/components/secret/SecretSafety';
 import { GhostAvatar, GhostName, NearbyChip, SealTrack } from '@/components/secret/SecretUI';
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { AppBar } from '@/components/ui/AppBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -168,9 +169,12 @@ function RevealOverlay({
               <Avatar uri={u?.avatar_url} name={u?.display_name ?? '?'} size={120} />
             </View>
           </Animated.View>
-          <Text style={[styles.revealName, { color: colors.onButton }]} accessibilityRole="header">
-            It's {u?.display_name ?? 'them'}!
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={[styles.revealName, { color: colors.onButton }]} accessibilityRole="header">
+              It's {u?.display_name ?? 'them'}!
+            </Text>
+            <PlanBadge plan={u?.plan_badge} />
+          </View>
           {u ? (
             <Text style={[styles.revealSub, { color: colors.onButton }]}>@{u.username}</Text>
           ) : null}
@@ -444,9 +448,12 @@ export function SecretThreadScreen({ navigation, route }: ScreenProps<'SecretThr
                 size={40}
               />
               <View style={styles.flex}>
-                <Text style={[styles.whoName, { color: colors.text }]} numberOfLines={1}>
-                  {thread.recipient?.display_name ?? 'Nexity user'}
-                </Text>
+                <View style={styles.nameRow}>
+                  <Text style={[styles.whoName, { color: colors.text }]} numberOfLines={1}>
+                    {thread.recipient?.display_name ?? 'Nexity user'}
+                  </Text>
+                  <PlanBadge plan={thread.recipient?.plan_badge} />
+                </View>
                 <View style={styles.inline}>
                   <VenetianMask size={11} color={colors.textSecondary} />
                   <Text style={[styles.whoSub, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -703,7 +710,8 @@ const styles = StyleSheet.create({
   chipTight: { marginTop: 2 },
   content: { padding: spacing.md, gap: 12, flexGrow: 1 },
   who: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  whoName: { fontSize: 15.5, fontWeight: '800' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  whoName: { fontSize: 15.5, fontWeight: '800', flexShrink: 1 },
   whoSub: { fontSize: 12 },
   sealbox: {
     alignItems: 'center',

@@ -21,6 +21,7 @@ import { SafeAreaView } from '@/components/ui/SafeAreaView';
 
 import { NotificationListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { AppBar } from '@/components/ui/AppBar';
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -287,7 +288,10 @@ function NotificationRow({ item }: { item: AppNotification }) {
         </View>
       )}
       <View style={styles.body}>
-        <Text style={[styles.text, { color: colors.text }]}>{item.text}</Text>
+        <View style={styles.textRow}>
+          <Text style={[styles.text, { color: colors.text }]}>{item.text}</Text>
+          <PlanBadge plan={item.actor?.plan_badge} />
+        </View>
         <Text style={[styles.time, { color: colors.textSecondary }]}>
           {timeAgoLong(item.createdAt)}
         </Text>
@@ -348,7 +352,8 @@ const styles = StyleSheet.create({
   },
   typeEmoji: { fontSize: 10 },
   body: { flex: 1, minWidth: 0 },
-  text: { fontSize: 14, lineHeight: 20 },
+  textRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
+  text: { flex: 1, fontSize: 14, lineHeight: 20 },
   time: { fontSize: 12, marginTop: 2 },
   requestTitle: { fontSize: 14.5, fontWeight: '700' },
   requestCount: { fontSize: 14, fontWeight: '700' },

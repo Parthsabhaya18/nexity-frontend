@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fireworks, FloatingHearts } from '@/components/celebration/Celebration';
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import { GradientFill } from '@/components/ui/GradientFill';
 import { IconButton } from '@/components/ui/IconButton';
@@ -154,10 +155,16 @@ function Celebration({ navigation, route }: ScreenProps<'MatchCelebration'>) {
             <Text style={[styles.title, { color: colors.onButton }]} accessibilityRole="header">
               It's a match 💘
             </Text>
-            <Text style={[styles.text, { color: colors.onButton }]}>
-              You and <Text style={styles.bold}>{match.user.display_name}</Text> both added each
-              other as a Secret Crush.
-            </Text>
+            <View style={styles.matchLine}>
+              <Text style={[styles.text, { color: colors.onButton }]}>You and </Text>
+              <Text style={[styles.text, styles.bold, { color: colors.onButton }]}>
+                {match.user.display_name}
+              </Text>
+              <PlanBadge plan={match.user.plan_badge} />
+              <Text style={[styles.text, { color: colors.onButton }]}>
+                {' '}both added each other as a Secret Crush.
+              </Text>
+            </View>
             {near ? (
               <View style={[styles.near, { backgroundColor: colors.primarySoft }]}>
                 <MapPin size={13} color={colors.onButton} />
@@ -231,6 +238,13 @@ const styles = StyleSheet.create({
   midHeart: { fontSize: 40, marginHorizontal: -10, zIndex: 1 },
   eyebrow: { fontSize: 15, fontWeight: '800', letterSpacing: 0.5, opacity: 0.9 },
   title: { fontSize: 32, fontWeight: '900', textAlign: 'center' },
+  matchLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
   text: { fontSize: 15.5, lineHeight: 22, textAlign: 'center', opacity: 0.95 },
   bold: { fontWeight: '800' },
   near: {

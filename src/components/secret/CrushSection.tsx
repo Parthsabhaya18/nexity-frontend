@@ -2,6 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { CloudOff, Eye, Heart, Pause, Plus, ShieldCheck, X } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -129,9 +130,12 @@ export function CrushSection({
           <Heart size={11} color={colors.onButton} fill={colors.onButton} />
         </View>
       </View>
-      <Text style={[styles.matchName, { color: colors.text }]} numberOfLines={1}>
-        {firstName(m.user.display_name)}
-      </Text>
+      <View style={styles.nameRow}>
+        <Text style={[styles.matchName, { color: colors.text }]} numberOfLines={1}>
+          {firstName(m.user.display_name)}
+        </Text>
+        <PlanBadge plan={m.user.plan_badge} />
+      </View>
       <Text style={[styles.matchAgo, { color: colors.textSecondary }]} numberOfLines={1}>
         Matched {ago(m.matched_at)}
       </Text>
@@ -158,9 +162,12 @@ export function CrushSection({
             </View>
           </View>
           <View style={styles.flex}>
-            <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-              {c.user.display_name}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+                {c.user.display_name}
+              </Text>
+              <PlanBadge plan={c.user.plan_badge} />
+            </View>
             {paused ? (
               <View style={styles.inline}>
                 <Pause size={11} color={colors.textSecondary} />
@@ -357,7 +364,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  matchName: { fontSize: 13, fontWeight: '800', marginTop: 6 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '100%' },
+  matchName: { fontSize: 13, fontWeight: '800', marginTop: 6, flexShrink: 1 },
   matchAgo: { fontSize: 11 },
   matchNear: { alignSelf: 'center' },
   list: { gap: 2 },
@@ -371,7 +379,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: radius.md,
   },
-  name: { fontSize: 15, fontWeight: '700' },
+  name: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
   avBadge: {
     position: 'absolute',
     right: -1,

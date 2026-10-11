@@ -65,7 +65,13 @@ export const nearbyApi = {
   async nearbyUsers() {
     const { data } = await apiClient.get<{
       items: {
-        user: { id: string; username: string; display_name: string; avatar_url: string | null };
+        user: {
+          id: string;
+          username: string;
+          display_name: string;
+          avatar_url: string | null;
+          plan_badge?: 'plus' | 'premium' | null;
+        };
         follow_state: 'none' | 'pending' | 'accepted';
         is_premium: boolean;
       }[];

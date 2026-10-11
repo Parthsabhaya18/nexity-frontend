@@ -2,6 +2,7 @@ import { Lock } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import type { UserSummary } from '@/services/api/follows';
 import { spacing, useAppTheme } from '@/theme';
@@ -9,7 +10,7 @@ import { spacing, useAppTheme } from '@/theme';
 type Props = {
   user: Pick<
     UserSummary,
-    'username' | 'display_name' | 'avatar_url' | 'is_private'
+    'username' | 'display_name' | 'avatar_url' | 'is_private' | 'plan_badge'
   >;
   onPress: () => void;
   /** Buttons on the right, e.g. Follow or Remove. */
@@ -37,6 +38,7 @@ export function UserRow({ user, onPress, trailing }: Props) {
           >
             {user.username}
           </Text>
+          <PlanBadge plan={user.plan_badge} />
           {user.is_private ? (
             <Lock size={12} color={colors.textSecondary} strokeWidth={2.6} />
           ) : null}

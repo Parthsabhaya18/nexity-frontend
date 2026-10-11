@@ -106,12 +106,15 @@ export function Fireworks({
   colors,
   playKey = 0,
   center,
+  hearts: showHearts = true,
 }: {
   colors: readonly string[];
   /** Change to play again. */
   playKey?: number;
   /** Where the heart burst starts (defaults to the middle of the screen). */
   center?: { x: number; y: number };
+  /** Heart burst in the middle. Payment success leaves this off. */
+  hearts?: boolean;
 }) {
   const reduce = useReduceMotion();
   const { width, height } = useWindowDimensions();
@@ -121,7 +124,7 @@ export function Fireworks({
 
   useEffect(() => {
     if (reduce) return;
-    [...bursts, confetti, hearts].forEach(v => v.setValue(0));
+    [...bursts, confetti, ...(showHearts ? [hearts] : [])].forEach(v => v.setValue(0));
     const anim = Animated.parallel([
       Animated.stagger(
         450,
@@ -140,19 +143,23 @@ export function Fireworks({
         easing: Easing.linear,
         useNativeDriver: true,
       }),
-      Animated.sequence([
-        Animated.delay(350),
-        Animated.timing(hearts, {
-          toValue: 1,
-          duration: 1400,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
+      ...(showHearts
+        ? [
+            Animated.sequence([
+              Animated.delay(350),
+              Animated.timing(hearts, {
+                toValue: 1,
+                duration: 1400,
+                easing: Easing.out(Easing.quad),
+                useNativeDriver: true,
+              }),
+            ]),
+          ]
+        : []),
     ]);
     anim.start();
     return () => anim.stop();
-  }, [reduce, playKey, bursts, confetti, hearts]);
+  }, [reduce, playKey, bursts, confetti, hearts, showHearts]);
 
   const layout = useMemo(() => {
     const rand = seeded(width + height);
@@ -274,7 +281,8 @@ export function Fireworks({
           ]}
         />
       ))}
-      {layout.loveBits.map(h => (
+      {showHearts
+        ? layout.loveBits.map(h => (
         <Animated.Text
           key={h.key}
           style={[
@@ -293,7 +301,8 @@ export function Fireworks({
         >
           {h.emoji}
         </Animated.Text>
-      ))}
+        ))
+        : null}
     </View>
   );
 }

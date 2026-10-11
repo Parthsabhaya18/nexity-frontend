@@ -13,6 +13,7 @@ import {
   type TextInputInstance,
 } from 'react-native';
 
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { AppBar } from '@/components/ui/AppBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -177,9 +178,12 @@ export function SecretComposeScreen({ navigation, route }: ScreenProps<'SecretCo
               )}
               <View style={styles.flex}>
                 <Text style={[styles.small, { color: colors.textSecondary }]}>To</Text>
-                <Text style={[styles.toName, { color: colors.text }]} numberOfLines={1}>
-                  {user?.display_name ?? ' '}
-                </Text>
+                <View style={styles.nameRow}>
+                  <Text style={[styles.toName, { color: colors.text }]} numberOfLines={1}>
+                    {user?.display_name ?? ' '}
+                  </Text>
+                  <PlanBadge plan={user?.plan_badge} />
+                </View>
                 <Text style={[styles.small, { color: colors.textSecondary }]} numberOfLines={1}>
                   @{username}
                 </Text>
@@ -322,7 +326,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.lg,
   },
-  toName: { fontSize: 15.5, fontWeight: '800' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  toName: { fontSize: 15.5, fontWeight: '800', flexShrink: 1 },
   mask: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   letter: { borderWidth: 1.5, borderRadius: radius.lg, padding: 14 },
   letterTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

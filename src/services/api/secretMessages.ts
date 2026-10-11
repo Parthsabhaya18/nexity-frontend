@@ -6,6 +6,7 @@ export interface SecretUser {
   username: string;
   display_name: string;
   avatar_url: string | null;
+  plan_badge?: 'plus' | 'premium' | null;
 }
 
 /** "This person was near you today / yesterday." `locked`: the plan doesn't include it. */

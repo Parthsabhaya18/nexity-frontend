@@ -40,6 +40,7 @@ import { formatCount } from '@/components/profile/ProfileParts';
 import { ReportSheet } from '@/components/safety/ReportSheet';
 import { ShareSheet } from '@/components/share/ShareSheet';
 import { ReelSkeleton } from '@/components/skeleton/ScreenSkeletons';
+import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { usePagedList } from '@/features/follows/usePagedList';
@@ -384,6 +385,8 @@ const ReelItem = memo(function ReelPage({
   const pop = useRef(new Animated.Value(1)).current;
   const saving = useRef(false);
   const [likesOpen, setLikesOpen] = useState(false);
+  const [plays, setPlays] = useState(reel.plays_count ?? 0);
+  const countedPlay = useRef(false);
   const loadLikers = useCallback(
     (cursor: string | null, signal: AbortSignal) =>
       reelsApi.likers(reel.id, cursor, signal),
@@ -398,6 +401,18 @@ const ReelItem = memo(function ReelPage({
       setControls(false);
     }
   }, [active]);
+  useEffect(() => {
+    countedPlay.current = false;
+    setPlays(reel.plays_count ?? 0);
+  }, [reel.id, reel.plays_count]);
+  useEffect(() => {
+    if (!active || !ready || countedPlay.current) return;
+    countedPlay.current = true;
+    reelsApi
+      .play(reel.id)
+      .then(result => setPlays(result.plays_count))
+      .catch(() => {});
+  }, [active, ready, reel.id]);
   useEffect(
     () => () => {
       clearTimeout(tapTimer.current);
@@ -649,6 +664,7 @@ const ReelItem = memo(function ReelPage({
           <Text style={styles.user} numberOfLines={1}>
             {reel.author.username}
           </Text>
+          <PlanBadge plan={reel.author.plan_badge} />
         </Pressable>
         {reel.caption ? (
           <Pressable onPress={() => setExpanded(e => !e)} accessibilityRole="button">
@@ -670,6 +686,9 @@ const ReelItem = memo(function ReelPage({
       </View>
       <LikesSheet
         open={likesOpen}
+        kind="reel"
+        likesCount={reel.likes_count}
+        playsCount={plays}
         load={loadLikers}
         onClose={() => setLikesOpen(false)}
       />

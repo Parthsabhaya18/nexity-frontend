@@ -267,7 +267,7 @@
     const l = NX.limitOf('secretMessages');
     if (l < 0) return `
       <div class="px-usage">
-        <span class="px-tile sm" aria-hidden="true">${Icon('infinity', 22)}</span>
+        <span class="px-tile sm"><b>Unlimited</b></span>
         <span class="px-usage-text"><b>Unlimited Secret Messages with Premium</b><small>Fair use: up to 30 new a day</small></span>
       </div>`;
     const used = Math.min(S.usage.secretSent, l);
