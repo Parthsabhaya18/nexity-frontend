@@ -34,6 +34,7 @@ import {
   type CommentTarget,
 } from '@/components/posts/CommentsSheet';
 import { CaptionText } from '@/components/posts/CaptionText';
+import { LikesSheet } from '@/components/posts/LikesSheet';
 import { PostOptionsSheet } from '@/components/posts/PostOptionsSheet';
 import { formatCount } from '@/components/profile/ProfileParts';
 import { ReportSheet } from '@/components/safety/ReportSheet';
@@ -382,6 +383,12 @@ const ReelItem = memo(function ReelPage({
   const burst = useRef(new Animated.Value(0)).current;
   const pop = useRef(new Animated.Value(1)).current;
   const saving = useRef(false);
+  const [likesOpen, setLikesOpen] = useState(false);
+  const loadLikers = useCallback(
+    (cursor: string | null, signal: AbortSignal) =>
+      reelsApi.likers(reel.id, cursor, signal),
+    [reel.id],
+  );
   const startSec = (reel.trim_start_ms ?? 0) / 1000;
 
   // Coming back to a reel starts it playing again.
@@ -565,24 +572,31 @@ const ReelItem = memo(function ReelPage({
       </View>
 
       <View style={[styles.side, { bottom: bottomInset + 20 }]}>
-        <Pressable
-          onPress={() => like(!reel.liked_by_me)}
-          accessibilityRole="button"
-          accessibilityLabel={reel.liked_by_me ? 'Unlike' : 'Like'}
-          accessibilityState={{ selected: reel.liked_by_me }}
-          style={styles.action}
-        >
-          <Animated.View style={{ transform: [{ scale: pop }] }}>
-            <Heart
-              size={30}
-              color={reel.liked_by_me ? LIKE : WHITE}
-              fill={reel.liked_by_me ? LIKE : 'transparent'}
-            />
-          </Animated.View>
-          {reel.likes_count !== null ? (
-            <Text style={styles.count}>{formatCount(reel.likes_count)}</Text>
+        <View style={styles.action}>
+          <Pressable
+            onPress={() => like(!reel.liked_by_me)}
+            accessibilityRole="button"
+            accessibilityLabel={reel.liked_by_me ? 'Unlike' : 'Like'}
+            accessibilityState={{ selected: reel.liked_by_me }}
+          >
+            <Animated.View style={{ transform: [{ scale: pop }] }}>
+              <Heart
+                size={30}
+                color={reel.liked_by_me ? LIKE : WHITE}
+                fill={reel.liked_by_me ? LIKE : 'transparent'}
+              />
+            </Animated.View>
+          </Pressable>
+          {reel.likes_count !== null && reel.likes_count > 0 ? (
+            <Pressable
+              onPress={() => setLikesOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="View likes"
+            >
+              <Text style={styles.count}>{formatCount(reel.likes_count)}</Text>
+            </Pressable>
           ) : null}
-        </Pressable>
+        </View>
         {reel.comments_disabled ? null : (
           <Pressable
             onPress={() => onComments(reel)}
@@ -654,6 +668,11 @@ const ReelItem = memo(function ReelPage({
           </View>
         ) : null}
       </View>
+      <LikesSheet
+        open={likesOpen}
+        load={loadLikers}
+        onClose={() => setLikesOpen(false)}
+      />
     </View>
   );
 });

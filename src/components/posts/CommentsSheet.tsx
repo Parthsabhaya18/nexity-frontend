@@ -1,4 +1,4 @@
-import { SendHorizontal } from 'lucide-react-native';
+import { Heart, SendHorizontal } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 
 import { ReportSheet } from '@/components/safety/ReportSheet';
+import { ShareSheet, type ShareTarget } from '@/components/share/ShareSheet';
 import { CommentListSkeleton } from '@/components/skeleton/ScreenSkeletons';
+import { ActionSheet } from '@/components/ui/ActionSheet';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +23,7 @@ import { emitPostEvent } from '@/features/posts/postEvents';
 import { ApiError } from '@/services/api/client';
 import { type Comment, postsApi } from '@/services/api/posts';
 import { reelsApi } from '@/services/api/reels';
+import { safetyApi } from '@/services/api/safety';
 import { spacing, useAppTheme } from '@/theme';
 import { timeAgo } from '@/utils/time';
 
@@ -58,6 +61,8 @@ export function CommentsSheet({ target, onClose }: Props) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
+  const [menu, setMenu] = useState<Comment | null>(null);
+  const [sharing, setSharing] = useState<ShareTarget | null>(null);
   const sendingRef = useRef(false);
   const count = useRef(0);
   const list = useRef<FlatList<Comment>>(null);
@@ -196,6 +201,51 @@ export function CommentsSheet({ target, onClose }: Props) {
     ]);
   };
 
+  const patchComment = (id: string, patch: (c: Comment) => Comment) => {
+    const walk = (c: Comment): Comment =>
+      c.id === id ? patch(c) : { ...c, replies: c.replies.map(walk) };
+    setItems(prev => prev.map(walk));
+  };
+
+  const toggleLike = async (comment: Comment) => {
+    const next = !comment.liked_by_me;
+    patchComment(comment.id, c => ({
+      ...c,
+      liked_by_me: next,
+      likes_count: Math.max(0, (c.likes_count ?? 0) + (next ? 1 : -1)),
+    }));
+    try {
+      const saved = await postsApi.setCommentLike(comment.id, next);
+      patchComment(comment.id, c => ({
+        ...c,
+        liked_by_me: saved.liked,
+        likes_count: saved.likes_count,
+      }));
+    } catch (err) {
+      patchComment(comment.id, () => comment);
+      Alert.alert("Couldn't update like", errorText(err));
+    }
+  };
+
+  const blockAuthor = (comment: Comment) => {
+    const author = comment.author;
+    if (!author || author.id === user?.id) return;
+    Alert.alert(`Block @${author.username}?`, 'They will not be able to see you.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Block',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await safetyApi.block(author.id);
+          } catch (err) {
+            Alert.alert("Couldn't block", errorText(err));
+          }
+        },
+      },
+    ]);
+  };
+
   const ready = !!text.trim() && !sending;
 
   return (
@@ -244,6 +294,7 @@ export function CommentsSheet({ target, onClose }: Props) {
             <View>
               <CommentRow
                 comment={item}
+                onLike={() => toggleLike(item)}
                 onReply={
                   target?.kind === 'post' && !target.commentsDisabled
                     ? () => {
@@ -252,15 +303,14 @@ export function CommentsSheet({ target, onClose }: Props) {
                       }
                     : undefined
                 }
-                onDelete={canDelete(item) ? () => remove(item) : undefined}
-                onReport={canDelete(item) ? undefined : () => setReportId(item.id)}
+                onMenu={() => setMenu(item)}
               />
               {item.replies.map(r => (
                 <View key={r.id} style={styles.reply}>
                   <CommentRow
                     comment={r}
-                    onDelete={canDelete(r) ? () => remove(r, item) : undefined}
-                    onReport={canDelete(r) ? undefined : () => setReportId(r.id)}
+                    onLike={() => toggleLike(r)}
+                    onMenu={() => setMenu(r)}
                   />
                 </View>
               ))}
@@ -346,46 +396,99 @@ export function CommentsSheet({ target, onClose }: Props) {
         targetId={reportId ?? ''}
         onClose={() => setReportId(null)}
       />
+      <ActionSheet
+        visible={menu !== null}
+        title={menu?.author ? `@${menu.author.username}` : 'Comment'}
+        options={[
+          ...(menu && target?.kind === 'post' && !target.commentsDisabled
+            ? [
+                {
+                  label: 'Reply',
+                  onPress: () => {
+                    const picked = menu;
+                    setMenu(null);
+                    setReplyTo(picked);
+                    setText(`@${picked.author?.username ?? ''} `);
+                  },
+                },
+              ]
+            : []),
+          {
+            label: 'Share',
+            onPress: () => {
+              setMenu(null);
+              if (target) setSharing({ kind: target.kind, id: target.id });
+            },
+          },
+          ...(menu && !canDelete(menu)
+            ? [
+                {
+                  label: 'Report',
+                  destructive: true,
+                  onPress: () => {
+                    const picked = menu;
+                    setMenu(null);
+                    setReportId(picked.id);
+                  },
+                },
+              ]
+            : []),
+          ...(menu?.author && menu.author.id !== user?.id
+            ? [
+                {
+                  label: 'Block',
+                  destructive: true,
+                  onPress: () => {
+                    const picked = menu;
+                    setMenu(null);
+                    blockAuthor(picked);
+                  },
+                },
+              ]
+            : []),
+          ...(menu && canDelete(menu)
+            ? [
+                {
+                  label: 'Delete',
+                  destructive: true,
+                  onPress: () => {
+                    const picked = menu;
+                    setMenu(null);
+                    const parent = items.find(c =>
+                      c.replies.some(r => r.id === picked.id),
+                    );
+                    remove(picked, parent);
+                  },
+                },
+              ]
+            : []),
+        ]}
+        onClose={() => setMenu(null)}
+      />
+      <ShareSheet target={sharing} onClose={() => setSharing(null)} />
     </BottomSheet>
   );
 }
 
 function CommentRow({
   comment,
+  onLike,
   onReply,
-  onDelete,
-  onReport,
+  onMenu,
 }: {
   comment: Comment;
+  onLike: () => void;
   onReply?: () => void;
-  onDelete?: () => void;
-  onReport?: () => void;
+  onMenu: () => void;
 }) {
   const { colors } = useAppTheme();
-  const action = (label: string, onPress: () => void, danger?: boolean) => (
-    <Pressable
-      onPress={onPress}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel={`${label} comment`}
-    >
-      <Text
-        style={{
-          color: danger ? colors.danger : colors.textSecondary,
-          fontSize: 12,
-          fontWeight: '700',
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
+  const likes = comment.likes_count ?? 0;
   return (
-    <View style={styles.row}>
+    <Pressable style={styles.row} onLongPress={onMenu} delayLongPress={280}>
       <Avatar
         uri={comment.author?.avatar_url}
         name={comment.author?.display_name ?? '?'}
-        size={32}
+        size={36}
       />
       <View style={styles.body}>
         <Text style={{ color: colors.text, fontSize: 14 }}>
@@ -398,12 +501,34 @@ function CommentRow({
           <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
             {timeAgo(new Date(comment.created_at).getTime())}
           </Text>
-          {onReply ? action('Reply', onReply) : null}
-          {onDelete ? action('Delete', onDelete, true) : null}
-          {onReport ? action('Report', onReport) : null}
+          {onReply ? (
+            <Pressable onPress={onReply} hitSlop={8} accessibilityRole="button">
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                Reply
+              </Text>
+            </Pressable>
+          ) : null}
+          {likes > 0 ? (
+            <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+              {likes} like{likes === 1 ? '' : 's'}
+            </Text>
+          ) : null}
         </View>
       </View>
-    </View>
+      <Pressable
+        onPress={onLike}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={comment.liked_by_me ? 'Unlike comment' : 'Like comment'}
+        style={styles.heart}
+      >
+        <Heart
+          size={14}
+          color={comment.liked_by_me ? colors.like : colors.textSecondary}
+          fill={comment.liked_by_me ? colors.like : 'transparent'}
+        />
+      </Pressable>
+    </Pressable>
   );
 }
 
@@ -420,8 +545,9 @@ const styles = StyleSheet.create({
   retry: { minWidth: 160 },
   list: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, flexGrow: 1 },
   empty: { textAlign: 'center', marginTop: spacing.lg, paddingHorizontal: spacing.md },
-  row: { flexDirection: 'row', gap: 10, paddingVertical: 8 },
+  row: { flexDirection: 'row', gap: 10, paddingVertical: 8, alignItems: 'flex-start' },
   body: { flex: 1 },
+  heart: { paddingTop: 4 },
   meta: { flexDirection: 'row', gap: 14, marginTop: 4, alignItems: 'center' },
   reply: { marginLeft: 42 },
   composerWrap: {

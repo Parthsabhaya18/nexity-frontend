@@ -18,4 +18,24 @@ buildscript {
     }
 }
 
+// Ninja 1.10 (shipped with CMake 3.22.1) treats build.ninja as permanently dirty when a
+// CMake path is near the Windows 260-character limit. Staging native builds under C:\cxx
+// keeps those paths short. node_modules paths such as react-native-nitro-geolocation hit this.
+def cxxStagingRoot = new File("C:/cxx/nexity")
+subprojects { sub ->
+    sub.afterEvaluate {
+        def androidExt = sub.extensions.findByName("android")
+        if (androidExt == null) return
+        try {
+            def cmake = androidExt.externalNativeBuild.cmake
+            def isApp = sub.plugins.hasPlugin("com.android.application")
+            // The app's CMake path is filled in later by the React Native plugin.
+            if (cmake.path == null && !isApp) return
+            cmake.buildStagingDirectory = new File(cxxStagingRoot, sub.name)
+        } catch (Throwable error) {
+            logger.warn("Could not shorten the CMake build path for ${sub.name}: ${error.message}")
+        }
+    }
+}
+
 apply plugin: "com.facebook.react.rootproject"

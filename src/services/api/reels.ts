@@ -105,6 +105,14 @@ export const reelsApi = {
     return data;
   },
 
+  async likers(id: string, cursor?: string | null, signal?: AbortSignal) {
+    const { data } = await apiClient.get<Page<UserSummary>>(`/reels/${id}/likers`, {
+      params: cursor ? { cursor } : {},
+      signal,
+    });
+    return data;
+  },
+
   async addComment(id: string, body: string) {
     const { data } = await apiClient.post<Comment>(`/reels/${id}/comments`, {
       body,

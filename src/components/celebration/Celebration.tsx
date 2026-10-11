@@ -176,12 +176,14 @@ export function Fireworks({
       }),
     );
     const flakes = Array.from({ length: 40 }, (_, i) => {
-      const start = rand() * 0.35;
+      // Ranges must stay strictly increasing. A 0 or a 1 that repeats crashes the
+      // native animation driver the moment the match screen opens.
+      const start = 0.04 + rand() * 0.2;
       return {
         key: i,
         x: rand() * width,
         start,
-        end: Math.min(1, start + 0.55 + rand() * 0.1),
+        end: Math.min(0.9, start + 0.55),
         drift: (rand() - 0.5) * 80,
         spin: rand() > 0.5 ? 1 : -1,
         color: colors[i % colors.length]!,

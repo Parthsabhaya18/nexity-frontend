@@ -117,7 +117,7 @@ export interface MessageDto {
 
 export interface ConversationDto {
   id: string;
-  type: 'direct' | 'group';
+  type: 'direct';
   peer: ChatUser | null;
   participants: ChatUser[];
   last_message:

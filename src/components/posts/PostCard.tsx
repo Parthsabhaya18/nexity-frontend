@@ -35,6 +35,7 @@ import { spacing, useAppTheme } from '@/theme';
 import { timeAgo } from '@/utils/time';
 
 import { CaptionText } from './CaptionText';
+import { LikesSheet } from './LikesSheet';
 import { PlayableMedia } from './PlayableMedia';
 import { PostOptionsSheet } from './PostOptionsSheet';
 
@@ -57,12 +58,20 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
   const [options, setOptions] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [likesOpen, setLikesOpen] = useState(false);
   const saving = useRef(false);
   const lastTap = useRef(0);
   const burst = useRef(new Animated.Value(0)).current;
   const pop = useRef(new Animated.Value(1)).current;
   const scrollX = useRef(new Animated.Value(0)).current;
   const kind = post.reel ? 'reel' : 'post';
+  const loadLikers = useCallback(
+    (cursor: string | null, signal: AbortSignal) =>
+      kind === 'reel'
+        ? reelsApi.likers(post.id, cursor, signal)
+        : postsApi.likers(post.id, cursor, signal),
+    [kind, post.id],
+  );
 
   const like = useCallback(
     (liked: boolean) => {
@@ -370,10 +379,12 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
       </View>
 
       {post.likes_count !== null && post.likes_count > 0 ? (
-        <Text style={[styles.likes, { color: colors.text }]}>
-          {formatCount(post.likes_count)} like
-          {post.likes_count === 1 ? '' : 's'}
-        </Text>
+        <Pressable onPress={() => setLikesOpen(true)} accessibilityRole="button">
+          <Text style={[styles.likes, { color: colors.text }]}>
+            {formatCount(post.likes_count)} like
+            {post.likes_count === 1 ? '' : 's'}
+          </Text>
+        </Pressable>
       ) : null}
       {post.caption ? (
         <View style={styles.caption}>
@@ -439,6 +450,11 @@ function PostCardBase({ post, active, onComment, onDeleted }: Props) {
             : null
         }
         onClose={() => setSharing(false)}
+      />
+      <LikesSheet
+        open={likesOpen}
+        load={loadLikers}
+        onClose={() => setLikesOpen(false)}
       />
     </View>
   );
