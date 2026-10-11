@@ -72,6 +72,8 @@ export interface Billing {
   price_paise: number | null;
   /** Masked: "UPI · @okhdfcbank", "Visa •••• 4242". */
   method_display: string | null;
+  period_started_at: string | null;
+  days_remaining: number | null;
 }
 
 export interface Subscription {

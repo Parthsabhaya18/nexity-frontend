@@ -1,15 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import {
-  CreditCard,
-  Crown,
-  Gift,
-  Landmark,
-  Lock,
-  QrCode,
-  Smartphone,
-  Sparkles,
-  Wallet,
-} from 'lucide-react-native';
+import { Crown, Gift, Lock, Sparkles } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   Keyboard,
@@ -31,53 +21,17 @@ import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { showToast } from '@/components/ui/Toast';
 import { Toggle } from '@/components/ui/Toggle';
 import { day, inr, PERIOD_LABEL, PERIOD_UNIT, PLAN_NAME } from '@/features/payments/format';
-import type { UpiApp } from '@/features/payments/razorpay';
-import { installedUpiApps } from '@/features/payments/upiApps';
 import { usePayRunner } from '@/features/payments/usePayRunner';
-import { usePlans } from '@/features/secret/secretQueries';
+import { applySubscription, usePlans } from '@/features/secret/secretQueries';
 import type { ScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { ApiError } from '@/services/api/client';
-import { type PayMethod, paymentsApi } from '@/services/api/payments';
+import { paymentsApi } from '@/services/api/payments';
 import type { Period } from '@/services/api/subscriptions';
 import { radius, spacing, useAppTheme } from '@/theme';
 import { uuidv4 } from '@/utils/uuid';
 
 const PERIODS: Period[] = ['monthly', 'quarterly', 'yearly'];
-
-const METHODS: {
-  id: PayMethod;
-  label: string;
-  sub: string;
-  icon: typeof Smartphone;
-  oneTimeOnly?: boolean;
-}[] = [
-  { id: 'upi', label: 'UPI', sub: 'Google Pay, PhonePe, Paytm, BHIM & more', icon: Smartphone },
-  {
-    id: 'qr',
-    label: 'Scan QR',
-    sub: 'Pay from another phone or any UPI scanner',
-    icon: QrCode,
-    oneTimeOnly: true,
-  },
-  { id: 'card', label: 'Debit / credit card', sub: 'Visa, Mastercard, RuPay', icon: CreditCard },
-  { id: 'netbanking', label: 'Net banking', sub: 'All major Indian banks', icon: Landmark },
-  {
-    id: 'wallet',
-    label: 'Wallet',
-    sub: 'Paytm, Amazon Pay, MobiKwik',
-    icon: Wallet,
-    oneTimeOnly: true,
-  },
-];
-
-const UPI_APPS: { id: UpiApp; label: string }[] = [
-  { id: 'google_pay', label: 'Google Pay' },
-  { id: 'phonepe', label: 'PhonePe' },
-  { id: 'paytm', label: 'Paytm' },
-  { id: 'bhim', label: 'BHIM' },
-  { id: 'upi_id', label: 'UPI ID' },
-];
 
 export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
   const { colors, gradient } = useAppTheme();
@@ -89,9 +43,7 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
   const [coupon, setCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
-  const [method, setMethod] = useState<PayMethod>('upi');
-  const [upiApp, setUpiApp] = useState<UpiApp>('google_pay');
-  const [upiChoices, setUpiChoices] = useState<UpiApp[] | null>(null);
+  const [payByQr, setPayByQr] = useState(false);
   const [paying, setPaying] = useState(false);
   const attemptKey = useRef<string | null>(null);
   const runner = usePayRunner();
@@ -101,25 +53,11 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
   // Any change makes a new attempt (a retry of the same inputs reuses the key).
   useEffect(() => {
     attemptKey.current = null;
-  }, [period, autopay, coupon, method, upiApp]);
+  }, [period, autopay, coupon, payByQr]);
 
   useEffect(() => {
-    if (autopay && (method === 'qr' || method === 'wallet')) setMethod('upi');
-  }, [autopay, method]);
-
-  useEffect(() => {
-    let live = true;
-    installedUpiApps()
-      .then(apps => {
-        if (!live || !apps) return;
-        setUpiChoices(apps);
-        setUpiApp(current => (apps.includes(current) ? current : (apps[0] ?? 'upi_id')));
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, []);
+    if (autopay) setPayByQr(false);
+  }, [autopay]);
 
   const quoteQ = useQuery({
     queryKey: ['payments', 'quote', planId, period, autopay, coupon],
@@ -155,15 +93,35 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
     setPaying(true);
     attemptKey.current ??= uuidv4();
     try {
+      if (q.kind === 'downgrade' || q.amount_paise === 0) {
+        const changed = await paymentsApi.confirmChange({
+          plan_id: planId,
+          period,
+          expected_amount_paise: q.amount_paise,
+          expected_extra_days: q.extra_days,
+        });
+        applySubscription(changed.subscription);
+        showToast(
+          q.kind === 'downgrade'
+            ? `${PLAN_NAME[planId]} is active until ${day(changed.quote.ends_at)}.`
+            : `${PLAN_NAME[planId]} is active. No payment was due.`,
+          'success',
+        );
+        navigation.navigate('Subscription');
+        return;
+      }
       const c = await paymentsApi.checkout(
-        { plan_id: planId, period, autopay, coupon_code: coupon, method },
+        { plan_id: planId, period, autopay, coupon_code: coupon, method: payByQr ? 'qr' : null },
         attemptKey.current,
       );
-      if (method === 'qr') {
+      if (c.autopay_fallback) {
+        showToast('AutoPay is not on for this Razorpay account yet. This payment is one-time.', 'info');
+      }
+      if (payByQr) {
         navigation.replace('PayByQr', { checkoutId: c.checkout_id });
         return;
       }
-      const outcome = await runner.run(c, method, method === 'upi' ? upiApp : null);
+      const outcome = await runner.run(c, null, null);
       if (outcome === 'cancelled') attemptKey.current = null;
     } catch (err) {
       if (err instanceof ApiError && err.code === 'CHECKOUT_IN_PROGRESS') {
@@ -351,73 +309,45 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
           )}
         </View>
 
-        <Text style={[styles.section, { color: colors.text }]} accessibilityRole="header">
-          Payment method
-        </Text>
-        <View style={styles.methods} accessibilityRole="radiogroup" accessibilityLabel="Payment method">
-          {METHODS.filter(m => !(autopay && m.oneTimeOnly)).map(m => {
-            const active = m.id === method;
-            return (
-              <View
-                key={m.id}
-                style={[
-                  styles.method,
-                  { backgroundColor: colors.surface, borderColor: active ? colors.primary : colors.border },
-                ]}
+        {q?.kind === 'downgrade' ? (
+          <View style={[styles.method, { backgroundColor: colors.surface, borderColor: colors.border, padding: 14 }]}>
+            <Text style={[styles.methodLabel, { color: colors.text }]}>No payment for this downgrade</Text>
+            <Text style={[styles.methodSub, { color: colors.textSecondary }]}>
+              {q.consumed_days} days used ({inr(q.consumed_paise)}). Unused credit {inr(q.unused_paise)} becomes{' '}
+              {q.extra_days} days on {PLAN_NAME[planId]}, until {day(q.ends_at)}.
+              {q.rounding_adjustment_paise
+                ? ` Rounding ${q.rounding_adjustment_paise > 0 ? 'adds' : 'removes'} ${inr(Math.abs(q.rounding_adjustment_paise))} of plan value.`
+                : ''}
+            </Text>
+          </View>
+        ) : (
+          <>
+            <Text style={[styles.section, { color: colors.text }]} accessibilityRole="header">
+              Payment
+            </Text>
+            <View style={[styles.method, { backgroundColor: colors.surface, borderColor: colors.primary, padding: 14 }]}>
+              <Text style={[styles.methodLabel, { color: colors.text }]}>Razorpay</Text>
+              <Text style={[styles.methodSub, { color: colors.textSecondary }]}>
+                Razorpay Checkout opens next and shows the methods this account can use: UPI, cards, net banking and wallets. Nexity does not store card or UPI details.
+              </Text>
+            </View>
+            {!autopay ? (
+              <Pressable
+                onPress={() => setPayByQr(v => !v)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: payByQr }}
+                style={[styles.method, { backgroundColor: colors.surface, borderColor: payByQr ? colors.primary : colors.border, padding: 14 }]}
               >
-                <Pressable
-                  onPress={() => setMethod(m.id)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: active }}
-                  accessibilityLabel={`${m.label}. ${m.sub}`}
-                  style={styles.methodRow}
-                >
-                  <View style={[styles.methodIcon, { backgroundColor: colors.primarySoft }]}>
-                    <m.icon size={19} color={colors.primary} />
-                  </View>
-                  <View style={styles.flex}>
-                    <Text style={[styles.methodLabel, { color: colors.text }]}>{m.label}</Text>
-                    <Text style={[styles.methodSub, { color: colors.textSecondary }]}>{m.sub}</Text>
-                  </View>
-                  <View style={[styles.radio, { borderColor: active ? colors.primary : colors.textSecondary }]}>
-                    {active ? <View style={[styles.radioDot, { backgroundColor: colors.primary }]} /> : null}
-                  </View>
-                </Pressable>
-                {active && m.id === 'upi' ? (
-                  <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel="UPI app">
-                    {UPI_APPS.filter(a => !upiChoices || upiChoices.includes(a.id)).map(a => {
-                      const on = a.id === upiApp;
-                      return (
-                        <Pressable
-                          key={a.id}
-                          onPress={() => setUpiApp(a.id)}
-                          accessibilityRole="radio"
-                          accessibilityState={{ checked: on }}
-                          style={[
-                            styles.chip,
-                            {
-                              borderColor: on ? colors.primary : colors.border,
-                              backgroundColor: on ? colors.primarySoft : colors.background,
-                            },
-                          ]}
-                        >
-                          <Text style={[styles.chipText, { color: on ? colors.primary : colors.text }]}>
-                            {a.id === 'upi_id' ? 'Pay with UPI ID' : a.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : null}
-              </View>
-            );
-          })}
-        </View>
-        {autopay ? (
-          <Text style={[styles.qrNote, { color: colors.textSecondary }]}>
-            QR and wallets are for one-time payments. Turn off AutoPay to use them.
-          </Text>
-        ) : null}
+                <Text style={[styles.methodLabel, { color: colors.text }]}>
+                  {payByQr ? 'Scan QR selected' : 'Or pay by UPI QR'}
+                </Text>
+                <Text style={[styles.methodSub, { color: colors.textSecondary }]}>
+                  A one-time QR for another phone. AutoPay stays off.
+                </Text>
+              </Pressable>
+            ) : null}
+          </>
+        )}
 
         <Pressable
           onPress={pay}
@@ -433,7 +363,13 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
         >
           {premium ? <GradientFill colors={gradient} radius={radius.lg} /> : null}
           <Text style={[styles.payText, { color: colors.onButton }]}>
-            {paying ? 'Opening payment…' : q ? `Pay ${inr(q.amount_paise)}` : 'Pay'}
+            {paying
+              ? 'Please wait…'
+              : q?.kind === 'downgrade' || q?.amount_paise === 0
+                ? 'Confirm plan change'
+                : q
+                  ? `Pay ${inr(q.amount_paise)}`
+                  : 'Pay'}
           </Text>
         </Pressable>
         <View style={styles.secure}>

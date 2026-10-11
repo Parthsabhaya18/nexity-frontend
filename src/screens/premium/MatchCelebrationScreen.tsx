@@ -97,13 +97,6 @@ function Celebration({ navigation, route }: ScreenProps<'MatchCelebration'>) {
     );
   };
 
-  // Both phones receive the match. After the celebration, the same chat opens on each.
-  useEffect(() => {
-    if (!match?.conversation_id) return;
-    const timer = setTimeout(() => toChat(), 1400);
-    return () => clearTimeout(timer);
-  }, [match?.conversation_id]);
-
   const particleColors = useMemo(
     () => [colors.onButton, colors.primary, colors.accent, colors.like, colors.primarySoft],
     [colors],
@@ -163,7 +156,7 @@ function Celebration({ navigation, route }: ScreenProps<'MatchCelebration'>) {
             </Text>
             <Text style={[styles.text, { color: colors.onButton }]}>
               You and <Text style={styles.bold}>{match.user.display_name}</Text> both added each
-              other as a Secret Crush. Your chat is open.
+              other as a Secret Crush.
             </Text>
             {near ? (
               <View style={[styles.near, { backgroundColor: colors.primarySoft }]}>
