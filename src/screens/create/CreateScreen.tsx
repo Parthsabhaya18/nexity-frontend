@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GradientFill } from '@/components/ui/GradientFill';
+import { useSheetDrag } from '@/components/ui/sheetDrag';
 import type { ScreenProps } from '@/navigation/types';
 import { radius, spacing, useAppTheme } from '@/theme';
 
@@ -27,6 +28,20 @@ export function CreateScreen({ navigation }: ScreenProps<'Create'>) {
   const { colors, gradient } = useAppTheme();
   const insets = useSafeAreaInsets();
   const slide = useRef(new Animated.Value(0)).current;
+  const closing = useRef(false);
+  const close = () => {
+    if (closing.current) return;
+    closing.current = true;
+    Animated.timing(slide, {
+      toValue: 0,
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) navigation.goBack();
+    });
+  };
+  const drag = useSheetDrag({ onClose: close });
 
   useEffect(() => {
     Animated.timing(slide, {
@@ -37,20 +52,28 @@ export function CreateScreen({ navigation }: ScreenProps<'Create'>) {
     }).start();
   }, [slide]);
 
-  const translateY = slide.interpolate({
-    inputRange: [0, 1],
-    outputRange: [320, 0],
-  });
+  const translateY = Animated.add(
+    slide.interpolate({
+      inputRange: [0, 1],
+      outputRange: [480, 0],
+    }),
+    drag.dragY,
+  );
 
   return (
     <View style={styles.root}>
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15, 23, 42, 0.5)', opacity: slide }]}
+      />
       <Pressable
         style={StyleSheet.absoluteFill}
-        onPress={() => navigation.goBack()}
+        onPress={close}
         accessibilityRole="button"
         accessibilityLabel="Close"
       />
       <Animated.View
+        {...drag.panHandlers}
         style={[
           styles.sheet,
           {
@@ -153,7 +176,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
   },
   sheet: {
     borderTopLeftRadius: 24,

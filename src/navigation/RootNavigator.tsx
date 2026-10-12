@@ -212,9 +212,7 @@ export function RootNavigator() {
               name="MatchCelebration"
               component={MatchCelebrationScreen}
               options={{
-                presentation: 'transparentModal',
                 animation: 'fade',
-                contentStyle: { backgroundColor: 'transparent' },
                 gestureEnabled: false,
               }}
             />

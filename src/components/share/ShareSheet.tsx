@@ -269,7 +269,9 @@ export function ShareSheet({
         if (expanded || keyboard > 0) {
           Keyboard.dismiss();
           resize(false);
-        } else onClose();
+          return true;
+        }
+        onClose();
       }}
       onDragUp={() => resize(true)}
     >

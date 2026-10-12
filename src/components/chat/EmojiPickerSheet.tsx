@@ -452,8 +452,8 @@ function InlineSheet({
   useEffect(() => {
     Animated.timing(progress, {
       toValue: visible ? 1 : 0,
-      duration: visible ? 240 : 180,
-      easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.quad),
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
       isInteraction: false,
     }).start();

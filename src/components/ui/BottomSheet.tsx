@@ -32,8 +32,10 @@ type Props = {
   scrollOffset?: RefObject<number>;
   /** False when the inner list is not scrolling (a half-open share sheet). */
   contentScrolls?: boolean;
-  /** Downward drag from the top. Defaults to `onClose`. Share uses this to drop to half. */
-  onDragDown?: () => void;
+  /** Downward drag from the top. Return true to keep the sheet open. */
+  onDragDown?: () => boolean | void;
+  /** False when the sheet body has its own vertical gesture, such as a date wheel. */
+  dismissOnContentDrag?: boolean;
   /** Upward drag while the sheet is not full. Share uses this to open fully. */
   onDragUp?: () => void;
 };
@@ -52,6 +54,7 @@ export function BottomSheet({
   contentScrolls = true,
   onDragDown,
   onDragUp,
+  dismissOnContentDrag = true,
 }: Props) {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -59,12 +62,21 @@ export function BottomSheet({
   const [mounted, setMounted] = useState(visible);
   const progress = useRef(new Animated.Value(visible ? 1 : 0)).current;
 
+  const drag = useSheetDrag({
+    onClose,
+    onDragDown,
+    onDragUp,
+    contentScrolls,
+    dismissOnContentDrag,
+  });
+
   useEffect(() => {
     if (visible) {
+      drag.dragY.setValue(0);
       setMounted(true);
       Animated.timing(progress, {
         toValue: 1,
-        duration: 240,
+        duration: 280,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
@@ -72,23 +84,19 @@ export function BottomSheet({
     }
     Animated.timing(progress, {
       toValue: 0,
-      duration: 180,
-      easing: Easing.in(Easing.quad),
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished) setMounted(false);
     });
-  }, [visible, progress]);
+  }, [visible, progress, drag.dragY]);
 
   const translateY = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [height * 0.5, 0],
+    outputRange: [height, 0],
   });
-  const drag = useSheetDrag({ onClose, onDragDown, onDragUp, contentScrolls });
   const shift = Animated.add(translateY, drag.dragY);
-  useEffect(() => {
-    if (visible) drag.dragY.setValue(0);
-  }, [visible, drag.dragY]);
 
   const Wrapper = avoidKeyboard ? KeyboardAvoidingView : View;
 

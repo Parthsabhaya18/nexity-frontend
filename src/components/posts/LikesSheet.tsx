@@ -9,6 +9,7 @@ import { FollowButton } from '@/components/follows/FollowButton';
 import { PlanBadge } from '@/components/profile/PlanBadge';
 import { StoryRingAvatar, useStoryRings } from '@/components/stories/StoryRingAvatar';
 import { StoryViewer } from '@/components/stories/StoryViewer';
+import { UserListSkeleton } from '@/components/skeleton/ScreenSkeletons';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SheetFlatList } from '@/components/ui/sheetDrag';
 import { SearchField } from '@/components/ui/SearchField';
@@ -136,11 +137,13 @@ export function LikesSheet({
             onEndReached={loadMore}
             onEndReachedThreshold={0.4}
             ListEmptyComponent={
-              items ? (
+              items === null ? (
+                <UserListSkeleton rows={7} avatar={44} button rowStyle={styles.row} />
+              ) : (
                 <Text style={[styles.empty, { color: colors.textSecondary }]}>
                   {query.trim() ? 'No one matches that search' : 'No likes yet'}
                 </Text>
-              ) : undefined
+              )
             }
             renderItem={({ item }) => {
               const story = stories.get(item.id);

@@ -12,6 +12,7 @@ import {
 } from 'react';
 import {
   Animated,
+  Easing,
   FlatList,
   PanResponder,
   ScrollView,
@@ -31,17 +32,20 @@ type Scrollable = {
 
 type DragOptions = {
   onClose: () => void;
-  onDragDown?: () => void;
+  onDragDown?: () => boolean | void;
   onDragUp?: () => void;
   /** False when the inner list must not scroll, such as a half-open share sheet. */
   contentScrolls?: boolean;
+  /** False when the body must keep its own vertical gesture, such as a date wheel. */
+  dismissOnContentDrag?: boolean;
 };
 
 type Api = {
   onClose: () => void;
-  onDragDown?: () => void;
+  onDragDown?: () => boolean | void;
   onDragUp?: () => void;
   contentScrolls: boolean;
+  dismissOnContentDrag: boolean;
   offset: number;
   gesturing: boolean;
   scrollTo: ((y: number) => void) | null;
@@ -66,6 +70,7 @@ export function useSheetDrag({
   onDragDown,
   onDragUp,
   contentScrolls = true,
+  dismissOnContentDrag = true,
 }: DragOptions) {
   const dragY = useRef(new Animated.Value(0)).current;
   const api = useRef<Api>({
@@ -73,6 +78,7 @@ export function useSheetDrag({
     onDragDown,
     onDragUp,
     contentScrolls,
+    dismissOnContentDrag,
     offset: 0,
     gesturing: false,
     scrollTo: null,
@@ -81,6 +87,7 @@ export function useSheetDrag({
   api.current.onDragDown = onDragDown;
   api.current.onDragUp = onDragUp;
   api.current.contentScrolls = contentScrolls;
+  api.current.dismissOnContentDrag = dismissOnContentDrag;
 
   const [nativeScroll, setNativeScroll] = useState(false);
   useEffect(() => {
@@ -100,8 +107,16 @@ export function useSheetDrag({
       now.gesturing = false;
       const pulledDown = dy > 36 || (vy > 0.55 && dy > 8);
       if (pulledDown) {
-        dragY.setValue(0);
-        (now.onDragDown ?? now.onClose)();
+        const stayOpen = now.onDragDown ? now.onDragDown() === true : false;
+        if (!now.onDragDown) now.onClose();
+        if (stayOpen) {
+          Animated.timing(dragY, {
+            toValue: 0,
+            duration: 280,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }).start();
+        }
       } else {
         if ((dy < -24 || vy < -0.5) && now.onDragUp && !now.contentScrolls) now.onDragUp();
         Animated.spring(dragY, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
@@ -119,6 +134,7 @@ export function useSheetDrag({
           const vertical = Math.abs(g.dy) > 4 && Math.abs(g.dy) > Math.abs(g.dx);
           if (!vertical) return false;
           const now = api.current;
+          if (!now.dismissOnContentDrag) return false;
           return !now.contentScrolls || now.offset <= 1;
         },
         onPanResponderTerminationRequest: () => false,

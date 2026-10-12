@@ -72,7 +72,7 @@ import { useToast } from '@/components/chat/Toast';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { useKeyboardVisible } from '@/components/chat/useKeyboardVisible';
 import { useNow } from '@/components/chat/useNow';
-import { FloatingHearts } from '@/components/celebration/Celebration';
+import { LoveWallpaper } from '@/components/chat/LoveWallpaper';
 import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -673,7 +673,7 @@ function ChatThreadContent({
           <ChatThreadSkeleton />
         ) : (
           <View style={styles.flex} {...revealHandlers}>
-            {love ? <FloatingHearts count={18} opacity={0.55} duration={11000} /> : null}
+            {love ? <LoveWallpaper /> : null}
             <FlatList
               ref={listRef}
               inverted
