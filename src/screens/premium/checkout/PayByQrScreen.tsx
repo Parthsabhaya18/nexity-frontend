@@ -9,7 +9,8 @@ import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { showToast } from '@/components/ui/Toast';
 import { saveToGallery } from '@/features/media/saveToGallery';
 import { inr, PERIOD_LABEL, PLAN_NAME } from '@/features/payments/format';
-import { applySubscription } from '@/features/secret/secretQueries';
+import { PlanPrice } from '@/features/payments/PlanPrice';
+import { applySubscription, usePlans } from '@/features/secret/secretQueries';
 import type { ScreenProps } from '@/navigation/types';
 import { useStatusBar } from '@/navigation/useStatusBar';
 import { ApiError } from '@/services/api/client';
@@ -82,6 +83,7 @@ export function PayByQrScreen({ navigation, route }: ScreenProps<'PayByQr'>) {
   }, [qr, expired, checkoutId, navigation]);
 
   const amount = qr ? inr(qr.amount_paise) : '';
+  const listPrice = usePlans().data?.data.find(p => p.id === qr?.plan_id)?.mrp_paise;
   const imageUrl = qr?.qr?.image_url ?? null;
 
   const save = async () => {
@@ -130,7 +132,7 @@ export function PayByQrScreen({ navigation, route }: ScreenProps<'PayByQr'>) {
           </View>
         ) : (
           <>
-            <Text style={[styles.amount, { color: colors.text }]}>{amount}</Text>
+            <PlanPrice amountPaise={qr.amount_paise} mrpPaise={listPrice} size="lg" />
             <Text style={[styles.planLine, { color: colors.textSecondary }]}>
               Nexity {PLAN_NAME[qr.plan_id]} · {PERIOD_LABEL[qr.period]} · one-time
             </Text>

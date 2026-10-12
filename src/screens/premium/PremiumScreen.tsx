@@ -53,6 +53,7 @@ import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { SearchField } from '@/components/ui/SearchField';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { useCrushActions } from '@/features/crush/useCrushActions';
+import { PlanPrice } from '@/features/payments/PlanPrice';
 import { queryClient } from '@/features/entities/entityCache';
 import {
   getPermissionState,
@@ -152,9 +153,10 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
   const canRead = summary?.can_read ?? subQ.data?.limits.read_secret ?? false;
   const inboxQ = useSecretInbox(canRead);
   const sentQ = useSecretSent();
-  const plusMonthly = usePlans().data?.data.find(p => p.id === 'plus')?.pricing
-    .monthly.amount_paise;
-  const plusPrice = plusMonthly ? Math.round(plusMonthly / 100) : null;
+  const plusPlan = usePlans().data?.data.find(p => p.id === 'plus');
+  const plusPrice = plusPlan
+    ? { amountPaise: plusPlan.pricing.monthly.amount_paise, mrpPaise: plusPlan.mrp_paise }
+    : null;
   const nearbyQ = useNearbySettings();
   const notif = usePermission('notifications');
   const loc = usePermission('location');
@@ -476,7 +478,7 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
               'Reply twice to unseal who sent it and what they wrote',
               'Blocking and reporting stay free',
             ]}
-            priceFrom={plusPrice}
+            price={plusPrice}
             onChoose={() => goPlans('secret-read')}
           />
         );
@@ -640,7 +642,7 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
           "You're revealed only after they reply twice",
           'Plus: 5 a month · Premium: unlimited',
         ]}
-        priceFrom={plusPrice}
+        price={plusPrice}
         onChoose={() => goPlans('secret-send')}
       />
     );
@@ -812,9 +814,18 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
               <Text style={[styles.rowTitle, { color: colors.text }]}>
                 Premium features need a plan
               </Text>
-              <Text style={[styles.rowSub, { color: colors.textSecondary }]}>
-                You're on Free{plusPrice ? ` · Plus from ₹${plusPrice}/month` : ''}
-              </Text>
+              <Text style={[styles.rowSub, { color: colors.textSecondary }]}>You're on Free</Text>
+              {plusPrice ? (
+                <View style={styles.gatePrice}>
+                  <Text style={[styles.rowSub, { color: colors.textSecondary }]}>Plus from</Text>
+                  <PlanPrice
+                    amountPaise={plusPrice.amountPaise}
+                    mrpPaise={plusPrice.mrpPaise}
+                    unit="/month"
+                    size="sm"
+                  />
+                </View>
+              ) : null}
             </View>
             <Text style={[styles.gateCta, { color: colors.primary }]}>See plans</Text>
             <ChevronRight size={16} color={colors.primary} />
@@ -866,7 +877,7 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
             </View>
           </>
         ) : (
-          <CrushSection actions={crush} priceFrom={plusPrice} />
+          <CrushSection actions={crush} price={plusPrice} />
         )}
       </ScrollView>
 
@@ -1007,6 +1018,7 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   rowTitle: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
   rowSub: { fontSize: 13, marginTop: 2 },
+  gatePrice: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 2 },
   rowSide: { alignItems: 'flex-end', gap: 6 },
   day: { fontSize: 12 },
   newTag: { borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2 },

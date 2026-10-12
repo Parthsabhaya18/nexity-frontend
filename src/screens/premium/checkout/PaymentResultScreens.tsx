@@ -8,6 +8,7 @@ import { Button, LinkButton } from '@/components/ui/Button';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { showToast } from '@/components/ui/Toast';
 import { day, inr, PERIOD_UNIT, PLAN_NAME } from '@/features/payments/format';
+import { PlanPrice } from '@/features/payments/PlanPrice';
 import { takeReturnSection } from '@/features/payments/returnTo';
 import { usePlans, useSubscription } from '@/features/secret/secretQueries';
 import type { ScreenProps } from '@/navigation/types';
@@ -65,12 +66,22 @@ export function PurchaseSuccessScreen({ navigation, route }: ScreenProps<'Purcha
           {planId ? `You're on ${PLAN_NAME[planId]}` : 'Thank you!'}
         </Text>
         {sub?.current_period_end ? (
-          <Text style={[styles.text, { color: colors.textSecondary }]}>
-            {sub.billing?.autopay
-              ? `Renews automatically on ${day(sub.current_period_end)}${sub.billing.price_paise ? ` for ${inr(sub.billing.price_paise)}` : ''}.`
-              : `Your plan is active until ${day(sub.current_period_end)}.`}
-            {c && !mandate ? ` Paid ${inr(c.amount_paise)}.` : ''}
-          </Text>
+          <View style={styles.priceLine}>
+            <Text style={[styles.text, { color: colors.textSecondary }]}>
+              {sub.billing?.autopay
+                ? `Renews automatically on ${day(sub.current_period_end)}`
+                : `Your plan is active until ${day(sub.current_period_end)}`}
+              {c && !mandate ? ` · paid ${inr(c.amount_paise)}` : ''}
+            </Text>
+            {sub.billing?.autopay && sub.billing.price_paise ? (
+              <PlanPrice
+                amountPaise={sub.billing.price_paise}
+                mrpPaise={plan?.mrp_paise}
+                unit={sub.billing.period ? `/${PERIOD_UNIT[sub.billing.period]}` : undefined}
+                size="sm"
+              />
+            ) : null}
+          </View>
         ) : null}
         {plan ? (
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -169,6 +180,7 @@ export function PaymentPendingScreen({ navigation, route }: ScreenProps<'Payment
   useStatusBar();
   const { checkoutId } = route.params;
   const c = useCheckoutState(checkoutId).data;
+  const listPrice = usePlans().data?.data.find(p => p.id === c?.plan_id)?.mrp_paise;
   const unit = c ? PERIOD_UNIT[c.period] : null;
 
   const ok = () => {
@@ -190,10 +202,10 @@ export function PaymentPendingScreen({ navigation, route }: ScreenProps<'Payment
           you'll get a notification. <Text style={styles.bold}>You don't need to pay again.</Text>
         </Text>
         {c ? (
-          <Text style={[styles.small, { color: colors.textSecondary }]}>
-            {PLAN_NAME[c.plan_id]} · {inr(c.amount_paise)}
-            {unit ? ` / ${unit}` : ''}
-          </Text>
+          <View style={styles.priceLine}>
+            <Text style={[styles.small, { color: colors.textSecondary }]}>{PLAN_NAME[c.plan_id]}</Text>
+            <PlanPrice amountPaise={c.amount_paise} mrpPaise={listPrice} unit={unit ? `/${unit}` : undefined} size="sm" />
+          </View>
         ) : null}
         <View style={styles.actions}>
           <Button title="OK" onPress={ok} />
@@ -226,6 +238,7 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 13, fontWeight: '800', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.6 },
   title: { fontSize: 26, fontWeight: '800', textAlign: 'center' },
   text: { fontSize: 15, lineHeight: 22, textAlign: 'center' },
+  priceLine: { alignItems: 'center', gap: 6 },
   small: { fontSize: 13, textAlign: 'center' },
   card: { borderWidth: 1, borderRadius: radius.lg, padding: spacing.md, gap: 8 },
   feature: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },

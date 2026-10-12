@@ -11,7 +11,8 @@ import { ApiError } from '@/services/api/client';
 import { type Checkout, type PayMethod, paymentsApi } from '@/services/api/payments';
 import { radius, spacing, useAppTheme } from '@/theme';
 
-import { inr } from './format';
+import { inr, PERIOD_UNIT } from './format';
+import { PlanPrice } from './PlanPrice';
 import { type OpenResult, openRazorpay, stashResult, type UpiApp } from './razorpay';
 
 const UPI_APP_LABEL: Record<UpiApp, string> = {
@@ -132,9 +133,15 @@ export function usePayRunner() {
           <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
             {c.razorpay.description}
           </Text>
-          <Text style={[styles.amount, { color: colors.text }]}>
-            {mandate ? inr(0) : inr(c.amount_paise)}
-          </Text>
+          <PlanPrice
+            amountPaise={mandate ? (c.quote.renewal_paise ?? c.quote.base_paise) : c.quote.base_paise}
+            mrpPaise={c.quote.mrp_paise}
+            unit={`/${PERIOD_UNIT[c.period]}`}
+            size="lg"
+          />
+          {!mandate && c.amount_paise !== c.quote.base_paise ? (
+            <Text style={[styles.amount, { color: colors.text }]}>Due today {inr(c.amount_paise)}</Text>
+          ) : null}
           <Text style={[styles.sub, { color: colors.textSecondary }]}>
             {mandate
               ? `Approve AutoPay · ${inr(c.quote.renewal_paise ?? 0)} from ${c.quote.starts_at?.slice(0, 10) ?? ''}`

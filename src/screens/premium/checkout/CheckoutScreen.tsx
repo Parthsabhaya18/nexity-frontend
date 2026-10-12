@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Crown, Lock, Sparkles } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppBar } from '@/components/ui/AppBar';
@@ -10,8 +10,8 @@ import { GradientFill } from '@/components/ui/GradientFill';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { showToast } from '@/components/ui/Toast';
-import { Toggle } from '@/components/ui/Toggle';
 import { day, inr, PERIOD_LABEL, PERIOD_UNIT, PLAN_NAME } from '@/features/payments/format';
+import { PlanPrice } from '@/features/payments/PlanPrice';
 import { usePayRunner } from '@/features/payments/usePayRunner';
 import { applySubscription } from '@/features/secret/secretQueries';
 import type { ScreenProps } from '@/navigation/types';
@@ -22,20 +22,16 @@ import { radius, spacing, useAppTheme } from '@/theme';
 import { uuidv4 } from '@/utils/uuid';
 
 const period = 'monthly' as const;
+/** New plans always start with AutoPay. Turning it off happens later in Subscription & billing. */
+const autopay = true;
 
 export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
   const { colors, gradient } = useAppTheme();
   useStatusBar();
   const { planId } = route.params;
-  const [autopay, setAutopay] = useState(true);
   const [paying, setPaying] = useState(false);
   const attemptKey = useRef<string | null>(null);
   const runner = usePayRunner();
-
-  // Any change makes a new attempt (a retry of the same inputs reuses the key).
-  useEffect(() => {
-    attemptKey.current = null;
-  }, [autopay]);
 
   const quoteQ = useQuery({
     queryKey: ['payments', 'quote', planId, period, autopay],
@@ -113,23 +109,9 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
             <View style={styles.flex}>
               <Text style={[styles.orderTitle, { color: colors.text }]}>Nexity {PLAN_NAME[planId]}</Text>
               <Text style={[styles.orderSub, { color: colors.textSecondary }]}>
-                {autopay
-                  ? 'Monthly plan · renews automatically · cancel anytime'
-                  : 'One-time · no auto-renew'}
+                Monthly plan · renews automatically · cancel anytime in Subscription & billing
               </Text>
             </View>
-          </View>
-
-          <View style={[styles.autopay, { borderColor: colors.border }]}>
-            <View style={styles.flex}>
-              <Text style={[styles.autopayTitle, { color: colors.text }]}>Auto-renew with AutoPay</Text>
-              <Text style={[styles.autopayText, { color: colors.textSecondary }]}>
-                {autopay
-                  ? 'No need to pay again every month. Cancel anytime in Subscription.'
-                  : "Pay once for 1 month. We'll remind you before it ends."}
-              </Text>
-            </View>
-            <Toggle value={autopay} onChange={setAutopay} accessibilityLabel="Auto-renew with AutoPay" />
           </View>
 
           {blocked ? (
@@ -142,10 +124,16 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
             )
           ) : (
             <View style={styles.rows}>
-              <Row label={`${PLAN_NAME[planId]} × ${q.months} month${q.months > 1 ? 's' : ''}`} value={inr(q.mrp_paise)} />
-              {q.launch_off_paise ? <Row label="Launch discount" value={`−${inr(q.launch_off_paise)}`} discount /> : null}
+              <View style={[styles.baseBox, { backgroundColor: colors.surfaceAlt }]}>
+                <Text style={[styles.baseLabel, { color: colors.textSecondary }]}>Base price</Text>
+                <PlanPrice amountPaise={q.base_paise} mrpPaise={q.mrp_paise} unit={`/${unit}`} size="lg" />
+              </View>
+              <Row label="Base price" value={inr(q.base_paise)} />
               {q.period_off_paise ? (
                 <Row label={`${PERIOD_LABEL[period]} saving`} value={`−${inr(q.period_off_paise)}`} discount />
+              ) : null}
+              {q.coupon?.off_paise ? (
+                <Row label={`Coupon ${q.coupon.code}`} value={`−${inr(q.coupon.off_paise)}`} discount />
               ) : null}
               {q.credit_paise ? (
                 <Row label="Credit from your current plan" value={`−${inr(q.credit_paise)}`} discount />
@@ -155,8 +143,8 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
                 <Text style={[styles.totalValue, { color: colors.text }]}>{inr(q.amount_paise)}</Text>
               </View>
               <Text style={[styles.fine, { color: colors.textSecondary }]}>
-                {autopay && q.renewal_paise && q.renews_on
-                  ? `Then ${inr(q.renewal_paise)} every ${unit} from ${day(q.renews_on)}. `
+                {q.renewal_paise && q.renews_on
+                  ? `Then ${inr(q.renewal_paise)} every ${unit} from ${day(q.renews_on)}. Cancel anytime — the plan stays on until that date. `
                   : q.ends_at
                     ? `Active until ${day(q.ends_at)}. `
                     : ''}
@@ -210,7 +198,6 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
         </View>
         <View style={styles.links}>
           <LinkButton title="Terms" onPress={() => Linking.openURL('https://nexity.com/terms')} />
-          <LinkButton title="Refund policy" onPress={() => Linking.openURL('https://nexity.com/refunds')} />
           <LinkButton title="Privacy" onPress={() => Linking.openURL('https://nexity.com/privacy')} />
         </View>
       </ScrollView>
@@ -219,12 +206,30 @@ export function CheckoutScreen({ navigation, route }: ScreenProps<'Checkout'>) {
   );
 }
 
-function Row({ label, value, discount }: { label: string; value: string; discount?: boolean }) {
+function Row({
+  label,
+  value,
+  discount,
+  struck,
+}: {
+  label: string;
+  value: string;
+  discount?: boolean;
+  struck?: boolean;
+}) {
   const { colors } = useAppTheme();
   return (
     <View style={styles.row}>
       <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.rowValue, { color: discount ? colors.success : colors.text }]}>{value}</Text>
+      <Text
+        style={[
+          styles.rowValue,
+          struck && styles.struck,
+          { color: discount ? colors.success : struck ? colors.textSecondary : colors.text },
+        ]}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
@@ -238,20 +243,13 @@ const styles = StyleSheet.create({
   planIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   orderTitle: { fontSize: 17, fontWeight: '800' },
   orderSub: { fontSize: 12.5, marginTop: 2 },
-  autopay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 12,
-  },
-  autopayTitle: { fontSize: 14.5, fontWeight: '700' },
-  autopayText: { fontSize: 12.5, lineHeight: 17, marginTop: 2 },
   rows: { gap: 8 },
+  baseBox: { borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 12, gap: 4 },
+  baseLabel: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   rowLabel: { fontSize: 13.5, flex: 1 },
   rowValue: { fontSize: 13.5, fontWeight: '700' },
+  struck: { textDecorationLine: 'line-through' },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
