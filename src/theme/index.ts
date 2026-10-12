@@ -1,4 +1,4 @@
-import { useColorScheme } from 'react-native';
+import { createContext, useContext, useSyncExternalStore } from 'react';
 
 export const brand = {
   primary: '#2563EB',
@@ -168,9 +168,59 @@ export type ThemeColors = {
   success: string;
   successSoft: string;
   primarySoft: string;
+  /** Faint primary wash for unread rows. */
+  primarySofter: string;
+  /** Muted fill for chips and secondary surfaces. */
+  surfaceAlt: string;
+  /** Count badges on header icons. */
+  accent: string;
+  like: string;
+  /** DM bubbles sent by me; text on it is `onButton`. */
+  bubbleOutgoing: string;
+  /** DM bubbles received; text on it is `text`. */
+  bubbleIncoming: string;
+  /** Presence dot on avatars. */
+  online: string;
+  /** Bottom sheets, modals and menus. */
+  surfaceElevated: string;
+  /** Scrim behind sheets and modals. */
+  overlay: string;
+  /** Loading placeholders. */
+  skeleton: string;
+  /** The moving shine on top of `skeleton`. */
+  skeletonHighlight: string;
 };
 
 const status = { danger: '#ED4956', success: '#12935A' } as const;
+
+/** Neutral light theme. Moods are separate and only apply when one is selected. */
+export const lightTheme: ThemeColors = {
+  background: '#FFFFFF',
+  surface: '#FFFFFF',
+  primary: '#0095F6',
+  button: '#0095F6',
+  onButton: '#FFFFFF',
+  text: '#000000',
+  textSecondary: '#737373',
+  border: '#DBDBDB',
+  inputBackground: '#FAFAFA',
+  danger: status.danger,
+  dangerSoft: '#FDEBEC',
+  success: status.success,
+  successSoft: '#E3F5EC',
+  primarySoft: 'rgba(0, 149, 246, 0.12)',
+  primarySofter: 'rgba(0, 149, 246, 0.06)',
+  surfaceAlt: '#EFEFEF',
+  accent: '#E5487E',
+  like: '#F0386B',
+  bubbleOutgoing: '#3797F0',
+  bubbleIncoming: '#EFEFEF',
+  online: '#22C55E',
+  surfaceElevated: '#FFFFFF',
+  overlay: 'rgba(0, 0, 0, 0.4)',
+  skeleton: '#EFEFEF',
+  skeletonHighlight: '#FAFAFA',
+};
 
 const darkTheme: ThemeColors = {
   background: '#000000',
@@ -187,13 +237,20 @@ const darkTheme: ThemeColors = {
   success: '#34C47F',
   successSoft: 'rgba(52, 196, 127, 0.16)',
   primarySoft: 'rgba(0, 149, 246, 0.16)',
+  primarySofter: 'rgba(0, 149, 246, 0.08)',
+  surfaceAlt: '#1C1C1C',
+  accent: '#F0679B',
+  like: '#F0386B',
+  bubbleOutgoing: '#3797F0',
+  bubbleIncoming: '#262626',
+  online: '#22C55E',
+  surfaceElevated: '#262626',
+  overlay: 'rgba(0, 0, 0, 0.65)',
+  skeleton: '#262626',
+  skeletonHighlight: '#363636',
 };
 
-export function getThemeColors(
-  scheme: 'light' | 'dark',
-  mood: Mood = DEFAULT_MOOD,
-): ThemeColors {
-  if (scheme === 'dark') return darkTheme;
+export function moodColors(mood: Mood): ThemeColors {
   const p = moodPalettes[mood];
   return {
     ...p,
@@ -204,10 +261,143 @@ export function getThemeColors(
     success: status.success,
     successSoft: '#E3F5EC',
     primarySoft: `${p.primary}1F`,
+    primarySofter: `${p.primary}12`,
+    surfaceAlt: `${p.border}80`,
+    accent: '#E5487E',
+    like: '#F0386B',
+    bubbleOutgoing: p.button,
+    bubbleIncoming: `${p.border}80`,
+    online: '#22C55E',
+    surfaceElevated: p.background,
+    overlay: `${p.text}80`,
+    skeleton: `${p.border}CC`,
+    skeletonHighlight: p.background,
   };
 }
 
+/** Brand gradient stops (135°). Light moods use their primary → button instead. */
+export const brandGradient = ['#38BDF8', '#3B82F6', '#1D4ED8'] as const;
+
+/** Colours that stay fixed on full-bleed dark screens such as Reels. */
+export const darkScreen = {
+  background: '#000000',
+  iconTile: 'rgba(255, 255, 255, 0.12)',
+  text: '#FFFFFF',
+  textSecondary: 'rgba(255, 255, 255, 0.72)',
+  navBackground: 'rgba(8, 6, 12, 0.88)',
+  navBorder: 'rgba(255, 255, 255, 0.1)',
+  navInactive: 'rgba(255, 255, 255, 0.55)',
+} as const;
+
+export type ThemeChoice = 'light' | 'dark' | 'system';
+
+export type AppTheme = {
+  scheme: 'light' | 'dark';
+  colors: ThemeColors;
+  gradient: readonly string[];
+  /** The saved choice. A mood replaces it until removed. */
+  choice: ThemeChoice;
+  mood: Mood | null;
+};
+
+export function resolveTheme(
+  choice: ThemeChoice,
+  mood: Mood | null,
+  system: 'light' | 'dark',
+): AppTheme {
+  const scheme: 'light' | 'dark' = mood
+    ? 'light'
+    : choice === 'system'
+    ? system
+    : choice;
+  const colors = mood
+    ? moodColors(mood)
+    : scheme === 'dark'
+    ? darkTheme
+    : lightTheme;
+  const gradient =
+    scheme === 'dark' && !mood
+      ? brandGradient
+      : [colors.primary, colors.button];
+  return { scheme, colors, gradient, choice, mood };
+}
+
+/** Romantic palette for dark appearance (no white surfaces). */
+const loveDark: ThemeColors = {
+  ...darkTheme,
+  background: '#16070F',
+  surface: '#221019',
+  primary: '#F472B6',
+  button: '#DB2777',
+  text: '#FCE7F3',
+  textSecondary: '#D29BB7',
+  border: '#46202F',
+  inputBackground: '#2C1421',
+  primarySoft: 'rgba(244, 114, 182, 0.18)',
+  primarySofter: 'rgba(244, 114, 182, 0.09)',
+  surfaceAlt: '#2C1421',
+  bubbleOutgoing: '#DB2777',
+  bubbleIncoming: '#33182A',
+  surfaceElevated: '#2A1220',
+  skeleton: '#33182A',
+  skeletonHighlight: '#46202F',
+};
+
+/** Scoped "love" chat theme for Secret Crush matches; the rest of the app keeps its theme. */
+export function loveTheme(base: AppTheme): AppTheme {
+  const dark = base.scheme === 'dark' && !base.mood;
+  const palette = dark ? loveDark : moodColors('romantic');
+  return {
+    ...base,
+    scheme: dark ? 'dark' : 'light',
+    colors: palette,
+    gradient: [palette.primary, palette.button],
+  };
+}
+
+type Listener = () => void;
+const listeners = new Set<Listener>();
+let snapshot: AppTheme = resolveTheme('system', null, 'light');
+
+export function getAppTheme() {
+  return snapshot;
+}
+
+const sameTheme = (a: AppTheme, b: AppTheme) =>
+  a.scheme === b.scheme &&
+  a.choice === b.choice &&
+  a.mood === b.mood &&
+  a.colors === b.colors;
+
+let notified: AppTheme = snapshot;
+
+/**
+ * Called by ThemeProvider while rendering: updates the snapshot without notifying, so
+ * children rendering in the same pass already read the new theme.
+ */
+export function stageTheme(next: AppTheme) {
+  if (!sameTheme(snapshot, next)) snapshot = next;
+}
+
+/** Called by ThemeProvider after commit; re-renders subscribers outside the current pass. */
+export function publishTheme() {
+  if (notified === snapshot) return;
+  notified = snapshot;
+  listeners.forEach(l => l());
+}
+
+/** Set by `ThemeScope` to show part of the tree in another theme. */
+export const ThemeOverrideContext = createContext<AppTheme | null>(null);
+
+const subscribe = (listener: Listener) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+
 export function useAppTheme() {
-  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  return { scheme, colors: getThemeColors(scheme) } as const;
+  const override = useContext(ThemeOverrideContext);
+  const global = useSyncExternalStore(subscribe, getAppTheme);
+  return override ?? global;
 }

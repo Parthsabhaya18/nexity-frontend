@@ -1,6 +1,6 @@
 /* Stack-based navigation. Tabs reset the stack; screens push on top. */
 (function () {
-  const TABS = ['home', 'search', 'secret', 'plans', 'reels', 'chats', 'profile'];
+  const TABS = ['home', 'search', 'secret', 'reels', 'chats', 'profile'];
 
   window.Nav = {
     stack: [{ name: 'splash', params: {} }],

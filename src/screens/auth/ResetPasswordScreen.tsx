@@ -8,6 +8,7 @@ import {
   type TextInputInstance,
 } from 'react-native';
 
+import { BrandLogo } from '@/components/BrandLogo';
 import { AuthHeader } from '@/components/ui/AuthHeader';
 import { AuthLayout } from '@/components/ui/AuthLayout';
 import { Banner } from '@/components/ui/Banner';
@@ -29,7 +30,7 @@ export function ResetPasswordScreen({
   route,
 }: ScreenProps<'ResetPassword'>) {
   const { email, resetToken } = route.params;
-  const { colors } = useAppTheme();
+  const { colors, scheme } = useAppTheme();
   const confirmRef = useRef<TextInputInstance>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -75,7 +76,14 @@ export function ResetPasswordScreen({
   return (
     <AuthLayout onBack={() => navigation.goBack()}>
       <AuthHeader
-        icon="🔒"
+        top={
+          <BrandLogo
+            variant="horizontal"
+            width={150}
+            scheme={scheme}
+            style={styles.logo}
+          />
+        }
         title="Create a new password"
         subtitle={
           <>
@@ -148,6 +156,7 @@ export function ResetPasswordScreen({
 }
 
 const styles = StyleSheet.create({
+  logo: { marginBottom: spacing.xl },
   email: { fontWeight: '700' },
   submit: { marginTop: spacing.sm },
 });

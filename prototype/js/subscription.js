@@ -1,11 +1,11 @@
 /* Subscription: pricing, checkout (UPI / Card / Net Banking / Wallet), processing, success, failure, active plan. */
 (function () {
   const REASONS = {
-    'secret-send': { emoji: '💌', title: 'Secret Messages need Plus or Premium', text: 'Send anonymous messages — you\'re only revealed after they reply twice.' },
-    'secret-read': { emoji: '💌', title: 'Someone sent you a secret message', text: 'Upgrade to reply. Their name and message unseal together after your 2nd reply.' },
-    crush: { emoji: '💘', title: 'Secret Crush needs Plus or Premium', text: 'Add your crushes privately. If it\'s mutual, it\'s a match.' },
-    nearby: { emoji: '💫', title: 'See who was near you', text: 'Plus and Premium show "Was near you today 💫" in secret chats and your crush list — never a place, time or distance.' },
-    limit: { emoji: '👑', title: 'You\'ve reached your plan limit', text: 'Premium gives unlimited Secret Messages (fair use), up to 10 Secret Crushes and a 👑 badge.' },
+    'secret-send': { icon: 'send', title: 'Secret Messages need Plus or Premium', text: 'Send anonymous messages — you\'re only revealed after they reply twice.' },
+    'secret-read': { icon: 'mail', title: 'Someone is trying to reach you', text: 'Upgrade to reply. Their name and message unseal together after your 2nd reply.' },
+    crush: { icon: 'heart', title: 'Secret Crush needs Plus or Premium', text: 'Add your crushes privately. If it\'s mutual, it\'s a match.' },
+    nearby: { icon: 'pin', title: 'See who was near you', text: 'Plus and Premium show "This person was near you today." or "yesterday." in Secret Messages and Secret Crush — never a place, time or distance.' },
+    limit: { icon: 'crown', title: 'You\'ve reached your plan limit', text: 'Premium gives unlimited Secret Messages (fair use), up to 10 Secret Crushes and a Premium badge.' },
   };
   const ORDER = ['free', 'plus', 'premium'];
   const lim = (v) => v < 0 ? 'Unlimited' : v === 0 ? '—' : v;
@@ -17,12 +17,12 @@
     let cta;
     if (cur) cta = p.id === 'free' ? `<button class="btn btn-block btn-secondary" disabled>Your current plan</button>` : `<button class="btn btn-block btn-secondary" data-go="mySubscription">Manage subscription</button>`;
     else if (idx < curIdx) cta = `<p class="pc-note">${p.id === 'free' ? 'Included in every plan' : `Included in ${S.plans[S.me.plan].name}`}</p>`;
-    else cta = `<button class="btn btn-block ${p.id === 'premium' ? 'btn-premium' : 'btn-primary'}" data-go="checkout" data-params='{"plan":"${p.id}"}'>${p.id === 'premium' ? 'Get Premium' : `Upgrade to ${esc(p.name)}`}</button>`;
+    else cta = `<button class="btn btn-block ${p.id === 'premium' ? 'btn-primary' : 'btn-secondary'}" data-go="checkout" data-params='{"plan":"${p.id}"}'>${p.id === 'premium' ? 'Get Premium' : `Upgrade to ${esc(p.name)}`}</button>`;
     const save = p.mrp > p.price && p.price > 0 ? Math.round((1 - p.price / p.mrp) * 100) : 0;
-    const missing = p.id === 'free' ? ['Send or read Secret Messages', 'Add Secret Crushes', 'Nearby indicator'] : [];
+    const missing = p.id === 'free' ? ['Send or read Secret Messages', 'Add Secret Crushes', 'Nearby hints in Secret Messages & Crush'] : [];
     return `
       <article class="plan-card plan-${p.id} ${cur ? 'current' : ''}" aria-label="${esc(p.name)} plan">
-        ${p.id === 'premium' ? '<span class="ribbon">Most loved</span>' : ''}
+        ${p.id === 'premium' ? '<span class="ribbon">Most popular</span>' : ''}
         <div class="pc-head">
           <span class="pc-ic">${Icon(p.id === 'premium' ? 'crown' : p.id === 'plus' ? 'sparkles' : 'user', 20)}</span>
           <h3>${esc(p.name)}</h3>
@@ -42,7 +42,7 @@
   }
 
   Screens.plans = {
-    tab: 'plans', title: 'Plans',
+    tab: 'secret', title: 'Plans',
     render: (p) => {
       const r = REASONS[p.reason];
       if (p.to) App.afterUpgrade = { screen: 'secretCompose', params: { id: p.to } };
@@ -54,8 +54,8 @@
       return `
         ${appbar({ title: 'Plans', back: Nav.stack.length > 1 })}
         <div class="page plans">
-          ${r ? `<div class="reason-banner"><span>${r.emoji}</span><div><b>${r.title}</b><p>${r.text}</p></div></div>` : `
-            <div class="plans-head"><h2>Unlock your secret side</h2><p>Simple plans. Save up to ${S.offers ? S.offers.yearly : 25}% when you pay yearly.</p></div>`}
+          ${r ? `<div class="reason-banner"><span class="px-tile" aria-hidden="true">${Icon(r.icon, 22)}</span><div><b>${r.title}</b><p>${r.text}</p></div></div>` : `
+            <div class="plans-head"><h2>Unlock your secret side</h2><p>Simple monthly plans. Cancel anytime.</p></div>`}
           <div class="current-plan">${Icon('info', 16)} You're on <b>${esc(NX.plan().name)}</b>${NX.isPaid() ? ` · active until ${fmtDate(S.me.planExpiry)}` : ''}</div>
           <div class="plan-grid">${plans.map(planCard).join('')}</div>
           <section class="compare card">
@@ -69,12 +69,13 @@
                 <tr><th scope="row">Read & reply to Secret Messages</th><td>${yes(P.free.limits.readSecret)}</td><td>${yes(P.plus.limits.readSecret)}</td><td>${yes(P.premium.limits.readSecret)}</td></tr>
                 <tr><th scope="row">Secret Crush spots</th><td>${lim(P.free.limits.crushes)}</td><td>${lim(P.plus.limits.crushes)}</td><td>${lim(P.premium.limits.crushes)}</td></tr>
                 <tr><th scope="row">Match animation &amp; chat</th><td>${yes(false)}</td><td>${yes(true)}</td><td>${yes(true)}</td></tr>
-                <tr><th scope="row">Premium profile badge 👑</th><td>${yes(false)}</td><td>${yes(false)}</td><td>${yes(true)}</td></tr>
-                <tr><th scope="row">"Was near you today 💫"</th><td>${yes(P.free.limits.nearby)}</td><td>${yes(P.plus.limits.nearby)}</td><td>${yes(P.premium.limits.nearby)}</td></tr>
+                <tr><th scope="row">Premium profile badge</th><td>${yes(false)}</td><td>${yes(false)}</td><td>${yes(true)}</td></tr>
+                <tr><th scope="row">Nearby screen &amp; notifications</th><td>${yes(true)}</td><td>${yes(true)}</td><td>${yes(true)}</td></tr>
+                <tr><th scope="row">"This person was near you today."</th><td>${yes(P.free.limits.nearby)}</td><td>${yes(P.plus.limits.nearby)}</td><td>${yes(P.premium.limits.nearby)}</td></tr>
               </tbody>
             </table></div>
           </section>
-          <div class="trust-row"><span>${Icon('repeat', 16)} Monthly, 3-month or yearly</span><span>${Icon('x', 16)} Cancel anytime</span><span>${Icon('shieldCheck', 16)} Secure payment</span></div>
+          <div class="trust-row"><span>${Icon('repeat', 16)} Billed monthly</span><span>${Icon('x', 16)} Cancel anytime</span><span>${Icon('shieldCheck', 16)} Secure payment</span></div>
         </div>`;
     }
   };
@@ -114,8 +115,7 @@
       </div>`;
   }
 
-  const PERIODS = [[1, 'Monthly'], [3, '3 months'], [12, 'Yearly']];
-  const periodPct = (m) => { const o = S.offers || { quarterly: 10, yearly: 25 }; return m === 12 ? o.yearly : m === 3 ? o.quarterly : 0; };
+  const periodPct = () => 0;
   const hasPaidBefore = () => S.transactions.some(t => t.userId === 'me' && t.status === 'success');
   /* Price breakdown for the current checkout: plan × period, period saving, then coupon. */
   function quote(plan, c) {
@@ -133,20 +133,14 @@
       const plan = S.plans[p.plan] || S.plans.plus;
       if (!App.checkout || App.checkout.plan !== plan.id) App.checkout = { plan: plan.id, period: 1, coupon: null, method: 'upi', upiApp: 'Google Pay', upiId: '', cardNo: '', exp: '', cvv: '', cardName: '', bank: '', wallet: '' };
       const c = App.checkout;
+      c.period = 1;
       const q = quote(plan, c);
-      const label = c.period === 1 ? 'Monthly' : c.period === 3 ? '3-month' : 'Yearly';
+      const label = 'Monthly';
       return `
         ${appbar({ title: 'Checkout' })}
         <div class="page checkout">
           <section class="order card plan-${plan.id}">
             <div class="order-head"><span class="pc-ic">${Icon(plan.id === 'premium' ? 'crown' : 'sparkles', 20)}</span><div><b>Nexity ${esc(plan.name)}</b><small>${label} plan · renews automatically · cancel anytime</small></div></div>
-            <div class="period-pick" role="radiogroup" aria-label="Billing period">
-              ${PERIODS.map(([m, l]) => { const pct = periodPct(m); const t = quote(plan, { period: m, coupon: null }).total; return `
-                <button type="button" class="period ${c.period === m ? 'active' : ''}" role="radio" aria-checked="${c.period === m}" data-action="pickPeriod" data-m="${m}">
-                  ${pct ? `<span class="period-save">Save ${pct}%</span>` : ''}
-                  <b>${l}</b><span>${inr(t)}</span><small>${m > 1 ? `${inr(Math.round(t / m))}/mo` : 'per month'}</small>
-                </button>`; }).join('')}
-            </div>
             <dl class="order-rows">
               <div><dt>${esc(plan.name)} × ${q.m} month${q.m > 1 ? 's' : ''}</dt><dd>${inr(q.mrpBase)}</dd></div>
               ${q.launchOff ? `<div class="disc"><dt>Launch discount</dt><dd>−${inr(q.launchOff)}</dd></div>` : ''}
@@ -174,12 +168,11 @@
           </div>
           <p class="field-error" id="payErr" role="alert"></p>
           <div class="demo-hint"><span>${Icon('info', 16)} Demo: UPI ID <b>fail@upi</b> or a card ending <b>0000</b> simulates a failed payment.</span></div>
-          <button class="btn ${plan.id === 'premium' ? 'btn-premium' : 'btn-primary'} btn-lg btn-block" data-action="pay">Pay ${inr(q.total)}</button>
+          <button class="btn btn-primary btn-lg btn-block" data-action="pay">Pay ${inr(q.total)}</button>
           <p class="fine center">${Icon('lock', 13)} Payments are simulated in this prototype. No money is charged.</p>
         </div>`;
     }
   };
-  Actions.pickPeriod = (el) => { App.checkout.period = Number(el.dataset.m); App.refresh(); };
   Inputs.couponInput = () => { const e = $('#couponErr'); if (e) e.textContent = ''; };
   Actions.applyCoupon = () => {
     const code = ($('#couponInput').value || '').trim().toUpperCase();
@@ -279,17 +272,17 @@
         <div class="done-screen success plan-${plan.id}">
           <div class="success-check big">${Icon('check', 48)}</div>
           <p class="eyebrow">Payment successful</p>
-          <h1>You're on ${esc(plan.name)} 🎉</h1>
+          <h1>You're on ${esc(plan.name)}</h1>
           <p>Your plan is active until <b>${fmtDate(S.me.planExpiry)}</b>. Transaction ${esc(p.txn)}.</p>
-          <ul class="unlocked">${plan.features.map(f => `<li>${Icon('unlock', 16)} ${esc(f)}</li>`).join('')}</ul>
+          <ul class="unlocked">${plan.features.map(f => `<li>${Icon('check', 16)} ${esc(f)}</li>`).join('')}</ul>
           <div class="done-actions">
-            ${after && after.screen === 'secretCompose' ? `<button class="btn btn-primary btn-lg btn-block" data-action="afterUpgrade">Continue your Secret Message 💌</button>`
-              : `<button class="btn btn-primary btn-lg btn-block" data-action="afterUpgrade">Explore Secret ✨</button>`}
+            ${after && after.screen === 'secretCompose' ? `<button class="btn btn-primary btn-lg btn-block" data-action="afterUpgrade">Continue your Secret Message</button>`
+              : `<button class="btn btn-primary btn-lg btn-block" data-action="afterUpgrade">Go to Premium</button>`}
             <button class="btn btn-ghost btn-lg btn-block" data-action="goSubscription">View subscription</button>
           </div>
         </div>`;
     },
-    mount() { setTimeout(() => confetti(70), 200); Toast.show('Payment successful', { type: 'success' }); }
+    mount() { Toast.show('Payment successful', { type: 'success' }); }
   };
   Actions.afterUpgrade = () => {
     const a = App.afterUpgrade;
@@ -327,6 +320,10 @@
       const paid = NX.isPaid();
       const txns = S.transactions.filter(t => t.userId === 'me');
       const l = plan.limits;
+      const daysLeft = S.me.planExpiry
+        ? Math.ceil((new Date(S.me.planExpiry).getTime() - Date.now()) / 86400000)
+        : null;
+      const endsSoon = !S.me.autoRenew && daysLeft != null && daysLeft <= 5;
       return `
         ${appbar({ title: 'Subscription' })}
         <div class="page">
@@ -334,22 +331,22 @@
             <div class="sub-top">
               <span class="pc-ic">${Icon(plan.id === 'premium' ? 'crown' : plan.id === 'plus' ? 'sparkles' : 'user', 22)}</span>
               <div><p class="eyebrow">Current plan</p><h2>${esc(plan.name)}</h2></div>
-              ${paid ? `<span class="chip ${S.me.autoRenew ? 'chip-ok' : 'chip-warn'}">${S.me.planSource === 'admin' ? 'Gifted' : S.me.autoRenew ? 'Active' : 'Ends soon'}</span>` : ''}
+              ${paid ? `<span class="chip ${endsSoon ? 'chip-warn' : 'chip-ok'}">${S.me.planSource === 'admin' ? 'Gifted' : endsSoon ? 'Ends soon' : 'Active'}</span>` : ''}
             </div>
             ${paid ? `
               <dl class="sub-rows">
                 <div><dt>${S.me.autoRenew ? 'Renews on' : 'Active until'}</dt><dd>${fmtDate(S.me.planExpiry)}</dd></div>
                 <div><dt>Price</dt><dd>${S.me.planSource === 'admin' ? 'Free (gift from Nexity)' : (S.me.planMonths || 1) > 1 ? `${inr(NX.quote(plan, { period: S.me.planMonths, coupon: null }).total)} / ${S.me.planMonths === 12 ? 'year' : '3 months'}` : inr(plan.price) + '/month'}</dd></div>
                 <div><dt>Payment method</dt><dd>${S.me.planSource === 'admin' ? '—' : esc(S.me.planMethod || 'UPI')}</dd></div>
-              </dl>` : `<p class="sub-free">You're on the Free plan. Upgrade to send and read Secret Messages, add Secret Crushes and see Nearby.</p>`}
+              </dl>` : `<p class="sub-free">You're on the Free plan. Upgrade to send and read Secret Messages, add Secret Crushes and see who was near you.</p>`}
           </section>
           ${paid ? `
           <section class="card usage-card">
             <h3>This month</h3>
             <div class="usage-grid">
-              <div><b>${l.secretMessages < 0 ? '∞' : Math.max(0, l.secretMessages - S.usage.secretSent)}</b><span>Secret Messages left</span></div>
-              <div><b>${l.crushes < 0 ? '∞' : Math.max(0, l.crushes - S.crushes.length)}</b><span>Crush spots left</span></div>
-              <div><b>${l.nearby ? '✓' : '—'}</b><span>"Was near you 💫"</span></div>
+              <div><b>${l.secretMessages < 0 ? 'Unlimited' : Math.max(0, l.secretMessages - S.usage.secretSent)}</b><span>Secret Messages left</span></div>
+              <div><b>${l.crushes < 0 ? 'Unlimited' : Math.max(0, l.crushes - S.crushes.length)}</b><span>Crush spots left</span></div>
+              <div><b>${l.nearby ? '✓' : '—'}</b><span>Nearby hints</span></div>
             </div>
           </section>` : ''}
           <div class="stack-btns">

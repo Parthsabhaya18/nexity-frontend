@@ -3,16 +3,16 @@
   const { DAY } = NX.T;
   App.notifFilter = App.notifFilter || 'all';
   const CATS = [
-    ['all', 'All'], ['chat', 'Chat'], ['like', 'Likes'], ['secret', 'Secret Message'], ['crush', 'Secret Crush'], ['match', 'Match'], ['subscription', 'Subscription'],
+    ['all', 'All'], ['chat', 'Chat'], ['like', 'Likes'], ['secret', 'Secret Message'], ['crush', 'Secret Crush'], ['match', 'Match'], ['nearby', 'Nearby'], ['subscription', 'Subscription'],
   ];
   const ICONS = {
-    secret: { emoji: '💌', cls: 'n-secret' }, crush: { emoji: '👀', cls: 'n-crush' }, match: { emoji: '💘', cls: 'n-match' },
+    secret: { emoji: '💌', cls: 'n-secret' }, crush: { emoji: '👀', cls: 'n-crush' }, match: { emoji: '💘', cls: 'n-match' }, nearby: { emoji: '✨', cls: 'n-nearby' },
     subscription: { icon: 'sparkles', cls: 'n-sub' }, like: { icon: 'heart', cls: 'n-like' }, chat: { icon: 'chat', cls: 'n-chat' },
   };
 
   /* Anonymous categories never show an avatar, even when the sender is known internally. */
   function leading(n) {
-    const anon = (n.type === 'secret' && !n.userId) || n.type === 'crush';
+    const anon = (n.type === 'secret' && !n.userId) || n.type === 'crush' || n.type === 'nearby';
     const ic = ICONS[n.type] || ICONS.subscription;
     if (!anon && n.userId && NX.user(n.userId)) return `<span class="n-lead">${avatar(NX.user(n.userId), 46)}<span class="n-type ${ic.cls}">${ic.emoji || Icon(ic.icon, 11)}</span></span>`;
     return `<span class="n-lead n-badge ${ic.cls}">${ic.emoji ? `<span>${ic.emoji}</span>` : Icon(ic.icon, 20)}</span>`;

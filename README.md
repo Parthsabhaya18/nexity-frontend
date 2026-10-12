@@ -18,6 +18,10 @@ android/                   Native Android project
 
 Imports use the `@/` alias, e.g. `import { env } from '@/config/env'`.
 
+## Documentation
+
+Specs for every screen and endpoint live in the backend repo: `../backend/documentation/` (start with `INDEX.md`). Premium features (Secret Messages, Secret Crush, plans and store billing) are in `../backend/documentation/modules/premium/`, with security rules in `../backend/documentation/architecture/SECRET_FEATURES_SECURITY.md`.
+
 ## One-time machine setup
 
 1. Node.js >= 22.11

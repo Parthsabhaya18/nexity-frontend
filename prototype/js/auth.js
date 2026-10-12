@@ -73,7 +73,7 @@
             <div class="orb orb-1">${anonAvatar(64)}</div>
             <div class="orb orb-2"><span class="orb-bubble">Someone has something to tell you 💌</span></div>
             <div class="orb orb-3"><span class="orb-heart">💘</span></div>
-            <div class="orb orb-4"><span class="nearby-chip">Was near you today 💫</span></div>
+            <div class="orb orb-4"><span class="nearby-chip">This person was near you today.</span></div>
           </div>
           <div class="welcome-brand">${Wordmark(40)}</div>
           <h1>Say what you feel.<br><span class="grad-text">Reveal when it's right.</span></h1>
@@ -82,7 +82,7 @@
         <ul class="welcome-points">
           <li><span class="wp-ic">💌</span><div><b>Secret Messages</b><small>Name and message stay sealed until they reply twice.</small></div></li>
           <li><span class="wp-ic">💘</span><div><b>Secret Crush</b><small>Only revealed when it's mutual. Otherwise, nobody knows.</small></div></li>
-          <li><span class="wp-ic">💫</span><div><b>Nearby, privately</b><small>Never your place, time or distance.</small></div></li>
+          <li><span class="wp-ic">📡</span><div><b>Nearby, privately</b><small>See who's around you. Never your place, time or distance.</small></div></li>
         </ul>
         <div class="welcome-cta">
           <button class="btn btn-primary btn-lg btn-block" data-go="register">Create account</button>

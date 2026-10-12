@@ -1,6 +1,11 @@
 import { apiClient } from './client';
 
-export type Gender = 'woman' | 'man' | 'non_binary' | 'prefer_not_to_say';
+export type Gender =
+  | 'woman'
+  | 'man'
+  | 'other'
+  | 'non_binary'
+  | 'prefer_not_to_say';
 
 export interface Me {
   id: string;
@@ -9,14 +14,57 @@ export interface Me {
   display_name: string;
   avatar_url: string | null;
   bio: string;
+  /** Full URL including the scheme, or `''`. */
+  website: string;
   gender: Gender;
   date_of_birth: string;
   is_private: boolean;
   is_verified: boolean;
+  posts_count: number;
+  followers_count: number;
+  following_count: number;
+  /** Pending requests to this (private) account. */
+  follow_requests_count: number;
   role: 'user' | 'moderator' | 'admin';
   onboarding_completed: boolean;
-  preferences: { theme: 'system' | 'light' | 'dark' };
+  preferences: {
+    theme: 'system' | 'light' | 'dark';
+    /** Replaces Light / Dark / System while set. */
+    mood:
+      | 'happy'
+      | 'calm'
+      | 'romantic'
+      | 'sad'
+      | 'angry'
+      | 'cool'
+      | 'relaxed'
+      | 'excited'
+      | 'tired'
+      | 'motivated'
+      | null;
+  };
+  privacy: {
+    show_activity_status: boolean;
+    message_privacy: MessagePrivacy;
+  };
+  notification_settings: NotificationSettings;
+  password_changed_at: string;
   created_at: string;
+}
+
+export type MessagePrivacy = 'everyone' | 'following';
+
+export interface NotificationSettings {
+  /** Pauses every in-app notification at once. */
+  paused: boolean;
+  comments: boolean;
+  story_likes: boolean;
+}
+
+export interface TokenPair {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
 }
 
 export interface Session {

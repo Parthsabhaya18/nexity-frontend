@@ -19,7 +19,7 @@
     const isMe = u.id === 'me';
     let grid;
     if (t === 'posts') {
-      grid = posts.length ? `<div class="grid">${posts.map(p => `<button class="grid-item" data-go="post" data-id="${p.id}" aria-label="Open post"><img src="${esc(p.img)}" alt="" loading="lazy" onerror="this.remove()"></button>`).join('')}</div>`
+      grid = posts.length ? `<div class="grid">${posts.map(p => `<button class="grid-item" data-go="post" data-id="${p.id}" aria-label="Open post"><img src="${esc(p.img)}" alt="" loading="lazy" onerror="this.remove()">${p.images && p.images.length > 1 ? `<span class="grid-multi">${Icon('layers', 14)}</span>` : ''}</button>`).join('')}</div>`
         : emptyState({ icon: 'camera', title: isMe ? 'Share your first photo' : 'No posts yet', text: isMe ? 'Your photos and moments will appear here.' : `When ${esc(u.name.split(' ')[0])} shares photos, you'll see them here.`, actions: isMe ? '<button class="btn btn-primary" data-go="create">Create a post</button>' : '' });
     } else {
       grid = reels.length ? `<div class="grid grid-reels">${reels.map(r => `<button class="grid-item" data-action="openReel" data-id="${r.id}" aria-label="Open reel"><img src="${esc(r.src)}" alt="" loading="lazy" onerror="this.remove()"><span class="grid-reel-meta">${Icon('play', 12)} ${fmtNum(r.likes)}</span></button>`).join('')}</div>`

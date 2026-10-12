@@ -1,15 +1,55 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <!-- Android 12 and below: the in-app gallery reads photos with this. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Android 13+: asked from the in-app notifications sheet. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Added by react-native-blob-util; uploads only use the app cache, which needs none. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
+    <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" tools:node="remove" />
+    <!-- Nearby Bluetooth keeps a connected-device notification so discovery continues after you leave Nexity. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />
+
+    <!-- Android 11+: lets Razorpay find and open UPI apps (intent flow) for payments. -->
+    <queries>
+      <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <data android:scheme="upi" android:host="pay" />
+      </intent>
+      <package android:name="com.google.android.apps.nbu.paisa.user" />
+      <package android:name="com.phonepe.app" />
+      <package android:name="net.one97.paytm" />
+      <package android:name="in.org.npci.upiapp" />
+    </queries>
 
     <application
+      tools:replace="android:allowBackup"
       android:name=".MainApplication"
       android:label="@string/app_name"
       android:icon="@mipmap/ic_launcher"
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme"
-      android:usesCleartextTraffic="${usesCleartextTraffic}"
+      android:usesCleartextTraffic="true"
       android:supportsRtl="true">
       <activity
         android:name=".MainActivity"
@@ -23,5 +63,17 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
+      <service
+        android:name=".NearbyBleService"
+        android:exported="false"
+        android:foregroundServiceType="connectedDevice"
+        android:stopWithTask="false" />
+      <service android:name="com.margelo.nitro.nitrogeolocation.background.NitroBackgroundLocationService" tools:node="remove" />
+      <service android:name="com.margelo.nitro.nitrogeolocation.background.NitroBackgroundHeadlessTaskService" tools:node="remove" />
+      <service android:name="com.margelo.nitro.nitrogeolocation.background.NitroBootRestoreJobService" tools:node="remove" />
+      <receiver android:name="com.margelo.nitro.nitrogeolocation.background.NitroLocationUpdateReceiver" tools:node="remove" />
+      <receiver android:name="com.margelo.nitro.nitrogeolocation.background.NitroGeofenceReceiver" tools:node="remove" />
+      <receiver android:name="com.margelo.nitro.nitrogeolocation.background.NitroActivityRecognitionReceiver" tools:node="remove" />
+      <receiver android:name="com.margelo.nitro.nitrogeolocation.background.NitroBootReceiver" tools:node="remove" />
     </application>
 </manifest>

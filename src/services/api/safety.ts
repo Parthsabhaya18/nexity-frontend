@@ -1,0 +1,52 @@
+import { apiClient } from './client';
+
+export type ReportTarget = 'post' | 'reel' | 'story' | 'user' | 'message' | 'comment';
+
+export type ReportReason =
+  | 'spam'
+  | 'harassment'
+  | 'hate'
+  | 'nudity'
+  | 'violence'
+  | 'self_harm'
+  | 'other';
+
+export interface BlockedUser {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  plan_badge?: 'plus' | 'premium' | null;
+}
+
+export const safetyApi = {
+  async block(userId: string) {
+    await apiClient.post(`/users/${userId}/block`);
+  },
+  async unblock(userId: string) {
+    await apiClient.delete(`/users/${userId}/block`);
+  },
+  /** Hides their posts, reels and stories from my feeds; they are not told. */
+  async mute(userId: string) {
+    await apiClient.post(`/users/${userId}/mute`);
+  },
+  async unmute(userId: string) {
+    await apiClient.delete(`/users/${userId}/mute`);
+  },
+  async blocked(cursor?: string) {
+    const { data } = await apiClient.get<{
+      items: BlockedUser[];
+      next_cursor: string | null;
+      total: number;
+    }>('/users/me/blocked', { params: { cursor, limit: 30 } });
+    return data;
+  },
+  async report(input: {
+    target_type: ReportTarget;
+    target_id: string;
+    reason: ReportReason;
+    details?: string;
+  }) {
+    await apiClient.post('/reports', input);
+  },
+};

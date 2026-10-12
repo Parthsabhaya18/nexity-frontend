@@ -1,12 +1,13 @@
 /* Prototype demo controls: switch personas and simulate incoming events without a backend. */
 (function () {
   const PERSONAS = [
-    ['free', '🙂', 'Free user', 'Locked Secret Messages, upgrade prompts, locked "Was near you"'],
+    ['free', '🙂', 'Free user', 'Locked Secret Messages, upgrade prompts, locked Nearby hints'],
     ['plus', '✨', 'Plus user', '5 Secret Messages / month, 3 crush spots'],
     ['premium', '👑', 'Premium user', 'Unlimited messages, 10 crushes, 👑 badge'],
     ['secret-receiver', '💌', 'Secret Message receiver', 'One sealed message is a single reply away from unsealing'],
     ['crush-receiver', '👀', 'Secret Crush receiver', 'Tip: add Riya Patel as a crush to trigger a match'],
     ['matched', '💘', 'Matched user', 'Already matched with Kabir, chat open'],
+    ['nearby', '📡', 'Nearby explorer', 'Nearby on · 2 people in Bluetooth range · a nearby notification waiting'],
     ['new', '🆕', 'New visitor', 'Logged out — try Register → Verify (code 123456)'],
   ];
 
@@ -33,6 +34,24 @@
           <button class="btn btn-secondary" data-action="demoSim" data-e="crush">👀 Someone adds me as crush</button>
           <button class="btn btn-secondary" data-action="demoSim" data-e="mutual">💘 A crush adds me back (match)</button>
           <button class="btn btn-secondary" data-action="demoSim" data-e="chat">💬 Receive a chat message</button>
+        </div>
+        <h3 class="demo-h">Nearby simulator</h3>
+        <p class="muted small">Simulates other phones and the server checks. Real Bluetooth and GPS are not used in the prototype.${S.demo.clockOffset ? ` Clock: <b>${fmtDate(NX.now())}</b> (+${Math.round(S.demo.clockOffset / NX.T.DAY)} day${S.demo.clockOffset > NX.T.DAY ? 's' : ''}).` : ''}</p>
+        <div class="demo-actions">
+          <button class="btn btn-secondary" data-action="demoNearby" data-e="bleArrive">📡 Someone comes into Bluetooth range</button>
+          <button class="btn btn-secondary" data-action="demoNearby" data-e="bleLeave">🚶 Everyone leaves Bluetooth range</button>
+          <button class="btn btn-secondary" data-action="demoNearby" data-e="unknownDevice">❓ Unknown Bluetooth device</button>
+          <button class="btn btn-secondary" data-action="demoNearby" data-e="locationEncounter">📍 Location encounter (server)</button>
+          <button class="btn btn-secondary" data-action="demoNearby" data-e="advanceDay">⏭️ Advance clock by 1 day</button>
+          ${S.demo.clockOffset ? '<button class="btn btn-secondary" data-action="demoNearby" data-e="resetClock">🕒 Reset clock</button>' : ''}
+        </div>
+        ${S.demo.lastNearby ? `<p class="muted small demo-last">Last: ${esc(S.demo.lastNearby)}</p>` : ''}
+        <h3 class="demo-h">Phone</h3>
+        <div class="set-card">
+          ${[['bluetooth', 'Bluetooth', 'Phone Bluetooth adapter'], ['bleSupported', 'Bluetooth advertising supported', 'Off = phone can\'t be discovered'], ['locationServices', 'Location services', 'Phone-wide location switch'], ['precise', 'Precise location', 'Off = approximate only']].map(([k, t, s]) =>
+            `<div class="set-row toggle"><span class="set-text"><b>${t}</b><small>${s}</small></span>${switchEl({ checked: !!S.device[k], action: 'demoDevice', label: t, data: `data-k="${k}"` })}</div>`).join('')}
+          ${[['btPermission', 'Bluetooth permission'], ['locPermission', 'Location permission']].map(([k, t]) =>
+            `<button class="set-row" data-action="demoPermission" data-k="${k}"><span class="set-text"><b>${t}</b><small>Tap to cycle: not asked → denied → blocked → allowed</small></span><span class="set-val">${{ granted: 'Allowed', denied: 'Denied', blocked: 'Blocked' }[S.device[k]] || 'Not asked'}</span></button>`).join('')}
         </div>` : ''}
         <h3 class="demo-h">States</h3>
         <div class="set-card">
@@ -57,7 +76,8 @@
     Modal.closeAll();
     while (Overlay.stack.length) Overlay.close(null, true);
     if (p === 'new') { Nav.reset('welcome'); Toast.show('Logged out — create a new account to try onboarding'); return; }
-    const start = { 'secret-receiver': ['secret', { tab: 'messages' }], 'crush-receiver': ['secret', { tab: 'crush' }], matched: ['chats', {}] }[p] || ['home', {}];
+    Nearby.stopScan();
+    const start = { 'secret-receiver': ['secret', { tab: 'messages' }], 'crush-receiver': ['secret', { tab: 'crush' }], matched: ['chats', {}], nearby: ['nearby', {}] }[p] || ['home', {}];
     Nav.reset(start[0], start[1]);
     const label = PERSONAS.find(x => x[0] === p)[2];
     Toast.show(`Now viewing as: ${label}`, { type: 'success', icon: 'user' });
@@ -90,6 +110,28 @@
     NX.save();
     el.classList.toggle('on', S.demo[k]);
     el.setAttribute('aria-checked', S.demo[k]);
+    App.refresh();
+  };
+  Actions.demoNearby = (el) => {
+    Modal.closeAll();
+    setTimeout(() => Nearby.sim[el.dataset.e](), 250);
+  };
+  Actions.demoDevice = (el) => {
+    const k = el.dataset.k;
+    S.device[k] = !S.device[k];
+    if ((k === 'bluetooth' || k === 'bleSupported') && !S.device[k]) { NX.clearNearbyRuntime(); Nearby.stopScan(); }
+    NX.save();
+    el.classList.toggle('on', S.device[k]);
+    el.setAttribute('aria-checked', S.device[k]);
+    App.refresh();
+  };
+  Actions.demoPermission = (el) => {
+    const k = el.dataset.k;
+    const order = [null, 'denied', 'blocked', 'granted'];
+    S.device[k] = order[(order.indexOf(S.device[k]) + 1) % order.length];
+    if (k === 'btPermission' && S.device[k] !== 'granted') { NX.clearNearbyRuntime(); Nearby.stopScan(); }
+    NX.save();
+    el.querySelector('.set-val').textContent = { granted: 'Allowed', denied: 'Denied', blocked: 'Blocked' }[S.device[k]] || 'Not asked';
     App.refresh();
   };
   Actions.demoTheme = (el) => {

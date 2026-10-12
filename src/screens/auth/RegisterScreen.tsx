@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { BrandLogo } from '@/components/BrandLogo';
 import { AuthHeader } from '@/components/ui/AuthHeader';
 import { AuthLayout } from '@/components/ui/AuthLayout';
 import { Banner } from '@/components/ui/Banner';
@@ -33,16 +34,15 @@ import { authApi, type Gender } from '@/services/api/auth';
 import { spacing, useAppTheme } from '@/theme';
 
 const GENDERS: { value: Gender; label: string }[] = [
-  { value: 'woman', label: 'Woman' },
-  { value: 'man', label: 'Man' },
-  { value: 'non_binary', label: 'Non-binary' },
-  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+  { value: 'man', label: 'Male' },
+  { value: 'woman', label: 'Female' },
+  { value: 'other', label: 'Other' },
 ];
 
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken';
 
 export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
-  const { colors } = useAppTheme();
+  const { colors, scheme } = useAppTheme();
   const [formError, setFormError] = useState<string | null>(null);
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
   const usernameRef = useRef<TextInputInstance>(null);
@@ -129,6 +129,14 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
   return (
     <AuthLayout onBack={() => navigation.goBack()}>
       <AuthHeader
+        top={
+          <BrandLogo
+            variant="horizontal"
+            width={150}
+            scheme={scheme}
+            style={styles.logo}
+          />
+        }
         title="Create your account"
         subtitle="It takes less than a minute."
       />
@@ -347,6 +355,7 @@ export function RegisterScreen({ navigation }: ScreenProps<'Register'>) {
 }
 
 const styles = StyleSheet.create({
+  logo: { marginBottom: spacing.xl },
   adornment: { marginRight: 8 },
   tick: { fontSize: 17, fontWeight: '800' },
   terms: { fontSize: 14, lineHeight: 20 },

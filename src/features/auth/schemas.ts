@@ -76,7 +76,7 @@ export const registerSchema = z.object({
     ),
   email: emailField,
   password: passwordField,
-  gender: z.enum(['woman', 'man', 'non_binary', 'prefer_not_to_say'], {
+  gender: z.enum(['man', 'woman', 'other'], {
     errorMap: () => ({ message: 'Please choose an option.' }),
   }),
   dob: z
@@ -103,6 +103,22 @@ export const newPasswordSchema = z
     message: 'Passwords don’t match.',
   });
 
+export const changePasswordSchema = z
+  .object({
+    current: z.string().min(1, 'Enter your current password.'),
+    password: passwordField,
+    confirm: z.string().min(1, 'Type your new password again.'),
+  })
+  .refine(v => v.password !== v.current, {
+    path: ['password'],
+    message: 'Choose a password you haven’t used.',
+  })
+  .refine(v => v.password === v.confirm, {
+    path: ['confirm'],
+    message: 'Passwords don’t match.',
+  });
+
+export type ChangePasswordForm = z.input<typeof changePasswordSchema>;
 export type LoginForm = z.input<typeof loginSchema>;
 export type RegisterFormInput = z.input<typeof registerSchema>;
 export type RegisterFormOutput = z.output<typeof registerSchema>;

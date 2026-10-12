@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, Text, View } from 'react-native';
 
+import { BrandLogo } from '@/components/BrandLogo';
 import { AuthHeader } from '@/components/ui/AuthHeader';
 import { AuthLayout } from '@/components/ui/AuthLayout';
 import { Banner } from '@/components/ui/Banner';
@@ -25,7 +26,7 @@ export function VerifyEmailScreen({
   route,
 }: ScreenProps<'VerifyEmail'>) {
   const { email, mode } = route.params;
-  const { colors } = useAppTheme();
+  const { colors, scheme } = useAppTheme();
   const { signIn } = useAuth();
 
   const [code, setCode] = useState('');
@@ -151,7 +152,14 @@ export function VerifyEmailScreen({
   return (
     <AuthLayout onBack={() => navigation.goBack()}>
       <AuthHeader
-        icon={mode === 'register' ? '✉️' : '🔑'}
+        top={
+          <BrandLogo
+            variant="horizontal"
+            width={150}
+            scheme={scheme}
+            style={styles.logo}
+          />
+        }
         title={mode === 'register' ? 'Check your email' : 'Enter reset code'}
         subtitle={
           <>
@@ -206,6 +214,7 @@ export function VerifyEmailScreen({
 }
 
 const styles = StyleSheet.create({
+  logo: { marginBottom: spacing.xl },
   email: { fontWeight: '700' },
   submit: { marginTop: spacing.lg },
   resend: {

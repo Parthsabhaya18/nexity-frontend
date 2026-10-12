@@ -92,7 +92,7 @@
     const active = Nav.rootTab();
     const cur = Nav.cur().name;
     const secretN = NX.secretBadge(), chatN = NX.unreadChats(), notifN = NX.unreadNotifications();
-    const items = [['home', 'home', 'Home', 0], ['search', 'search', 'Search', 0], ['secret', 'crown', 'Premium', secretN], ['plans', 'card', 'Plans', 0]];
+    const items = [['home', 'home', 'Home', 0], ['search', 'search', 'Search', 0], ['secret', 'crown', 'Premium', secretN], ['reels', 'reels', 'Reels', 0]];
     bottomNav.innerHTML = `
       <div class="nav-pill">
         ${items.map(([t, ic, label, n]) => `
@@ -104,8 +104,8 @@
 
     const side = [
       ['tab', 'home', 'home', 'Home', 0], ['tab', 'search', 'search', 'Search', 0], ['tab', 'reels', 'reels', 'Reels', 0],
-      ['tab', 'secret', 'crown', 'Premium', secretN], ['tab', 'plans', 'card', 'Plans', 0], ['tab', 'chats', 'chat', 'Chat', chatN],
-      ['go', 'notifications', 'bell', 'Notifications', notifN], ['action', 'openCreateMenu', 'plusSquare', 'Create', 0], ['tab', 'profile', null, 'Profile', 0],
+      ['tab', 'secret', 'crown', 'Premium', secretN], ['tab', 'chats', 'chat', 'Chat', chatN],
+      ['go', 'notifications', 'bell', 'Notifications', notifN], ['go', 'nearby', 'radar', 'Nearby', 0], ['action', 'openCreateMenu', 'plusSquare', 'Create', 0], ['tab', 'profile', null, 'Profile', 0],
     ];
     const attr = (kind, t) => (kind === 'tab' ? `data-nav-tab="${t}"` : kind === 'action' ? `data-action="${t}"` : `data-go="${t}"`);
     sidebar.innerHTML = `
@@ -134,8 +134,8 @@
       ${S.me.plan === 'premium' ? '' : `
       <div class="rail-card rail-promo">
         <p class="eyebrow">${Icon('sparkles', 14)} ${S.me.plan === 'free' ? 'Unlock your secret side' : 'Go unlimited'}</p>
-        <p>${S.me.plan === 'free' ? 'Send Secret Messages, add Secret Crushes and see who was near you.' : 'Unlimited Secret Messages, up to 10 Crushes and a 👑 badge with Premium.'}</p>
-        <button class="btn btn-sm btn-light" data-go="plans">${S.me.plan === 'free' ? `See plans · from ${inr(S.plans.plus.price)}` : 'Upgrade to Premium'}</button>
+        <p>${S.me.plan === 'free' ? 'Send Secret Messages, add Secret Crushes and see who was near you.' : 'Unlimited Secret Messages, up to 10 Crushes and a Premium badge.'}</p>
+        <button class="btn btn-sm btn-primary" data-go="plans">${S.me.plan === 'free' ? `See plans · from ${inr(S.plans.plus.price)}` : 'Upgrade to Premium'}</button>
       </div>`}
       ${sugg.length ? `<div class="rail-section"><div class="rail-head"><h3>Suggested for you</h3></div>
         ${sugg.map(u => userRow(u, followBtn(u), { size: 36, sub: 'Suggested for you' })).join('')}</div>` : ''}
@@ -147,7 +147,8 @@
     App.renderChrome();
     if (Nav.cur().name === 'notifications' || Nav.cur().name === 'secret') App.refresh();
     const allowed = { secret: 'secretMessage', crush: 'secretCrush', match: 'match', chat: 'chat', like: 'likes', subscription: 'subscription' }[n.type];
-    if (S.notifSettings.push && (!allowed || S.notifSettings[allowed])) {
+    const nearbyMuted = n.type === 'nearby' && !S.me.nearbyNotifications;
+    if (S.notifSettings.push && !nearbyMuted && (!allowed || S.notifSettings[allowed])) {
       Toast.show(toastText || n.text.replace(/<[^>]+>/g, ''), { duration: 4200, icon: 'bell', action: { label: 'View', onClick: () => App.openNotification(n.id) } });
     }
   };
