@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Fireworks, FloatingHearts } from '@/components/celebration/Celebration';
+import { Fireworks } from '@/components/celebration/Celebration';
 import { PlanBadge } from '@/components/profile/PlanBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import { GradientFill } from '@/components/ui/GradientFill';
@@ -74,8 +74,8 @@ function Celebration({ navigation, route }: ScreenProps<'MatchCelebration'>) {
     enter.setValue(0);
     Animated.timing(enter, {
       toValue: 1,
-      duration: 900,
-      easing: Easing.out(Easing.back(1.3)),
+      duration: 700,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [match, matchId, reduce, enter]);
@@ -113,7 +113,6 @@ function Celebration({ navigation, route }: ScreenProps<'MatchCelebration'>) {
   return (
     <View style={styles.root}>
       <GradientFill colors={gradient} />
-      <FloatingHearts count={14} opacity={0.8} />
       {match ? <Fireworks colors={particleColors} /> : null}
 
       <View style={[styles.close, { top: insets.top + 6 }]}>
@@ -139,9 +138,9 @@ function Celebration({ navigation, route }: ScreenProps<'MatchCelebration'>) {
               >
                 <Avatar uri={match.me.avatar_url} name={match.me.display_name} size={104} />
               </Animated.View>
-              <Animated.Text style={[styles.midHeart, { transform: [{ scale: heartScale }] }]}>
-                💘
-              </Animated.Text>
+              <Animated.View style={{ transform: [{ scale: heartScale }], zIndex: 1 }}>
+                <Text style={styles.midHeart}>💘</Text>
+              </Animated.View>
               <Animated.View
                 style={[
                   styles.ring,

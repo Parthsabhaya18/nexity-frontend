@@ -6,15 +6,14 @@ import { CalendarDays } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   Keyboard,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { fromIsoDate, toIsoDate } from '@/features/auth/schemas';
 import { radius, spacing, useAppTheme } from '@/theme';
 
@@ -65,7 +64,6 @@ export function DateField({
   disabled,
 }: Props) {
   const { scheme, colors } = useAppTheme();
-  const insets = useSafeAreaInsets();
   const [iosOpen, setIosOpen] = useState(false);
   const [iosDraft, setIosDraft] = useState<Date>(new Date());
 
@@ -148,26 +146,12 @@ export function DateField({
       ) : null}
 
       {Platform.OS === 'ios' ? (
-        <Modal
+        <BottomSheet
           visible={iosOpen}
-          transparent
-          animationType="slide"
-          onRequestClose={() => closeIos(false)}
+          onClose={() => closeIos(false)}
+          dismissOnContentDrag={false}
         >
-          <Pressable
-            style={styles.backdrop}
-            onPress={() => closeIos(false)}
-            accessibilityLabel="Close date picker"
-          />
-          <View
-            style={[
-              styles.sheet,
-              {
-                backgroundColor: colors.surface,
-                paddingBottom: insets.bottom + spacing.sm,
-              },
-            ]}
-          >
+          <View>
             <View
               style={[styles.sheetBar, { borderBottomColor: colors.border }]}
             >
@@ -212,7 +196,7 @@ export function DateField({
               style={styles.iosPicker}
             />
           </View>
-        </Modal>
+        </BottomSheet>
       ) : null}
     </View>
   );
@@ -233,8 +217,6 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.5 },
   message: { fontSize: 12.5, marginTop: 6, lineHeight: 17 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  sheet: { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
   sheetBar: {
     flexDirection: 'row',
     alignItems: 'center',

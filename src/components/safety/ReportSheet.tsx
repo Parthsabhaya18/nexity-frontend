@@ -1,16 +1,9 @@
 import { useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { SheetScrollView } from '@/components/ui/sheetDrag';
 import { ApiError } from '@/services/api/client';
 import { safetyApi, type ReportReason, type ReportTarget } from '@/services/api/safety';
 import { radius, spacing, useAppTheme } from '@/theme';
@@ -47,7 +40,6 @@ export function ReportSheet({
   onBlocked,
 }: Props) {
   const { colors } = useAppTheme();
-  const insets = useSafeAreaInsets();
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [busy, setBusy] = useState(false);
@@ -95,25 +87,8 @@ export function ReportSheet({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={close}
-    >
-      <Pressable style={styles.backdrop} onPress={close}>
-        <Pressable
-          style={[
-            styles.sheet,
-            {
-              backgroundColor: colors.surface,
-              paddingBottom: insets.bottom + spacing.md,
-            },
-          ]}
-          onPress={() => {}}
-        >
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+    <BottomSheet visible={visible} onClose={close}>
+      <View style={styles.sheet}>
           {done ? (
             <View style={styles.done}>
               <Text style={[styles.title, { color: colors.text }]}>Thanks for letting us know</Text>
@@ -130,7 +105,7 @@ export function ReportSheet({
               <Text style={[styles.title, { color: colors.text }]}>
                 Why are you reporting this?
               </Text>
-              <ScrollView style={styles.list}>
+              <SheetScrollView style={styles.list}>
                 {REASONS.map(item => {
                   const active = reason === item.id;
                   return (
@@ -155,7 +130,7 @@ export function ReportSheet({
                     </Pressable>
                   );
                 })}
-              </ScrollView>
+              </SheetScrollView>
               {reason === 'other' ? (
                 <TextInput
                   value={details}
@@ -178,26 +153,13 @@ export function ReportSheet({
               />
             </>
           )}
-        </Pressable>
-      </Pressable>
-    </Modal>
+      </View>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingTop: 10,
-    maxHeight: '80%',
-  },
-  handle: { alignSelf: 'center', width: 36, height: 4, borderRadius: 2, marginBottom: 12 },
+  sheet: { paddingHorizontal: spacing.md },
   title: { fontSize: 18, fontWeight: '800', marginBottom: 8 },
   hint: { fontSize: 14, lineHeight: 20, marginBottom: spacing.md },
   list: { maxHeight: 280 },

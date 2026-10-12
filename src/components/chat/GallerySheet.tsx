@@ -216,8 +216,8 @@ export function GallerySheet({
         next === 'hidden'
           ? Animated.timing(translate, {
               toValue,
-              duration: 200,
-              easing: Easing.in(Easing.quad),
+              duration: 280,
+              easing: Easing.out(Easing.cubic),
               useNativeDriver: true,
             })
           : Animated.spring(translate, {
