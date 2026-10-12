@@ -24,7 +24,8 @@ import { GradientFill } from '@/components/ui/GradientFill';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { showToast } from '@/components/ui/Toast';
-import { day, inr } from '@/features/payments/format';
+import { day } from '@/features/payments/format';
+import { PlanPrice } from '@/features/payments/PlanPrice';
 import { setReturnSection } from '@/features/payments/returnTo';
 import { applySubscription, usePlans, useSubscription } from '@/features/secret/secretQueries';
 import type { ScreenProps } from '@/navigation/types';
@@ -184,7 +185,9 @@ export function PlansScreen({ navigation, route }: ScreenProps<'Plans'>) {
               {page?.current_prefix ?? "You're on"}{' '}
               <Text style={styles.bold}>{byId[myPlan]?.name ?? 'Free'}</Text>
               {paid && current.current_period_end
-                ? ` · ${current.billing?.autopay ? 'renews' : 'active until'} ${day(current.current_period_end)}`
+                ? current.billing?.autopay
+                  ? ` · your plan renews on ${day(current.current_period_end)}`
+                  : ` · you can use it until ${day(current.current_period_end)}, then it cancels`
                 : ''}
             </Text>
           </View>
@@ -206,7 +209,6 @@ export function PlansScreen({ navigation, route }: ScreenProps<'Plans'>) {
               const isCurrent = plan.id === myPlan;
               const featured = Boolean(plan.highlight_label);
               const monthly = plan.pricing.monthly.amount_paise;
-              const save = plan.mrp_paise > monthly && monthly > 0 ? Math.round((1 - monthly / plan.mrp_paise) * 100) : 0;
               return (
                 <View
                   key={plan.id}
@@ -237,20 +239,11 @@ export function PlansScreen({ navigation, route }: ScreenProps<'Plans'>) {
                     ) : null}
                   </View>
                   <Text style={[styles.desc, { color: colors.textSecondary }]}>{plan.description}</Text>
-                  <View style={styles.priceRow}>
-                    <Text style={[styles.price, { color: colors.text }]}>{inr(monthly)}</Text>
-                    <Text style={[styles.per, { color: colors.textSecondary }]}>
-                      {monthly ? '/month' : 'forever'}
-                    </Text>
-                    {save ? (
-                      <>
-                        <Text style={[styles.mrp, { color: colors.textSecondary }]}>{inr(plan.mrp_paise)}</Text>
-                        <View style={[styles.save, { backgroundColor: colors.successSoft }]}>
-                          <Text style={[styles.saveText, { color: colors.success }]}>Save {save}%</Text>
-                        </View>
-                      </>
-                    ) : null}
-                  </View>
+                  {monthly > 0 ? (
+                    <PlanPrice amountPaise={monthly} mrpPaise={plan.mrp_paise} unit="/month" size="md" />
+                  ) : (
+                    <Text style={[styles.price, { color: colors.text }]}>Free</Text>
+                  )}
                   {plan.features.map(f => (
                     <View key={f} style={styles.feature}>
                       <Check size={16} color={colors.success} strokeWidth={2.6} />
@@ -398,12 +391,7 @@ const styles = StyleSheet.create({
   badge: { borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 3, marginRight: 70 },
   badgeText: { fontSize: 11.5, fontWeight: '800' },
   desc: { fontSize: 13.5 },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' },
   price: { fontSize: 28, fontWeight: '800' },
-  per: { fontSize: 13 },
-  mrp: { fontSize: 13, textDecorationLine: 'line-through', marginLeft: 6 },
-  save: { borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2, marginLeft: 6 },
-  saveText: { fontSize: 11.5, fontWeight: '800' },
   feature: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   featureText: { flex: 1, fontSize: 14, lineHeight: 20 },
   off: { textDecorationLine: 'line-through' },

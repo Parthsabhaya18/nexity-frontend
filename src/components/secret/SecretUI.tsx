@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
+import { PlanPrice } from '@/features/payments/PlanPrice';
 import { nearText } from '@/features/secret/format';
 import type { NearbyHint } from '@/services/api/secretMessages';
 import type { PlanId } from '@/services/api/subscriptions';
@@ -266,13 +267,13 @@ export function LockCard({
   icon,
   title,
   points,
-  priceFrom,
+  price,
   onChoose,
 }: {
   icon: ReactNode;
   title: string;
   points: string[];
-  priceFrom: number | null;
+  price: { amountPaise: number; mrpPaise: number } | null;
   onChoose: () => void;
 }) {
   const { colors } = useAppTheme();
@@ -303,10 +304,12 @@ export function LockCard({
         </View>
       ))}
       <Button title="Choose a plan" onPress={onChoose} style={styles.cardButton} />
-      {priceFrom ? (
-        <Text style={[styles.foot, { color: colors.textSecondary }]}>
-          From ₹{priceFrom}/month · cancel anytime
-        </Text>
+      {price ? (
+        <View style={styles.footPrice}>
+          <Text style={[styles.foot, { color: colors.textSecondary }]}>From</Text>
+          <PlanPrice amountPaise={price.amountPaise} mrpPaise={price.mrpPaise} unit="/month" size="sm" />
+          <Text style={[styles.foot, { color: colors.textSecondary }]}>· cancel anytime</Text>
+        </View>
       ) : null}
     </View>
   );
@@ -408,4 +411,5 @@ const styles = StyleSheet.create({
   pointText: { flex: 1, fontSize: 14, lineHeight: 20 },
   cardButton: { alignSelf: 'stretch', marginTop: 6 },
   foot: { fontSize: 12, textAlign: 'center' },
+  footPrice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 6 },
 });

@@ -16,6 +16,10 @@ type Props = {
   visible: boolean;
   title: string;
   message?: string;
+  /** Short label above a prominent value, such as a plan end date. */
+  highlightLabel?: string;
+  /** Prominent value shown between the title and the message. */
+  highlight?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   /** Confirm label in `danger`, for Delete / Discard / Block. */
@@ -32,6 +36,8 @@ export function ConfirmDialog({
   visible,
   title,
   message,
+  highlightLabel,
+  highlight,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   destructive,
@@ -104,6 +110,16 @@ export function ConfirmDialog({
             >
               {title}
             </Text>
+            {highlight ? (
+              <View style={styles.highlightBox}>
+                {highlightLabel ? (
+                  <Text style={[styles.highlightLabel, { color: colors.textSecondary }]}>
+                    {highlightLabel}
+                  </Text>
+                ) : null}
+                <Text style={[styles.highlight, { color: colors.text }]}>{highlight}</Text>
+              </View>
+            ) : null}
             {message ? (
               <Text style={[styles.message, { color: colors.textSecondary }]}>
                 {message}
@@ -180,6 +196,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   title: { fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  highlightBox: { alignItems: 'center', gap: 2, marginTop: 8, marginBottom: 2 },
+  highlightLabel: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  highlight: { fontSize: 22, fontWeight: '800', textAlign: 'center' },
   message: { fontSize: 14, lineHeight: 20, textAlign: 'center' },
   action: {
     minHeight: 50,

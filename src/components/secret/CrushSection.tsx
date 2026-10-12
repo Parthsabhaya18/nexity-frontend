@@ -25,10 +25,10 @@ const ago = (iso: string) => {
 /** Premium → Secret Crush: admirers, matches, my private list and the add button. */
 export function CrushSection({
   actions,
-  priceFrom,
+  price,
 }: {
   actions: ReturnType<typeof useCrushActions>;
-  priceFrom: number | null;
+  price: { amountPaise: number; mrpPaise: number } | null;
 }) {
   const { colors } = useAppTheme();
   const navigation = useNavigation();
@@ -203,7 +203,7 @@ export function CrushSection({
         'Mutual crushes become a match with a love chat',
         "If it's not mutual, nobody ever finds out",
       ]}
-      priceFrom={priceFrom}
+      price={price}
       onChoose={() => navigation.navigate('Plans', { reason: 'crush' })}
     />
   );

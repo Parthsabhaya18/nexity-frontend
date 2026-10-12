@@ -13,6 +13,7 @@ import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { showToast } from '@/components/ui/Toast';
 import { useCrushSummary } from '@/features/crush/crushQueries';
 import { day, inr, PERIOD_LABEL, PERIOD_UNIT, PLAN_NAME } from '@/features/payments/format';
+import { PlanPrice } from '@/features/payments/PlanPrice';
 import { usePayRunner } from '@/features/payments/usePayRunner';
 import { applySubscription, usePlans, useSubscription } from '@/features/secret/secretQueries';
 import type { ScreenProps } from '@/navigation/types';
@@ -33,8 +34,7 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
   const historyQ = useQuery({ queryKey: ['payments', 'history'], queryFn: paymentsApi.history });
   const runner = usePayRunner();
   const [confirmCancel, setConfirmCancel] = useState(false);
-  const [refundId, setRefundId] = useState<string | null>(null);
-  const [busy, setBusy] = useState<'cancel' | 'resume' | 'refund' | null>(null);
+  const [busy, setBusy] = useState<'cancel' | 'resume' | null>(null);
 
   const paid = !!sub && sub.status === 'active' && sub.plan !== 'free';
   const b = sub?.billing ?? null;
@@ -50,18 +50,20 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
       ? { text: 'Payment due', bg: colors.dangerSoft, fg: colors.danger }
       : !razorpay
         ? { text: 'Test plan', bg: colors.surfaceAlt, fg: colors.textSecondary }
-        : b?.autopay || b?.days_remaining == null || b.days_remaining > 5
+        : b?.autopay
           ? { text: 'Active', bg: colors.successSoft, fg: colors.success }
-          : { text: 'Ends soon', bg: colors.primarySoft, fg: colors.primary };
+          : b?.days_remaining != null && b.days_remaining <= 5
+            ? { text: 'Ends soon', bg: colors.primarySoft, fg: colors.primary }
+            : { text: 'Canceling', bg: colors.primarySoft, fg: colors.primary };
 
   const cancel = async () => {
     setBusy('cancel');
     try {
       applySubscription(await subscriptionsApi.cancelAutopay());
       setConfirmCancel(false);
-      showToast(`AutoPay off. ${planName} stays active until ${day(end)}.`, 'success');
+      showToast(`Plan canceled. You can still use ${planName} until ${day(end)}.`, 'success');
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Couldn't cancel AutoPay.", 'error');
+      showToast(err instanceof ApiError ? err.message : "Couldn't cancel the plan.", 'error');
     } finally {
       setBusy(null);
     }
@@ -79,34 +81,12 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
     }
   };
 
-  const refund = async () => {
-    if (!refundId) return;
-    setBusy('refund');
-    try {
-      const result = await paymentsApi.requestRefund(
-        { payment_id: refundId, reason: 'Requested from Subscription' },
-        uuidv4(),
-      );
-      setRefundId(null);
-      showToast(
-        result.status === 'processed'
-          ? 'Refund completed.'
-          : 'Refund requested. It stays pending until Razorpay confirms it.',
-        'success',
-      );
-      historyQ.refetch();
-    } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Couldn't request that refund.", 'error');
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const renew = () => {
     if (!sub || sub.plan === 'free') return;
     navigation.navigate('Checkout', { planId: sub.plan, period: b?.period ?? 'monthly' });
   };
 
+  const catalog = plans?.data.find(p => p.id === sub?.plan);
   const priceText = !paid
     ? null
     : !razorpay
@@ -145,6 +125,13 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
                 <Text style={[styles.planName, { color: colors.text }]} accessibilityRole="header">
                   {planName}
                 </Text>
+                {paid && end ? (
+                  <Text style={[styles.statusLine, { color: colors.textSecondary }]}>
+                    {b?.autopay
+                      ? `Your plan renews on ${day(end)}.`
+                      : `You can use this until ${day(end)}. After that it cancels.`}
+                  </Text>
+                ) : null}
               </View>
               {chip ? (
                 <View style={[styles.chip, { backgroundColor: chip.bg }]}>
@@ -154,11 +141,22 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
             </View>
             {paid ? (
               <View style={styles.rows}>
-                <Row label={b?.autopay ? 'Renews on' : 'Active until'} value={day(end)} />
                 {b?.period_started_at ? <Row label="Started" value={day(b.period_started_at)} /> : null}
                 {b?.days_remaining != null ? <Row label="Days remaining" value={String(b.days_remaining)} /> : null}
                 {b?.period ? <Row label="Billing" value={PERIOD_LABEL[b.period]} /> : null}
-                {priceText ? <Row label="Price" value={priceText} /> : null}
+                {b?.price_paise && b.period && razorpay ? (
+                  <View style={styles.row}>
+                    <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Price</Text>
+                    <PlanPrice
+                      amountPaise={b.price_paise}
+                      mrpPaise={catalog?.mrp_paise}
+                      unit={`/${PERIOD_UNIT[b.period]}`}
+                      size="sm"
+                    />
+                  </View>
+                ) : priceText ? (
+                  <Row label="Price" value={priceText} />
+                ) : null}
                 {razorpay ? (
                   <Row
                     label="Pays with"
@@ -167,11 +165,6 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
                 ) : null}
                 {b?.autopay && b.next_charge_at && b.price_paise ? (
                   <Row label="Next charge" value={`${inr(b.price_paise)} on ${day(b.next_charge_at)}`} />
-                ) : null}
-                {razorpay && !b?.autopay ? (
-                  <Text style={[styles.note, { color: colors.textSecondary }]}>
-                    Doesn't renew. We'll remind you before it ends.
-                  </Text>
                 ) : null}
               </View>
             ) : (
@@ -220,7 +213,7 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
             b?.status === 'in_grace' ? (
               <Button title="Pay now" onPress={renew} />
             ) : b?.autopay ? (
-              <Button title="Cancel AutoPay" variant="ghost" onPress={() => setConfirmCancel(true)} />
+              <Button title="Cancel plan" variant="ghost" onPress={() => setConfirmCancel(true)} />
             ) : (
               <>
                 <Button
@@ -266,9 +259,6 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
                   </Text>
                 </View>
                 <View style={styles.billRight}>
-                  {item.status === 'paid' ? (
-                    <Button title="Refund" variant="ghost" onPress={() => setRefundId(item.id)} style={styles.refundBtn} />
-                  ) : null}
                   <Text style={[styles.billAmount, { color: colors.text }]}>{inr(item.amount_paise)}</Text>
                   <Text
                     style={[
@@ -286,25 +276,16 @@ export function SubscriptionScreen({ navigation }: ScreenProps<'Subscription'>) 
       </ScrollView>
       <ConfirmDialog
         visible={confirmCancel}
-        title="Cancel AutoPay?"
-        message={`You'll keep ${planName} until ${day(end)}. This turns off AutoPay at the end of the paid period. It is not a cash refund. After that date you'll move to Free.`}
-        confirmLabel="Cancel AutoPay"
-        cancelLabel="Keep AutoPay"
+        title="Cancel plan?"
+        highlightLabel="You can keep using it until"
+        highlight={day(end) || 'the end of this period'}
+        message={`Even after you cancel, ${planName} stays on until this date. AutoPay turns off, so you will not be billed again. After this date the plan ends.`}
+        confirmLabel="Cancel plan"
+        cancelLabel="Keep plan"
         destructive
         loading={busy === 'cancel'}
         onConfirm={cancel}
         onCancel={() => setConfirmCancel(false)}
-      />
-      <ConfirmDialog
-        visible={!!refundId}
-        title="Request a refund?"
-        message="This asks Razorpay to return this payment. It stays pending until Razorpay confirms it. A plan downgrade is separate and does not refund cash. A full refund can end the plan."
-        confirmLabel="Request refund"
-        cancelLabel="Keep payment"
-        destructive
-        loading={busy === 'refund'}
-        onConfirm={refund}
-        onCancel={() => setRefundId(null)}
       />
       {runner.element}
     </SafeAreaView>
@@ -351,6 +332,7 @@ const styles = StyleSheet.create({
   icon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   eyebrow: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   planName: { fontSize: 22, fontWeight: '800' },
+  statusLine: { fontSize: 13, lineHeight: 18, marginTop: 2 },
   chip: { borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4 },
   chipText: { fontSize: 12, fontWeight: '800' },
   rows: { gap: 8 },
@@ -370,7 +352,6 @@ const styles = StyleSheet.create({
   billTitle: { fontSize: 14, fontWeight: '700' },
   billSub: { fontSize: 12, marginTop: 2 },
   billRight: { alignItems: 'flex-end' },
-  refundBtn: { minHeight: 32, marginBottom: 4 },
   billAmount: { fontSize: 14.5, fontWeight: '800' },
   billStatus: { fontSize: 11.5, fontWeight: '800', marginTop: 2 },
 });

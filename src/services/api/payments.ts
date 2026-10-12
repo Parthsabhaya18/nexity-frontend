@@ -140,14 +140,6 @@ export const paymentsApi = {
     );
     return data;
   },
-  async requestRefund(input: { payment_id: string; reason: string }, key: string) {
-    const { data } = await apiClient.post<{ id: string; status: string; amount_paise: number }>(
-      '/payments/refunds',
-      input,
-      { headers: { 'Idempotency-Key': key } },
-    );
-    return data;
-  },
   async resumeAutopay(key: string) {
     const { data } = await apiClient.post<Checkout>('/subscriptions/me/resume', undefined, {
       headers: { 'Idempotency-Key': key },
