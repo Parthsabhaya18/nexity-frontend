@@ -142,6 +142,8 @@ export interface ConversationDto {
   origin?: 'secret_message' | 'secret_crush_match' | null;
   /** `love`: the match chat uses the romantic palette with hearts. */
   theme?: 'love' | null;
+  /** True when the viewer follows the other person. Reading a chat does not require it. */
+  can_send: boolean;
   created_at: string;
   updated_at: string;
 }

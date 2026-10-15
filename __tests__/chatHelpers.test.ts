@@ -229,6 +229,7 @@ describe('useChats', () => {
     last_read_message_id: null,
     peer_last_read_message_id: null,
     is_muted: false,
+    can_send: true,
     created_at: '2026-10-04T09:00:00.000Z',
     updated_at: '2026-10-04T09:00:00.000Z',
     ...over,

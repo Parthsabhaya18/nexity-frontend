@@ -1,4 +1,4 @@
-import type { Me, MessagePrivacy, NotificationSettings, TokenPair } from './auth';
+import type { Me, NotificationSettings, TokenPair } from './auth';
 import { apiClient } from './client';
 
 /** Only the fields that are sent change; `avatar_media_id: null` removes the photo. */
@@ -10,7 +10,6 @@ export interface ProfileUpdate {
   avatar_media_id?: string | null;
   is_private?: boolean;
   show_activity_status?: boolean;
-  message_privacy?: MessagePrivacy;
 }
 
 export interface DeviceSession {

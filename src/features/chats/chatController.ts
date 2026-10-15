@@ -854,23 +854,18 @@ export const chat = {
 
   openThread(conversationId: string) {
     set(s => ({ ...s, activeConversationId: conversationId }));
-    if (!get().conversations[conversationId]) {
-      chatApi
-        .getConversation(conversationId)
-        .then(c => {
-          upsertConversations([c]);
-          if (c.peer) subscribePresence([c.peer.id]);
-        })
-        .catch(err =>
-          patchThread(conversationId, t => ({
-            ...t,
-            error: errorMessage(err),
-          })),
-        );
-    } else {
-      const peer = get().conversations[conversationId]?.peer;
-      if (peer) subscribePresence([peer.id]);
-    }
+    chatApi
+      .getConversation(conversationId)
+      .then(c => {
+        upsertConversations([c]);
+        if (c.peer) subscribePresence([c.peer.id]);
+      })
+      .catch(err =>
+        patchThread(conversationId, t => ({
+          ...t,
+          error: errorMessage(err),
+        })),
+      );
     catchUp(conversationId);
     if (appState === 'active') scheduleMarkRead(conversationId);
   },

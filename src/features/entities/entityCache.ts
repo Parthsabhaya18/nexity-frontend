@@ -77,13 +77,13 @@ export function followFromRelationship(r: Relationship): FollowStatus {
   return 'none';
 }
 
-/** Public account, or either of us follows the other; never when blocked. */
+/** Messaging is locked until this person is an accepted follow. Pending and follows-you do not unlock it. */
 export function canMessage(rel: UserRelation | undefined) {
   if (!rel) return false;
   if (rel.relationship === 'blocked_by_me' || rel.relationship === 'blocked_me') {
     return false;
   }
-  return !rel.is_private || rel.relationship === 'following' || rel.follows_you;
+  return rel.relationship === 'following';
 }
 
 export const getRelation = (userId: string) =>

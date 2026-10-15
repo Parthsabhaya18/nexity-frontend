@@ -69,12 +69,7 @@ export function SettingsScreen() {
 
   if (!user) return null;
 
-  const privacySub = [
-    user.is_private ? 'Private account' : 'Public account',
-    user.privacy?.message_privacy === 'following'
-      ? 'messages from people you follow'
-      : 'messages from everyone',
-  ].join(' · ');
+  const privacySub = user.is_private ? 'Private account' : 'Public account';
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>

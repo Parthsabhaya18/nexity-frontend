@@ -53,25 +53,28 @@ export function useCrushActions(opts?: { replace?: boolean }) {
   const left = summary?.spots.left ?? spots;
   const premium = (summary?.plan ?? sub?.plan) === 'premium';
 
-  const gate = useCallback(() => {
-    if (!canAdd) {
-      navigation.navigate('Plans', { reason: 'crush' });
-      return false;
-    }
-    if (left <= 0) {
-      setLimitOpen(true);
-      return false;
-    }
-    return true;
-  }, [canAdd, left, navigation]);
+  const gate = useCallback(
+    (opts?: { keepSpot?: boolean }) => {
+      if (!canAdd) {
+        navigation.navigate('Plans', { reason: 'crush' });
+        return false;
+      }
+      if (!opts?.keepSpot && left <= 0) {
+        setLimitOpen(true);
+        return false;
+      }
+      return true;
+    },
+    [canAdd, left, navigation],
+  );
 
   const openPicker = useCallback(() => {
     if (gate()) navigation.navigate('SecretPeoplePicker', { intent: 'crush' });
   }, [gate, navigation]);
 
   const add = useCallback(
-    (user: CrushTarget) => {
-      if (gate()) setConfirm(user);
+    (user: CrushTarget, opts?: { keepSpot?: boolean }) => {
+      if (gate(opts)) setConfirm(user);
     },
     [gate],
   );
@@ -182,7 +185,7 @@ export function useCrushActions(opts?: { replace?: boolean }) {
       <ConfirmDialog
         visible={!!removing}
         title={`Remove ${removing ? firstName(removing) : ''} from your crushes?`}
-        message="They'll never know you added or removed them."
+        message="They'll never know. This spot stays used, and they'll show as Removed."
         confirmLabel="Remove"
         destructive
         loading={busy}
@@ -194,8 +197,8 @@ export function useCrushActions(opts?: { replace?: boolean }) {
         title={`You've used all ${spots} Secret Crush spots`}
         message={
           premium
-            ? 'Spots free up when you remove someone.'
-            : 'Go Premium for up to 10 Secret Crushes.'
+            ? 'A spot stays used if you remove someone or you match.'
+            : 'A spot stays used if you remove someone or you match. Premium has up to 10.'
         }
         confirmLabel={premium ? 'OK' : 'Upgrade to Premium'}
         cancelLabel="Not now"

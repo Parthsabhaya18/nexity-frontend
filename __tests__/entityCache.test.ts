@@ -66,16 +66,16 @@ describe('relationship cache', () => {
     expect(getRelation('u1')).toMatchObject({ relationship: 'requested', follows_you: true });
   });
 
-  it('allows messaging for public accounts or when either follows the other, never when blocked', () => {
-    const base = { relationship: 'none', follows_you: false, is_private: true, muted: false } as const;
+  it('allows messaging only after an accepted follow, never when blocked or pending', () => {
+    const base = { relationship: 'none', follows_you: false, is_private: false, muted: false } as const;
     expect(canMessage(undefined)).toBe(false);
     expect(canMessage({ ...base })).toBe(false);
-    expect(canMessage({ ...base, is_private: false })).toBe(true);
+    expect(canMessage({ ...base, is_private: true, relationship: 'following' })).toBe(true);
     expect(canMessage({ ...base, relationship: 'following' })).toBe(true);
-    expect(canMessage({ ...base, follows_you: true })).toBe(true);
+    expect(canMessage({ ...base, follows_you: true })).toBe(false);
     expect(canMessage({ ...base, relationship: 'requested' })).toBe(false);
-    expect(canMessage({ ...base, is_private: false, relationship: 'blocked_by_me' })).toBe(false);
-    expect(canMessage({ ...base, is_private: false, relationship: 'blocked_me' })).toBe(false);
+    expect(canMessage({ ...base, relationship: 'blocked_by_me' })).toBe(false);
+    expect(canMessage({ ...base, relationship: 'blocked_me' })).toBe(false);
   });
 });
 

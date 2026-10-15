@@ -23,8 +23,8 @@ const FAQ: [string, string][] = [
     'Go to Settings → Privacy and turn on Private account. New followers will need your approval, and only approved followers see your posts, reels and stories. Turning it off accepts every pending request.',
   ],
   [
-    'How do I control who can message me?',
-    'In Settings → Privacy, under "Who can message you", choose People you follow. Others can\'t start a chat with you, but anyone you message first can reply.',
+    'Who can message me?',
+    'Messaging is locked until someone follows you. A follow request does not unlock it. After you accept, they can message you. You can message them only when you follow them too. People you block cannot message you.',
   ],
   [
     'Can I hide when I was last active?',

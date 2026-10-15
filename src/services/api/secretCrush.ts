@@ -15,8 +15,8 @@ export interface CrushSummary {
 
 export interface CrushItem {
   user: SecretUser;
-  /** `paused`: the plan ended; it can't match until the user re-subscribes. */
-  status: 'active' | 'paused' | 'matched';
+  /** `paused`: the plan ended. `removed`: the spot stays used. */
+  status: 'active' | 'paused' | 'matched' | 'removed';
   added_at: string;
   nearby_hint: NearbyHint | null;
 }
@@ -35,7 +35,7 @@ export interface CrushMatchDetail extends CrushMatch {
 }
 
 export interface CrushStatus {
-  state: 'none' | 'active' | 'paused' | 'matched';
+  state: 'none' | 'active' | 'paused' | 'matched' | 'removed';
   match_id: string | null;
   conversation_id: string | null;
 }

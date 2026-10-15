@@ -80,15 +80,18 @@ export function SecretRealtime() {
         if (matchId) openCelebration(matchId);
       }),
       onSocketEvent('subscription.updated', p => applySubscription(p as Subscription)),
-      onSocketReconnect(() => refreshSecret().catch(() => {})),
+      onSocketReconnect(refresh),
     ];
+    refresh();
     // The navigator mounts its signed-in screens right after sign-in; give it a moment.
     const timer = setTimeout(() => {
       openPendingCelebration();
       resumePendingPayment();
     }, 1500);
     const appState = AppState.addEventListener('change', s => {
-      if (s === 'active') openPendingCelebration();
+      if (s !== 'active') return;
+      refresh();
+      openPendingCelebration();
     });
     return () => {
       offs.forEach(off => off());

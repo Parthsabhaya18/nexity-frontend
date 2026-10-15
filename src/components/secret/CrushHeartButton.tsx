@@ -14,11 +14,13 @@ export function CrushHeartButton({ user }: { user: CrushTarget }) {
   const status = useCrushStatus(user.id).data?.state ?? 'none';
   const actions = useCrushActions();
   const [menu, setMenu] = useState(false);
-  const on = status !== 'none';
+  const on = status === 'active' || status === 'paused' || status === 'matched';
 
   const onPress = () => {
     if (status === 'matched') {
       showToast("You're matched 💘 To end it, delete the chat or block them.", 'info');
+    } else if (status === 'removed') {
+      actions.add(user, { keepSpot: true });
     } else if (on) {
       setMenu(true);
     } else {

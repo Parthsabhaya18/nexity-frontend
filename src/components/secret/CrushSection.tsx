@@ -145,15 +145,18 @@ export function CrushSection({
 
   const crushRow = (c: CrushItem) => {
     const paused = c.status === 'paused';
+    const removed = c.status === 'removed';
     return (
       <View key={c.user.id} style={styles.row}>
         <Pressable
           onPress={() => navigation.navigate('UserProfile', { username: c.user.username })}
           accessibilityRole="button"
-          accessibilityLabel={`${c.user.display_name}. ${paused ? 'Paused' : 'Kept secret'}`}
+          accessibilityLabel={`${c.user.display_name}. ${
+            removed ? 'Removed' : paused ? 'Paused' : 'Kept secret'
+          }`}
           style={({ pressed }) => [styles.rowMain, pressed && styles.pressed]}
         >
-          <View style={paused && styles.dim}>
+          <View style={(paused || removed) && styles.dim}>
             <Avatar uri={c.user.avatar_url} name={c.user.display_name} size={52} />
             <View
               style={[styles.avBadge, { backgroundColor: colors.like, borderColor: colors.background }]}
@@ -168,7 +171,11 @@ export function CrushSection({
               </Text>
               <PlanBadge plan={c.user.plan_badge} />
             </View>
-            {paused ? (
+            {removed ? (
+              <Text style={[styles.sub, { color: colors.textSecondary }]} numberOfLines={1}>
+                Removed
+              </Text>
+            ) : paused ? (
               <View style={styles.inline}>
                 <Pause size={11} color={colors.textSecondary} />
                 <Text style={[styles.sub, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -183,13 +190,25 @@ export function CrushSection({
             <NearbyChip hint={c.nearby_hint} />
           </View>
         </Pressable>
-        <IconButton
-          onPress={() => actions.remove(c.user)}
-          accessibilityLabel={`Remove ${c.user.display_name} from Secret Crushes`}
-          size={36}
-        >
-          <X size={18} color={colors.textSecondary} />
-        </IconButton>
+        {removed ? (
+          <Pressable
+            onPress={() => actions.add(c.user, { keepSpot: true })}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${c.user.display_name} as a Secret Crush again`}
+            hitSlop={8}
+            style={({ pressed }) => [styles.again, pressed && styles.pressed]}
+          >
+            <Text style={[styles.againText, { color: colors.primary }]}>Add</Text>
+          </Pressable>
+        ) : (
+          <IconButton
+            onPress={() => actions.remove(c.user)}
+            accessibilityLabel={`Remove ${c.user.display_name} from Secret Crushes`}
+            size={36}
+          >
+            <X size={18} color={colors.textSecondary} />
+          </IconButton>
+        )}
       </View>
     );
   };
@@ -226,11 +245,9 @@ export function CrushSection({
             />
           ))}
         </View>
-        {spots.left === 0 && summary?.plan === 'premium' ? (
-          <Text style={[styles.sub, { color: colors.textSecondary }]}>
-            Spots free up when you remove someone
-          </Text>
-        ) : null}
+        <Text style={[styles.sub, { color: colors.textSecondary }]}>
+          A spot stays used if you remove someone or you match
+        </Text>
       </View>
       {spots.left === 0 && summary?.plan !== 'premium' ? (
         <Button
@@ -350,6 +367,8 @@ const styles = StyleSheet.create({
   headCount: { fontSize: 13, fontWeight: '700' },
   headAdd: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headAddText: { fontSize: 14, fontWeight: '800' },
+  again: { paddingHorizontal: 8, paddingVertical: 6 },
+  againText: { fontSize: 14, fontWeight: '800' },
   matches: { gap: 14, paddingRight: spacing.md },
   match: { width: 84, alignItems: 'center' },
   matchRing: { borderWidth: 2.5, borderRadius: 36, padding: 3 },
