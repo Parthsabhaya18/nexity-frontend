@@ -44,7 +44,9 @@ export function SecretPeoplePickerScreen({
 
   const crushTags = useMemo(() => {
     const tags = new Map<string, string>();
-    (crushes ?? []).forEach(c => tags.set(c.user.id, 'In your crushes'));
+    (crushes ?? []).forEach(c =>
+      tags.set(c.user.id, c.status === 'removed' ? 'Removed' : 'In your crushes'),
+    );
     (matches ?? []).forEach(m => tags.set(m.user.id, 'Matched 💘'));
     return tags;
   }, [crushes, matches]);
@@ -145,7 +147,9 @@ export function SecretPeoplePickerScreen({
             <Pressable
               onPress={() =>
                 forCrush
-                  ? tag
+                  ? tag === 'Removed'
+                    ? crush.add(item, { keepSpot: true })
+                    : tag
                     ? showToast(
                         tag === 'Matched 💘'
                           ? "You're already matched 💘"

@@ -792,6 +792,22 @@ function ChatThreadContent({
             />
           </View>
         )}
+        {convo?.can_send === false ? (
+          <View
+            style={[
+              styles.locked,
+              {
+                backgroundColor: colors.surface,
+                borderTopColor: colors.border,
+                paddingBottom: keyboardVisible || galleryLift ? spacing.sm : insets.bottom + spacing.sm,
+              },
+            ]}
+          >
+            <Text style={[styles.lockedText, { color: colors.textSecondary }]}>
+              Follow {peer?.display_name ?? 'them'} to message them
+            </Text>
+          </View>
+        ) : (
         <ChatComposer
           onSend={text => {
             chat.send(conversationId, text, replyTo);
@@ -835,6 +851,7 @@ function ChatThreadContent({
           bottomInset={keyboardVisible || galleryLift ? 0 : insets.bottom}
           initialText={draft}
         />
+        )}
         {galleryLift ? <View style={{ height: galleryHeight }} /> : null}
       </KeyboardAvoidingView>
       {toast}
@@ -1012,4 +1029,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     overflow: 'hidden',
   },
+  locked: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    alignItems: 'center',
+  },
+  lockedText: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
 });

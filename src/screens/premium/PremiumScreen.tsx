@@ -595,7 +595,8 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
         </View>
       );
     }
-    const left = usage.secret_messages_left ?? 0;
+    const used = Math.min(usage.secret_messages_this_month, limit);
+    const left = usage.secret_messages_left ?? Math.max(0, limit - used);
     return (
       <View
         style={[styles.usage, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -605,7 +606,7 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
         </Tile>
         <View style={styles.rowBody}>
           <Text style={[styles.rowTitle, { color: colors.text }]}>
-            {left} of {limit} Secret Messages left this month
+            {used} of {limit} Secret Messages used this month
           </Text>
           <View style={styles.pips} accessibilityElementsHidden>
             {Array.from({ length: limit }, (_, i) => (
@@ -613,7 +614,7 @@ export function PremiumScreen({ navigation, route }: TabScreenProps<'Premium'>) 
                 key={i}
                 style={[
                   styles.pip,
-                  { backgroundColor: i < left ? colors.primary : colors.border },
+                  { backgroundColor: i < used ? colors.like : colors.border },
                 ]}
               />
             ))}

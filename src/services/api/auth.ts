@@ -45,14 +45,11 @@ export interface Me {
   };
   privacy: {
     show_activity_status: boolean;
-    message_privacy: MessagePrivacy;
   };
   notification_settings: NotificationSettings;
   password_changed_at: string;
   created_at: string;
 }
-
-export type MessagePrivacy = 'everyone' | 'following';
 
 export interface NotificationSettings {
   /** Pauses every in-app notification at once. */

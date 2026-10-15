@@ -129,6 +129,7 @@ function conversation(over: Partial<ConversationDto> = {}): ConversationDto {
     last_read_message_id: null,
     peer_last_read_message_id: null,
     is_muted: false,
+    can_send: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...over,
